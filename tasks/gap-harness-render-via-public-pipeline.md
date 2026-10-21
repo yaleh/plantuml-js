@@ -20,10 +20,10 @@ extra:
 
 ## AC
 
-- [ ] `measure-svg-text.mjs` 不再依赖 `--dump-dom` 输出整个 DOM：页面脚本算完溢出数后清空 `document.body`（或仅把结果写进 `document.title`），使 stdout 体积与 SVG 大小无关；对 14568×6980 的 `xl-all-classes` SVG 在默认 `maxBuffer` 下退出码 0（`tests/measure-svg-text.test.ts` 用合成大 SVG 断言不抛 ENOBUFS）
-- [ ] `render-samples.mjs` 经由 `src/core.ts` 的同一渲染管线得到 model、layout、svg（必要时由 core 导出 `renderDetailed()` 返回 `{ model, layout, svg }`），不再自行拼装 `ElkLayoutEngine + renderSvg`；`tests/harness-pipeline.test.ts` 断言：对 660 实体的输入，harness 渲染的 SVG 不含成员行文本（`names`），对 22 实体的输入含成员行
-- [ ] `metrics.json` 每条记录含 `chromeTextOverflow`（数值），`node scripts/render-samples.mjs --manifest <archguard 输出根目录> --tiles` 在不打补丁的情况下对 S/M/L/XL 全部样例退出码仅由阈值判定，且 `metrics.json` 被写出
-- [ ] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
+- [x] `measure-svg-text.mjs` 不再依赖 `--dump-dom` 输出整个 DOM：页面脚本算完溢出数后清空 `document.body`（或仅把结果写进 `document.title`），使 stdout 体积与 SVG 大小无关；对 14568×6980 的 `xl-all-classes` SVG 在默认 `maxBuffer` 下退出码 0（`tests/measure-svg-text.test.ts` 用合成大 SVG 断言不抛 ENOBUFS）
+- [x] `render-samples.mjs` 经由 `src/core.ts` 的同一渲染管线得到 model、layout、svg（必要时由 core 导出 `renderDetailed()` 返回 `{ model, layout, svg }`），不再自行拼装 `ElkLayoutEngine + renderSvg`；`tests/harness-pipeline.test.ts` 断言：对 660 实体的输入，harness 渲染的 SVG 不含成员行文本（`names`），对 22 实体的输入含成员行
+- [x] `metrics.json` 每条记录含 `chromeTextOverflow`（数值），`node scripts/render-samples.mjs --manifest <archguard 输出根目录> --tiles` 在不打补丁的情况下对 S/M/L/XL 全部样例退出码仅由阈值判定，且 `metrics.json` 被写出
+- [x] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
 
 ## DoD
 
@@ -38,3 +38,11 @@ extra:
 - src/index.ts
 - tests/measure-svg-text.test.ts (new)
 - tests/harness-pipeline.test.ts (new)
+
+## Blocker
+
+**2026-10-21T18:13:34.768Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 0/4，剩余未勾 4）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：fcb4cc4f-7bd7-4f3d-aa70-434ff54d3c5e
