@@ -16,11 +16,11 @@ extra:
 
 ## AC
 
-- [ ] `src/layout-metrics.ts` 导出 `computeLayoutMetrics(model, layout)`，返回 edgeCrossings、edgeNodeIntersections、totalEdgeLength、areaUtilization、aspectRatio、textOverflowCount、labelOverlapCount；`npx vitest run tests/layout-metrics.test.ts` 退出码 0，用合成布局断言每个度量的确定值（含一个故意溢出/交叉的反例）
-- [ ] `node scripts/render-samples.mjs` 退出码 0，在 `rendered/` 生成 fixture/package 两组图各 elk、viz 两个 SVG 与对应 PNG，以及 `rendered/metrics.json`（每个图一条记录）
-- [ ] `tests/fixtures/archguard-package.puml` 存在且能被 `createRenderer` 解析无错
-- [ ] `npm run typecheck` 与 `npx vitest run` 全部通过
-- [ ] 当前基线数值写入 `rendered/metrics.baseline.json` 并提交（`rendered/` 其余产物仍被 gitignore）
+- [x] `src/layout-metrics.ts` 导出 `computeLayoutMetrics(model, layout)`，返回 edgeCrossings、edgeNodeIntersections、totalEdgeLength、areaUtilization、aspectRatio、textOverflowCount、labelOverlapCount；`npx vitest run tests/layout-metrics.test.ts` 退出码 0，用合成布局断言每个度量的确定值（含一个故意溢出/交叉的反例）
+- [x] `node scripts/render-samples.mjs` 退出码 0，在 `rendered/` 生成 fixture/package 两组图各 elk、viz 两个 SVG 与对应 PNG，以及 `rendered/metrics.json`（每个图一条记录）
+- [x] `tests/fixtures/archguard-package.puml` 存在且能被 `createRenderer` 解析无错
+- [x] `npm run typecheck` 与 `npx vitest run` 全部通过
+- [x] 当前基线数值写入 `rendered/metrics.baseline.json` 并提交（`rendered/` 其余产物仍被 gitignore）
 
 ## DoD
 
