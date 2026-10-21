@@ -1,7 +1,7 @@
 ---
 id: gap-sink-shared-core-to-leaf
 title: 把共享核心（model/layout/text-measure/edge-router）沉到叶子目录，断掉 {根包,layout,render} 目录环
-status: ready
+status: done
 labels:
   - gap
   - layout
