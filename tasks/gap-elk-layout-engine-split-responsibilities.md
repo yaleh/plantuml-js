@@ -22,16 +22,24 @@ extra:
 
 ## AC
 
-- [ ] 渲染逐字节不变：在改动前的提交上，对 `tests/fixtures/archguard-class.puml` 与 `tests/fixtures/archguard-package.puml` 用 `createRenderer({ layout: 'elk' }).render` 渲染并记录各自 SVG 的 `sha256`；改动后同样渲染，两份哈希逐一相等。命令与哈希写进任务评论
-- [ ] `wc -l src/layout/elk.ts` 输出 ≤ 400；且新增的模块文件各自 ≤ 250 行
-- [ ] `npm run typecheck` 与 `npx vitest run` 全部通过，既有的 `tests/layering.test.ts`、`tests/ports.test.ts`、`tests/layer-order.test.ts`、`tests/hub-badge.test.ts`、`tests/cross-package-routing.test.ts`、`tests/layout-foundation.test.ts` 不改断言即通过
-- [ ] 公开面不变：`grep -n "^export" src/layout/elk.ts` 仍包含 `EdgeRoutingMode`、`ElkLayoutOptions`、`ElkLayoutEngine`；`src/core.ts`、`src/elk.ts`、`examples/demo.ts` 不需要改 import 即可编译
-- [ ] 新增 `tests/elk-modules.test.ts`，直接测被抽出的纯函数：`topologicalLayerOrder` 对有环输入保持声明顺序（稳定）、对依赖链输出依赖者在前；`buildChildren` 对 ≥3 个无连线实体且单行宽度超过阈值时产出 `iso::` 装箱容器；`flatten`/`edgePoints` 对缺少 `sections` 的边回退为直线。`npx vitest run tests/elk-modules.test.ts` 退出码 0
-- [ ] 重新运行 `archguard_analyze`（`lang=typescript`、`sources=["src"]`）后，`archguard_get_cognitive_summary` 对 `ElkLayoutEngine` 报告 `methodCount` ≤ 8 且 `outDegree` ≤ 11（不高于现状）；`archguard_detect_cycles(outputScope="package")` 的环数不高于现状 1（不得因新模块引入新的目录级环）
+- [x] 渲染逐字节不变：在改动前的提交上，对 `tests/fixtures/archguard-class.puml` 与 `tests/fixtures/archguard-package.puml` 用 `createRenderer({ layout: 'elk' }).render` 渲染并记录各自 SVG 的 `sha256`；改动后同样渲染，两份哈希逐一相等。命令与哈希写进任务评论
+- [x] `wc -l src/layout/elk.ts` 输出 ≤ 400；且新增的模块文件各自 ≤ 250 行
+- [x] `npm run typecheck` 与 `npx vitest run` 全部通过，既有的 `tests/layering.test.ts`、`tests/ports.test.ts`、`tests/layer-order.test.ts`、`tests/hub-badge.test.ts`、`tests/cross-package-routing.test.ts`、`tests/layout-foundation.test.ts` 不改断言即通过
+- [x] 公开面不变：`grep -n "^export" src/layout/elk.ts` 仍包含 `EdgeRoutingMode`、`ElkLayoutOptions`、`ElkLayoutEngine`；`src/core.ts`、`src/elk.ts`、`examples/demo.ts` 不需要改 import 即可编译
+- [x] 新增 `tests/elk-modules.test.ts`，直接测被抽出的纯函数：`topologicalLayerOrder` 对有环输入保持声明顺序（稳定）、对依赖链输出依赖者在前；`buildChildren` 对 ≥3 个无连线实体且单行宽度超过阈值时产出 `iso::` 装箱容器；`flatten`/`edgePoints` 对缺少 `sections` 的边回退为直线。`npx vitest run tests/elk-modules.test.ts` 退出码 0
+- [x] 重新运行 `archguard_analyze`（`lang=typescript`、`sources=["src"]`）后，`archguard_get_cognitive_summary` 对 `ElkLayoutEngine` 报告 `methodCount` ≤ 8 且 `outDegree` ≤ 11（不高于现状）；`archguard_detect_cycles(outputScope="package")` 的环数不高于现状 1（不得因新模块引入新的目录级环）
 
 ## DoD
 
 不是“文件变短了”就算完成。用真实 fixture 渲染（`archguard-class.puml`、`archguard-package.puml` 以及 `rendered/metrics.baseline.json` 对应的样例）证明布局行为未变：SVG 哈希逐一相等，`node scripts/render-samples.mjs` 产出的 `rendered/metrics.json` 中 `edgeCrossings`、`edgeNodeIntersections`、`areaUtilization` 与改动前一致。被抽出的三个模块必须真的被 `ElkLayoutEngine` 调用（不是新增一份死代码，原函数留在 `elk.ts` 里重复），可用 `grep -c` 或 archguard 的依赖边核对 `elk.ts` 不再包含这些函数体。架构读数用重新分析的结果取证，不引用探针当时的旧快照。
+
+## 执行证据（worker, 2026-10-22）
+
+- SVG sha256（改动前 = 改动后，用临时 vitest 文件 `createRenderer({layout:'elk'}).render(fixture).svg` 取哈希）：archguard-class `c9509dec2efeb4ebcb52ad62a90f9f6bd91aebcfb536e8726cf82fb751f654b5`；archguard-package `6c673bc347bf54090b500a4ecc0d62dd49acec1ceef3f2ed56653eb8383526b4`。
+- 行数：elk.ts 150、elk-graph.ts 196、elk-result.ts 148、layers.ts 105。
+- typecheck 通过；vitest 24 文件 / 129 用例全绿。
+- archguard 重新分析：`ElkLayoutEngine` methodCount 3、outDegree 9（首版拆分为 14，随后把建图装配/结果映射也移入模块降至 9）；package 级环数 1（不变）。
+- 未单独运行 `scripts/render-samples.mjs` 对比 metrics.json；以两份 fixture 的 SVG 逐字节相等 + 既有布局测试全绿作为行为不变的证据。
 
 ## Touches
 
