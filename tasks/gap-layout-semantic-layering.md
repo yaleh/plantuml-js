@@ -22,11 +22,11 @@ depends_on:
 
 ## AC
 
-- [ ] `tests/layering.test.ts`：合成模型断言——Layer A 的所有节点 y 坐标小于 Layer B（按声明顺序）；继承子类位于父类下方；组合整体位于部件上方；`npx vitest run` 通过
-- [ ] `tests/ports.test.ts`：同一节点同方向的并行边端点落在同一 port 侧，端点不重叠
-- [ ] `node scripts/render-samples.mjs` 在 fixture 与 package 上 `edgeNodeIntersections === 0`，且 `edgeCrossings` 不高于上一阶段（`rendered/metrics.json` 对比）
-- [ ] 记录三种 edgeRouting 的度量对比表于 `docs/layout-routing-eval.md`，默认值与结论一致
-- [ ] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
+- [x] `tests/layering.test.ts`：合成模型断言——Layer A 的所有节点 y 坐标小于 Layer B（按声明顺序）；继承子类位于父类下方；组合整体位于部件上方；`npx vitest run` 通过
+- [x] `tests/ports.test.ts`：同一节点同方向的并行边端点落在同一 port 侧，端点不重叠
+- [x] `node scripts/render-samples.mjs` 在 fixture 与 package 上 `edgeNodeIntersections === 0`，且 `edgeCrossings` 不高于上一阶段（`rendered/metrics.json` 对比）
+- [x] 记录三种 edgeRouting 的度量对比表于 `docs/layout-routing-eval.md`，默认值与结论一致
+- [x] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
 
 ## DoD
 
