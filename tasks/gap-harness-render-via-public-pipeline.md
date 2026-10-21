@@ -2,7 +2,7 @@
 id: gap-harness-render-via-public-pipeline
 title: harness 走公开渲染管线（detail/变换/视图一致）+ 修 Chrome 实测 ENOBUFS 崩溃 + metrics 含
   chromeTextOverflow
-status: todo
+status: ready
 labels:
   - gap
   - defect
