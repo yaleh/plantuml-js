@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write   # OIDC token for npm trusted publishing (no long-lived npm token)
 
 jobs:
   publish:
@@ -18,8 +19,8 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          registry-url: https://registry.npmjs.org/
+          node-version: 22
+          registry-url: https://registry.npmjs.org
 
       - name: Install
         run: npm ci
@@ -36,11 +37,15 @@ jobs:
       - name: Test
         run: npm test
 
-      # `prepublishOnly` (typecheck + build) runs inside this step.
-      # Uses the Automation token in the `NPM_TOKEN` repo secret, so no 2FA OTP
-      # is needed from a human. Add `--provenance` here once the repo is public
-      # and you want npm supply-chain attestation.
+      # Trusted publishing (npm provenance) needs a recent npm; Node 22 ships an
+      # older one. Upgrade after `npm ci` so the existing lockfile still installs.
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest && npm --version
+
+      # Authentication is OIDC (the `id-token: write` above): npm exchanges the
+      # GitHub OIDC token, so no NPM_TOKEN secret is involved. `--provenance`
+      # also records the supply-chain attestation. Requires one-time npm-side
+      # config: the `@yalehwang/plantuml-js` package must trust this repo
+      # (npmjs.com → package → Settings → Access → add GitHub `yaleh/plantuml-js`).
       - name: Publish
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --provenance
