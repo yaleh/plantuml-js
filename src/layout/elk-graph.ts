@@ -46,8 +46,17 @@ export function entityLeaf(entity: PlantUmlEntity): ElkNode {
   return { id: entity.id, width: size.width, height: size.height };
 }
 
+/** Packages with at least this many direct members are laid out top-down. */
+const FLOW_DOWN_MIN_MEMBERS = 12;
+
 export function buildChildren(model: PlantUmlModel, partitions: Map<string, number>): ElkNode[] {
   const pkgNodes = new Map<string, ElkNode>();
+  const memberCount = new Map<string, number>(model.packages.map((p) => [p.id, 0]));
+  for (const entity of model.entities) {
+    if (entity.packageId !== undefined && memberCount.has(entity.packageId)) {
+      memberCount.set(entity.packageId, memberCount.get(entity.packageId)! + 1);
+    }
+  }
   for (const pkg of model.packages) {
     // Padding at the top keeps the package label tab clear of the first
     // entity; the minimum width keeps the tab wide enough for the label when
@@ -59,6 +68,10 @@ export function buildChildren(model: PlantUmlModel, partitions: Map<string, numb
       'elk.nodeSize.constraints': '[MINIMUM_SIZE]',
       'elk.nodeSize.minimum': `[${minWidth.toFixed(1)}, ${minHeight.toFixed(1)}]`,
     };
+    // A package's interior is laid out on its own (INHERIT hierarchy) and would
+    // fall back to ELK's default RIGHT, turning the dependency flow sideways.
+    // Big packages read top-down like the rest of the diagram; small ones stay compact.
+    if (memberCount.get(pkg.id)! >= FLOW_DOWN_MIN_MEMBERS) layoutOptions['elk.direction'] = 'DOWN';
     const partition = partitions.get(pkg.id);
     if (partition !== undefined) layoutOptions['elk.partitioning.partition'] = String(partition);
     pkgNodes.set(pkg.id, {

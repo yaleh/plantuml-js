@@ -82,6 +82,28 @@ describe('edge bundling', () => {
     expect(svg.match(/M200 40L200 150/g)?.length).toBe(1);
   });
 
+  it('renders a ≥5-edge same-direction fan-out as one shared trunk that then forks', () => {
+    const { model, layout } = fanOut(6);
+    layout.edges.forEach((e, i) => {
+      e.points = [
+        { x: 200, y: 40 },
+        { x: 200, y: 150 },
+        { x: 40 + i * 100, y: 150 },
+        { x: 40 + i * 100, y: 300 },
+      ];
+    });
+    const svg = renderSvg(model, layout);
+    const bundle = /<g data-edge-source="S"[^>]*uml-edge-bundle">.*?<\/g>(?=<g data-edge|<rect|<text|<\/svg>)/s.exec(svg)![0];
+    const d = /<path d="([^"]*)" fill="none"/.exec(bundle)![1];
+    const segments = d.match(/M[^M]*/g)!;
+    // The trunk is drawn once; each of the 6 branches adds its own fork legs.
+    expect(segments.filter((m) => m === 'M200 40L200 150').length).toBe(1);
+    expect(new Set(segments).size).toBe(segments.length);
+    expect(segments.length).toBeLessThan(6 * 3);
+    // Every branch still ends in its own arrowhead.
+    expect(svg.match(/uml-bundle-head/g)?.length).toBe(6);
+  });
+
   it('bundles the src/cli/commands comb in the m-package rendering', async () => {
     const puml = readFileSync(join(testDir, 'fixtures', 'archguard-package.puml'), 'utf8');
     const model = transformFullGraph(parsePlantUml(puml));
