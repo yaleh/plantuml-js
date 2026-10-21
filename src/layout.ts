@@ -64,8 +64,9 @@ export const METRICS = {
 
 /** Reconstruct the name drawn in the title compartment, generics expanded. */
 export function displayName(entity: PlantUmlEntity): string {
-  if (entity.generics.length === 0) return entity.name;
-  return `${entity.name}<${entity.generics.join(', ')}>`;
+  const generics = entity.generics;
+  if (!generics || generics.length === 0) return entity.name;
+  return `${entity.name}<${generics.join(', ')}>`;
 }
 
 /**

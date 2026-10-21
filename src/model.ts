@@ -31,7 +31,7 @@ export interface PlantUmlEntity {
   /** Display name drawn in the class box (without generic parameters). */
   name: string;
   /** Generic type parameters, e.g. ['Item'] for `List~Item~` / `List<Item>`. */
-  generics: string[];
+  generics?: string[];
   kind: EntityKind;
   members: PlantUmlMember[];
   /** id of the package containing this entity (undefined = top level). */
