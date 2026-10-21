@@ -4,8 +4,8 @@
  */
 
 import type { ElkNode, ElkExtendedEdge, ElkEdgeSection } from 'elkjs';
-import { PlantUmlModel } from '../model.js';
-import { LayoutResult, NodeLayout, EdgeLayout, PackageLayout, Point } from '../layout.js';
+import { PlantUmlModel } from '../foundation/model.js';
+import { LayoutResult, NodeLayout, EdgeLayout, PackageLayout, Point } from '../foundation/layout.js';
 import {
   PACKAGE_PREFIX,
   ISOLATED_PREFIX,

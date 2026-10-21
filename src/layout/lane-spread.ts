@@ -8,7 +8,7 @@
  * run through a node or fold an adjacent segment back on itself.
  */
 
-import { LayoutResult, Point } from '../layout.js';
+import { LayoutResult, Point } from '../foundation/layout.js';
 
 /** Segments closer than this on the cross axis are one lane cluster (just above PARALLEL_PROXIMITY). */
 const CLUSTER_DISTANCE = 10;

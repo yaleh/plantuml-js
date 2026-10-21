@@ -9,10 +9,10 @@
  * against a later run to prove an improvement or a regression.
  */
 
-import { PlantUmlModel } from './model.js';
-import { LayoutResult, EdgeLayout, METRICS, PACKAGE_LABEL, Point, displayName } from './layout.js';
-import { countEdgeBoxIntersections, countNonOrthogonalSegments, nodeRect, Rect } from './edge-router.js';
-import { measureTextWidth } from './text-measure.js';
+import { PlantUmlModel } from './foundation/model.js';
+import { LayoutResult, EdgeLayout, METRICS, PACKAGE_LABEL, Point, displayName } from './foundation/layout.js';
+import { countEdgeBoxIntersections, countNonOrthogonalSegments, nodeRect, Rect } from './foundation/edge-router.js';
+import { measureTextWidth } from './foundation/text-measure.js';
 import {
   entityTextRects,
   hubBadgeRect,

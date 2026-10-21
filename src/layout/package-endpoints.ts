@@ -6,8 +6,8 @@
  * visibly starts/ends on the frame boundary instead of reaching into it.
  */
 
-import { PlantUmlModel } from '../model.js';
-import { LayoutResult, PackageLayout, Point } from '../layout.js';
+import { PlantUmlModel } from '../foundation/model.js';
+import { LayoutResult, PackageLayout, Point } from '../foundation/layout.js';
 
 const inside = (p: Point, r: PackageLayout): boolean =>
   p.x > r.x && p.x < r.x + r.width && p.y > r.y && p.y < r.y + r.height;

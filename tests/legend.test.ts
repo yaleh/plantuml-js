@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderSvg } from '../src/render/svg.js';
-import { LayoutResult } from '../src/layout.js';
-import { PlantUmlModel } from '../src/model.js';
+import { LayoutResult } from '../src/foundation/layout.js';
+import { PlantUmlModel } from '../src/foundation/model.js';
 import { createRenderer } from '../src/index.js';
 
 function grid(count: number): { model: PlantUmlModel; layout: LayoutResult } {

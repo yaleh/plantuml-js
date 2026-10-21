@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { parsePlantUml, transformFullGraph, ElkLayoutEngine } from '../src/index.js';
 import { renderSvg, EDGE_BUNDLE_MIN } from '../src/render/svg.js';
-import type { LayoutResult } from '../src/layout.js';
-import type { PlantUmlModel } from '../src/model.js';
+import type { LayoutResult } from '../src/foundation/layout.js';
+import type { PlantUmlModel } from '../src/foundation/model.js';
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 

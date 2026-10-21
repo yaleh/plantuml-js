@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { ElkLayoutEngine } from '../src/layout/elk.js';
 import { parsePlantUml } from '../src/parser.js';
-import { NodeLayout, Point } from '../src/layout.js';
+import { NodeLayout, Point } from '../src/foundation/layout.js';
 
 /** Which boundary side an edge endpoint sits on (within a small epsilon). */
 function endpointSide(p: Point, node: NodeLayout): string {

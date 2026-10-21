@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createRenderer, parsePlantUml } from '../src/index.js';
-import { estimateEntitySize, METRICS } from '../src/layout.js';
-import { measureTextWidth } from '../src/text-measure.js';
+import { estimateEntitySize, METRICS } from '../src/foundation/layout.js';
+import { measureTextWidth } from '../src/foundation/text-measure.js';
 
 const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const archguardClass = readFileSync(

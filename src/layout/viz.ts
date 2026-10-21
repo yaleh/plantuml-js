@@ -17,7 +17,7 @@ import {
   PlantUmlRelation,
   PlantUmlPackage,
   PlantUmlEntity,
-} from '../model.js';
+} from '../foundation/model.js';
 import {
   LayoutEngine,
   LayoutResult,
@@ -27,9 +27,9 @@ import {
   PACKAGE_LABEL,
   displayName,
   estimateEntitySize,
-} from '../layout.js';
-import { getViz, GraphvizEngine } from '../render-dot.js';
-import { measureTextWidth } from '../text-measure.js';
+} from '../foundation/layout.js';
+import { getViz, GraphvizEngine } from '../foundation/render-dot.js';
+import { measureTextWidth } from '../foundation/text-measure.js';
 
 const POINTS_PER_INCH = 72;
 const CLUSTER_PREFIX = 'cluster_';

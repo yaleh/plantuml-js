@@ -17,7 +17,7 @@ import {
   Visibility,
   RelationType,
   emptyModel,
-} from './model.js';
+} from './foundation/model.js';
 
 type Frame = { kind: 'package' | 'entity'; id: string };
 

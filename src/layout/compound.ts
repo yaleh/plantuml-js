@@ -12,7 +12,7 @@
  */
 
 import type { ELK as ElkInstance, ElkNode, ElkExtendedEdge, ElkEdgeSection } from 'elkjs';
-import type { PlantUmlModel, PlantUmlEntity, PlantUmlPackage, PlantUmlRelation } from '../model.js';
+import type { PlantUmlModel, PlantUmlEntity, PlantUmlPackage, PlantUmlRelation } from '../foundation/model.js';
 import {
   estimateEntitySize,
   PACKAGE_LABEL,
@@ -21,8 +21,8 @@ import {
   type NodeLayout,
   type PackageLayout,
   type Point,
-} from '../layout.js';
-import { measureTextWidth } from '../text-measure.js';
+} from '../foundation/layout.js';
+import { measureTextWidth } from '../foundation/text-measure.js';
 import { routeOrthogonal, type RouteRequest } from './grid-router.js';
 
 const PACKAGE_PREFIX = 'pkg::';

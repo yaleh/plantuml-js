@@ -5,9 +5,9 @@
  */
 
 import type { ElkNode, ElkExtendedEdge } from 'elkjs';
-import { PlantUmlModel, PlantUmlEntity, PlantUmlRelation } from '../model.js';
-import { PACKAGE_LABEL, estimateEntitySize } from '../layout.js';
-import { measureTextWidth } from '../text-measure.js';
+import { PlantUmlModel, PlantUmlEntity, PlantUmlRelation } from '../foundation/model.js';
+import { PACKAGE_LABEL, estimateEntitySize } from '../foundation/layout.js';
+import { measureTextWidth } from '../foundation/text-measure.js';
 
 export const PACKAGE_PREFIX = 'pkg::';
 /** Id prefix of the invisible container that packs a package's unconnected entities. */

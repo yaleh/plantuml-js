@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { routeOrthogonal } from '../src/layout/grid-router.js';
 import { computeLayoutMetrics } from '../src/layout-metrics.js';
-import type { LayoutResult, NodeLayout } from '../src/layout.js';
-import type { PlantUmlModel } from '../src/model.js';
+import type { LayoutResult, NodeLayout } from '../src/foundation/layout.js';
+import type { PlantUmlModel } from '../src/foundation/model.js';
 
 /** Three tall package columns side by side with 64px gutters, canvas margin above and below. */
 function threeColumns(): { model: PlantUmlModel; nodes: NodeLayout[]; frames: LayoutResult['packages'] } {

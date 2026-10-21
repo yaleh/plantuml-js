@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { renderSvg } from '../src/render/svg.js';
 import { defaultTheme } from '../src/render/theme.js';
-import type { LayoutResult } from '../src/layout.js';
-import type { PlantUmlModel, PlantUmlRelation } from '../src/model.js';
+import type { LayoutResult } from '../src/foundation/layout.js';
+import type { PlantUmlModel, PlantUmlRelation } from '../src/foundation/model.js';
 
 const { stroke, dash } = defaultTheme;
 

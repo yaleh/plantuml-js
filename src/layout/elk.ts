@@ -41,8 +41,8 @@ import type {
   ELK as ElkInstance,
   ELKConstructorArguments,
 } from 'elkjs';
-import { PlantUmlModel } from '../model.js';
-import { LayoutEngine, LayoutResult, alignRows, alignIsolatedFrames } from '../layout.js';
+import { PlantUmlModel } from '../foundation/model.js';
+import { LayoutEngine, LayoutResult, alignRows, alignIsolatedFrames } from '../foundation/layout.js';
 import { compoundLayout, type StubOrbit } from './compound.js';
 import { computeLayoutMetrics, computeMaxEmptyBlockRatio } from '../layout-metrics.js';
 import { resolveLayerOrder, assignPartitions } from './layers.js';

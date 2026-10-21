@@ -7,8 +7,8 @@ import { ElkLayoutEngine } from '../src/layout/elk.js';
 import { applyView, transformModel } from '../src/transform.js';
 import { transformFullGraph } from '../src/core.js';
 import { computeLayoutMetrics } from '../src/layout-metrics.js';
-import { countNonOrthogonalSegments } from '../src/edge-router.js';
-import type { PlantUmlModel } from '../src/model.js';
+import { countNonOrthogonalSegments } from '../src/foundation/edge-router.js';
+import type { PlantUmlModel } from '../src/foundation/model.js';
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const allClasses = parsePlantUml(

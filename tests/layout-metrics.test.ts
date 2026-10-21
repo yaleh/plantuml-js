@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { computeLayoutMetrics } from '../src/layout-metrics.js';
 import { parsePlantUml, transformFullGraph, ElkLayoutEngine } from '../src/index.js';
-import { LayoutResult, PACKAGE_LABEL } from '../src/layout.js';
-import { PlantUmlModel } from '../src/model.js';
+import { LayoutResult, PACKAGE_LABEL } from '../src/foundation/layout.js';
+import { PlantUmlModel } from '../src/foundation/model.js';
 
 /** A minimal, no-member entity used by most synthetic fixtures below. */
 function entity(id: string, name = id, packageId?: string): PlantUmlModel['entities'][number] {

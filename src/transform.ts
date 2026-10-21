@@ -15,7 +15,7 @@ import {
   PlantUmlEntity,
   PlantUmlRelation,
   PlantUmlPackage,
-} from './model.js';
+} from './foundation/model.js';
 
 /** Options driving the model-transform pipeline. */
 export interface TransformOptions {

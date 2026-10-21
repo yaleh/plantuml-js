@@ -8,10 +8,10 @@
  * labels of neighbouring edges do not pile onto each other.
  */
 
-import { PlantUmlModel, PlantUmlEntity } from '../model.js';
-import { LayoutResult, NodeLayout, METRICS, Point, displayName } from '../layout.js';
-import { nodeRect, Rect } from '../edge-router.js';
-import { measureTextWidth } from '../text-measure.js';
+import { PlantUmlModel, PlantUmlEntity } from '../foundation/model.js';
+import { LayoutResult, NodeLayout, METRICS, Point, displayName } from '../foundation/layout.js';
+import { nodeRect, Rect } from '../foundation/edge-router.js';
+import { measureTextWidth } from '../foundation/text-measure.js';
 
 export const EDGE_LABEL_FONT_SIZE = 11;
 const EDGE_LABEL_PAD_X = 3;

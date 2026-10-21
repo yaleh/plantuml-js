@@ -14,7 +14,7 @@
  * exists (then a plain dog-leg is returned).
  */
 
-import type { NodeLayout, Point } from '../layout.js';
+import type { NodeLayout, Point } from '../foundation/layout.js';
 
 export interface RouteRequest {
   id: string;

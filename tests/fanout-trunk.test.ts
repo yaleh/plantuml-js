@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ElkLayoutEngine } from '../src/elk.js';
 import { parsePlantUml, renderDetailed } from '../src/core.js';
 import { findParallelBundles, computeLayoutMetrics } from '../src/layout-metrics.js';
-import type { Point } from '../src/layout.js';
+import type { Point } from '../src/foundation/layout.js';
 // @ts-expect-error — plain .mjs helper without type declarations
 import { filterPackagesMatching } from '../scripts/samples-lib.mjs';
 

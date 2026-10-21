@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { groupByPathPrefix } from '../src/transform.js';
-import { PlantUmlModel } from '../src/model.js';
+import { PlantUmlModel } from '../src/foundation/model.js';
 
 type Entity = PlantUmlModel['entities'][number];
 type Relation = PlantUmlModel['relations'][number];

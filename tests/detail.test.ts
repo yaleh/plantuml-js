@@ -4,7 +4,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRenderer } from '../src/index.js';
 import { parsePlantUml } from '../src/parser.js';
-import { applyDetail, autoDetail, COMPACT_MEMBER_ROWS } from '../src/layout.js';
+import { applyDetail, autoDetail, COMPACT_MEMBER_ROWS } from '../src/foundation/layout.js';
 
 const dir = dirname(fileURLToPath(import.meta.url));
 const read = (f: string): string => readFileSync(join(dir, 'fixtures', f), 'utf8');

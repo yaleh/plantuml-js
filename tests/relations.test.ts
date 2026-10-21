@@ -3,7 +3,7 @@ import { createRenderer, parsePlantUml, ElkLayoutEngine } from '../src/index.js'
 import {
   countEdgeBoxIntersections,
   countNonOrthogonalSegments,
-} from '../src/edge-router.js';
+} from '../src/foundation/edge-router.js';
 
 describe('M2 relations', () => {
   it('maps all four relation kinds (plus aggregation/composition)', () => {

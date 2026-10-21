@@ -9,8 +9,8 @@
  * swallowed: the error propagates out of the render.
  */
 
-import type { PlantUmlModel } from '../model.js';
-import type { LayoutResult } from '../layout.js';
+import type { PlantUmlModel } from '../foundation/model.js';
+import type { LayoutResult } from '../foundation/layout.js';
 
 /** What the engine tells a strategy about the run it is part of. */
 export interface LayoutStrategyContext {

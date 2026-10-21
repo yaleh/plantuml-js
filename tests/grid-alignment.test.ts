@@ -4,7 +4,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parsePlantUml } from '../src/parser.js';
 import { ElkLayoutEngine } from '../src/layout/elk.js';
-import { estimateEntitySize, layoutRows, GRID } from '../src/layout.js';
+import { estimateEntitySize, layoutRows, GRID } from '../src/foundation/layout.js';
 
 const fixture = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'archguard-class.puml'),

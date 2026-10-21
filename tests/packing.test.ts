@@ -9,7 +9,7 @@ import {
   ElkLayoutEngine,
 } from '../src/index.js';
 import { computeLayoutMetrics } from '../src/layout-metrics.js';
-import { PlantUmlModel } from '../src/model.js';
+import { PlantUmlModel } from '../src/foundation/model.js';
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const packagePuml = readFileSync(

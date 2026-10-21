@@ -12,8 +12,8 @@
  * grid router give a plain fan-out. Anything else in the group is left alone.
  */
 
-import { LayoutResult, NodeLayout, Point } from '../layout.js';
-import { PlantUmlModel } from '../model.js';
+import { LayoutResult, NodeLayout, Point } from '../foundation/layout.js';
+import { PlantUmlModel } from '../foundation/model.js';
 import { findParallelBundles } from '../layout-metrics.js';
 import { routeOrthogonal, RouteRequest } from './grid-router.js';
 

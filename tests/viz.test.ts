@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createRenderer } from '../src/index.js';
 import { VizLayoutEngine } from '../src/layout/viz.js';
-import { PlantUmlModel } from '../src/model.js';
+import { PlantUmlModel } from '../src/foundation/model.js';
 
 describe('@viz-js/viz layout engine', () => {
   it('renders a class through the viz engine and emits SVG', async () => {

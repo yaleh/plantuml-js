@@ -3,8 +3,8 @@ import { renderSvg } from '../src/render/svg.js';
 import { computeLayoutMetrics } from '../src/layout-metrics.js';
 import { ElkLayoutEngine } from '../src/layout/elk.js';
 import { entityTextRects, hubBadgeRect, rectsIntersect } from '../src/render/labels.js';
-import { LayoutResult } from '../src/layout.js';
-import { PlantUmlModel } from '../src/model.js';
+import { LayoutResult } from '../src/foundation/layout.js';
+import { PlantUmlModel } from '../src/foundation/model.js';
 
 function hubModel(name: string): PlantUmlModel {
   return {

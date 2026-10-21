@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createRenderer } from '../src/index.js';
 import type { LayoutStrategy } from '../src/layout/strategy.js';
-import type { LayoutResult } from '../src/layout.js';
+import type { LayoutResult } from '../src/foundation/layout.js';
 
 const puml = '@startuml\nclass A\nclass B\nA --> B\n@enduml\n';
 

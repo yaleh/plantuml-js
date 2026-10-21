@@ -7,9 +7,9 @@
  * engine + `renderDot`.
  */
 
-import { PlantUmlModel } from './model.js';
+import { PlantUmlModel } from './foundation/model.js';
 import { parsePlantUml, parseWithDiagnostics, ENTITY_LINE, ENTITY_KEYWORD, extractDeclaredName, stripComment } from './parser.js';
-import { LayoutEngine, LayoutResult, DetailLevel, applyDetail } from './layout.js';
+import { LayoutEngine, LayoutResult, DetailLevel, applyDetail } from './foundation/layout.js';
 import { ThemeOverrides } from './render/theme.js';
 import { ElkLayoutEngine, type ElkLayoutOptions } from './layout/elk.js';
 import { renderSvg, RenderSvgOptions } from './render/svg.js';
@@ -23,18 +23,18 @@ export type {
   PlantUmlPackage,
   EntityKind,
   RelationType,
-} from './model.js';
+} from './foundation/model.js';
 
 export { defaultTheme, resolveTheme } from './render/theme.js';
 export type { Theme, ThemeOverrides } from './render/theme.js';
-export type { DetailLevel } from './layout.js';
+export type { DetailLevel } from './foundation/layout.js';
 export type {
   LayoutEngine,
   LayoutResult,
   NodeLayout,
   EdgeLayout,
   Point,
-} from './layout.js';
+} from './foundation/layout.js';
 
 export interface RendererOptions {
   /**

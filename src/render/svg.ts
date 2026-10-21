@@ -9,7 +9,7 @@ import {
   PlantUmlEntity,
   PlantUmlPackage,
   PlantUmlRelation,
-} from '../model.js';
+} from '../foundation/model.js';
 import {
   LayoutResult,
   NodeLayout,
@@ -19,8 +19,8 @@ import {
   METRICS,
   PACKAGE_LABEL,
   displayName,
-} from '../layout.js';
-import { measureTextWidth } from '../text-measure.js';
+} from '../foundation/layout.js';
+import { measureTextWidth } from '../foundation/text-measure.js';
 import { hubBadgeCircle, placeEdgeLabels, EdgeLabelPlacement, EDGE_LABEL_FONT_SIZE } from './labels.js';
 import { renderLegend, LEGEND_DEFAULT_NODE_THRESHOLD } from './legend.js';
 import { Theme, ThemeOverrides, resolveTheme } from './theme.js';

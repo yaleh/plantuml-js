@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { ElkLayoutEngine } from '../src/layout/elk.js';
 import { VizLayoutEngine } from '../src/layout/viz.js';
 import { computeLayoutMetrics } from '../src/layout-metrics.js';
-import { estimateEntitySize } from '../src/layout.js';
+import { estimateEntitySize } from '../src/foundation/layout.js';
 import { parsePlantUml } from '../src/parser.js';
 
 const testDir = dirname(fileURLToPath(import.meta.url));

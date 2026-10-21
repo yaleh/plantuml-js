@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createRenderer, parsePlantUml } from '../src/index.js';
-import { LayoutEngine, LayoutResult } from '../src/layout.js';
-import { PlantUmlModel } from '../src/model.js';
+import { LayoutEngine, LayoutResult } from '../src/foundation/layout.js';
+import { PlantUmlModel } from '../src/foundation/model.js';
 
 /** Minimal well-formedness check: balanced, correctly nested XML tags. */
 function isWellFormedXml(xml: string): boolean {
