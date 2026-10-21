@@ -137,9 +137,12 @@ ${svg}
     });
   } catch (e) {
     document.title = 'ERROR:' + e.message;
+    document.body.textContent = '';
     return;
   }
   document.title = 'RESULT:' + count;
+  // Keep --dump-dom output tiny: its size must not depend on the SVG size.
+  document.body.textContent = '';
 })();
 </script>
 </body>

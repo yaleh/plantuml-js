@@ -25,7 +25,7 @@
  * (any `*.puml` in those subdirectories) are discovered automatically.
  *
  * The script builds `dist/` first so it can import the compiled TypeScript
- * modules (parsePlantUml / engines / renderSvg / computeLayoutMetrics) as plain
+ * modules (parsePlantUml / engines / renderDetailed / computeLayoutMetrics) as plain
  * ES modules without a TS loader.
  */
 
@@ -77,20 +77,23 @@ console.log('building dist/ …');
 execSync('npm run build', { cwd: repoRoot, stdio: 'inherit' });
 
 const distIndex = pathToFileURL(join(repoRoot, 'dist', 'index.js')).href;
-const distSvg = pathToFileURL(join(repoRoot, 'dist', 'render', 'svg.js')).href;
 const distMetrics = pathToFileURL(
   join(repoRoot, 'dist', 'layout-metrics.js'),
 ).href;
 
-const { parsePlantUml, ElkLayoutEngine, VizLayoutEngine, transformView, transformFullGraph } =
+const { parsePlantUml, ElkLayoutEngine, VizLayoutEngine, renderDetailed } =
   await import(distIndex);
-const { renderSvg } = await import(distSvg);
 const { computeLayoutMetrics } = await import(distMetrics);
 
 const engines = {
   elk: () => new ElkLayoutEngine(),
   viz: () => new VizLayoutEngine(),
 };
+
+// Every render goes through the public pipeline (src/core.ts renderDetailed):
+// view/transforms → detail → layout → svg, exactly what createRenderer does.
+const renderViaPipeline = (parsed, engineName, view) =>
+  renderDetailed(parsed, { layout: engines[engineName](), view });
 
 // ── chrome resolution (PNG conversion) ─────────────────────────────────────
 let chromeBinCache;
@@ -172,12 +175,10 @@ async function runSamples() {
     const puml = readFileSync(resolveSource(sample, manifestDir), 'utf8');
     let parsed = parsePlantUml(puml);
     if (sample.packagesMatching) parsed = filterPackagesMatching(parsed, sample.packagesMatching);
-    const model = sample.view ? transformView(parsed, sample.view) : transformFullGraph(parsed);
     const engineNames = ['elk', ...(sample.tier === 'S' || sample.tier === 'M' ? ['viz'] : [])];
 
     for (const engineName of engineNames) {
-      const layout = await engines[engineName]().layout(model);
-      const svg = renderSvg(model, layout);
+      const { model, layout, svg } = await renderViaPipeline(parsed, engineName, sample.view);
       const metrics = computeLayoutMetrics(model, layout);
       const svgName = `${sample.id}.${engineName}.svg`;
       const pngName = `${sample.id}.${engineName}.png`;
@@ -186,7 +187,7 @@ async function runSamples() {
 
       // XL-size canvases are never rasterised whole (see MAX_PNG_PIXELS); tiles cover them.
       const wrotePng = screenshot(svgPath, join(renderedDir, pngName), layout.width, layout.height);
-      metrics.chromeTextOverflow = wrotePng ? await measureSvgTextOverflow(svgPath) : null;
+      metrics.chromeTextOverflow = await measureSvgTextOverflow(svgPath);
 
       // Thresholds gate the elk run (the shipping engine); viz is reported for comparison.
       const violated = engineName === 'elk' ? evaluateThresholds(metrics, sample.thresholds) : [];
@@ -308,14 +309,9 @@ for (const { group, pumlPath } of inputs) {
   }
   const puml = readFileSync(pumlPath, 'utf8');
   const parsed = parsePlantUml(puml);
-  // The full graph goes through the same default pipeline the renderer applies:
-  // aggregation + cycle marking, plus hub summarization once the graph is large
-  // enough (see `transformFullGraph` in src/index.ts).
-  const model = transformFullGraph(parsed);
 
-  for (const [engineName, makeEngine] of Object.entries(engines)) {
-    const layout = await makeEngine().layout(model);
-    const svg = renderSvg(model, layout);
+  for (const engineName of Object.keys(engines)) {
+    const { model, layout, svg } = await renderViaPipeline(parsed, engineName);
     const metrics = computeLayoutMetrics(model, layout);
 
     const svgName = `${group}.${engineName}.svg`;
@@ -329,8 +325,7 @@ for (const { group, pumlPath } of inputs) {
     // `<text>` with the browser's font engine (see measure-svg-text.mjs),
     // so a wrong advance in text-measure.ts cannot hide behind a metric that
     // shares the same mistake.
-    // Oversized canvases are not loaded into Chrome (same budget as the PNG).
-    metrics.chromeTextOverflow = wrotePng ? await measureSvgTextOverflow(svgPath) : null;
+    metrics.chromeTextOverflow = await measureSvgTextOverflow(svgPath);
 
     records.push({
       group,
@@ -354,9 +349,7 @@ if (views) {
 
   const renderView = async ({ group, view, png }) => {
     // Same default transforms as the full graph (aggregation, cycles, hubs).
-    const viewed = transformView(model, view);
-    const layout = await engines.elk().layout(viewed);
-    const svg = renderSvg(viewed, layout);
+    const { model: viewed, layout, svg } = await renderViaPipeline(model, 'elk', view);
     const metrics = computeLayoutMetrics(viewed, layout);
 
     const svgName = `${group}.elk.svg`;
@@ -365,6 +358,7 @@ if (views) {
     const pngPath = join(renderedDir, pngName);
     writeFileSync(svgPath, svg);
     const wrotePng = png && screenshot(svgPath, pngPath, layout.width, layout.height);
+    metrics.chromeTextOverflow = await measureSvgTextOverflow(svgPath);
 
     records.push({
       group,
@@ -429,8 +423,7 @@ if (views && externalDir) {
     const model = parsePlantUml(readFileSync(allClasses, 'utf8'));
     let failed = 0;
     for (const pkg of model.packages) {
-      const viewed = transformView(model, { kind: 'package', id: pkg.id });
-      const layout = await engines.elk().layout(viewed);
+      const { model: viewed, layout } = await renderViaPipeline(model, 'elk', { kind: 'package', id: pkg.id });
       const metrics = computeLayoutMetrics(viewed, layout);
       if (metrics.textOverflowCount !== 0) {
         failed++;
