@@ -1,7 +1,7 @@
 ---
 id: gap-layout-packing-viz-metrics-truth
 title: 孤立节点网格装箱 + viz 紧凑化/弃用决策 + 度量对 Chrome 实测校验与新增度量
-status: todo
+status: ready
 labels:
   - gap
   - layout
