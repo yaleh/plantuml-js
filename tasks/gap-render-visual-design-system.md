@@ -1,7 +1,7 @@
 ---
 id: gap-render-visual-design-system
 title: 视觉设计系统：主题 token、排版层级、克制配色、边与箭头样式、节点对齐，附审美评审量表
-status: needs-human
+status: todo
 labels:
   - gap
   - layout
@@ -29,7 +29,7 @@ depends_on:
 - 节点尺寸吸附到 8px 网格，同层节点顶对齐或统一居中；包内边距统一。
 - 规模自适应详略：`detail: 'full' | 'compact' | 'names'`，默认按实体数自动（≤40 full，≤150 compact 仅成员计数与前 N 行，其余 names）。
 - 字体决策：优先保持 monospace 以保证纯 JS 度量可靠，用字重/字号/颜色建立层级；如改用无衬线标题字体，必须附带该字体的字宽表并在 `docs/visual-design.md` 记录取舍与回落字体下的溢出余量。
-- 新增 `docs/visual-review-rubric.md`：审美评审量表，10 项各 1–5 分——层级、排版、配色与语义、线条与箭头、间距节奏与对齐、留白与密度、规模适配、一致性、可访问性（对比度/非色彩线索）、整体气质；每轮评审把各样例得分与一句话理由追加到 `docs/visual-review-log.md`。
+- 新增 `docs/visual-review-rubric.md`：审美评审量表，10 项各 1–5 分——层级、排版、配色与语义、线条与箭头、间距节奏与对齐、留白与密度、规模适配、一致性、可访问性（对比度/非色彩线索）、整体气质；并新增 `docs/visual-review-log.md`（含表头与条目模板，评分条目由外部评审在本任务落地后追加）。
 
 ## AC
 
@@ -38,12 +38,13 @@ depends_on:
 - [ ] `tests/theme-tokens.test.ts`：自定义 `theme: { ... }` 覆盖部分 token 后渲染成功，未覆盖的 token 回落默认值；同一输入同一主题两次渲染字节一致
 - [ ] 节点宽高均为 8 的倍数；同一 ELK 层内的节点顶边对齐（`tests/grid-alignment.test.ts` 对 fixture 断言同层节点 y 相同或中线相同）
 - [ ] `detail` 选项：`names` 模式不输出成员行，`compact` 模式限制成员行数并显示计数；默认对 660 实体的 `all-classes` 自动选 `names`，对 22 实体 fixture 选 `full`（`tests/detail.test.ts`）
-- [ ] `docs/visual-review-rubric.md` 与 `docs/visual-review-log.md` 存在；log 含本任务落地后对 S/M/L/XL 各一个样例的评分与理由
+- [ ] `docs/visual-review-rubric.md` 存在且含 10 个评分项（`grep -c '^| *[0-9]' docs/visual-review-rubric.md` ≥ 10 或等价的结构化断言）；`docs/visual-review-log.md` 存在并含表头与条目模板
+- [ ] `docs/visual-review-log.md` 含本任务落地后对 S/M/L/XL 各一个样例的评分与理由，该行只能由人或外部评审在落地后目视评分并写入，执行者不得代写（待外部）
 - [ ] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
 
 ## DoD
 
-用 archguard 真实样例（S：`archguard-class.puml`；M：`package-overview`；L/XL：`all-classes` 包视图与完整图）以默认主题渲染，并分别以 1:1 分块与缩略图目视检查：层级清晰（先看到包与分层，再看到类，最后是成员与边）、没有纯黑硬描边、弱关系与强关系视觉可分、回边不依赖红色也可辨认、同层节点对齐整齐。把自评分写入 `docs/visual-review-log.md`，并列出仍不满意的项作为下一轮任务输入。
+用 archguard 真实样例（S：`archguard-class.puml`；M：`package-overview`；L/XL：`all-classes` 包视图与完整图）以默认主题渲染：没有纯黑硬描边、弱关系与强关系视觉可分、回边不依赖红色也可辨认、同层节点对齐整齐，且主题 token、对比度、网格对齐、`detail` 各条机械断言全部通过。目视评分与"仍不满意的项"由外部评审在落地后写入 `docs/visual-review-log.md`，作为下一轮任务输入。
 
 ## Touches
 
@@ -61,8 +62,3 @@ depends_on:
 - tests/theme-tokens.test.ts (new)
 - tests/grid-alignment.test.ts (new)
 - tests/detail.test.ts (new)
-## Needs-Human
-
-**执行 2026-10-21T16:40:52.656Z — 连续修满重试上限仍不合格（标 needs-human）**
-
-- 阻碍原因：unsatisfiableUnannotatedAc=[`docs/visual-review-rubric.md` 与 `docs/visual-review-log.md` 存在；log 含本任务落地后对 S/M/L/XL 各一个样例的评分与理由]（连续 3 轮被结构上不可派的拦截挡住 ⇒ 作者/人改写；⛔ 不派 fix worker）
