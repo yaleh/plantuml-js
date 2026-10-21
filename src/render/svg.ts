@@ -474,7 +474,11 @@ function renderEdgeTexts(
   }
   if (rel.label && plainLabel) {
     const r = plainLabel.rect;
-    parts.push(t(rel.label, r.x + r.width / 2, r.y + 12, 12));
+    parts.push(
+      textEl(plainLabel.text, r.x + r.width / 2, r.y + 12, 'middle', 12, 'normal', theme.color.textMember, theme,
+        ` class="uml-edge-label" stroke="${theme.color.labelHalo}" stroke-width="${theme.stroke.labelHalo}"` +
+          ` stroke-linejoin="round" paint-order="stroke"`),
+    );
   }
   return parts;
 }

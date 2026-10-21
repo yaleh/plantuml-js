@@ -25,6 +25,8 @@ export interface Theme {
     textPackage: string;
     edge: string;
     edgeWeak: string;
+    /** Halo drawn around edge-label text so a line never strikes through it. */
+    labelHalo: string;
     /** Cycle feedback edges — the only use of red. */
     warn: string;
     /** Neutral informational accent (hub badge). */
@@ -45,6 +47,8 @@ export interface Theme {
     weightStep: number;
     weightMax: number;
     weightOpacity: number;
+    /** Width of the label halo stroke. */
+    labelHalo: number;
   };
   dash: { weak: string; stub: string; feedback: string };
   arrow: { triangle: number; chevron: number; diamond: number };
@@ -69,6 +73,7 @@ export const defaultTheme: Theme = {
     textPackage: '#334155',
     edge: '#7c8ba1',
     edgeWeak: '#7c8ba1',
+    labelHalo: '#ffffff',
     warn: '#6b1414',
     accent: '#475569',
     accentText: '#ffffff',
@@ -77,7 +82,7 @@ export const defaultTheme: Theme = {
     legendStroke: '#94a3b8',
   },
   shape: { nodeRadius: 6, packageRadius: 8, edgeCornerRadius: 6 },
-  stroke: { node: 1, package: 1, edge: 1, arrow: 1, weightStep: 0.5, weightMax: 6, weightOpacity: 0.55 },
+  stroke: { node: 1, package: 1, edge: 1, arrow: 1, weightStep: 0.5, weightMax: 6, weightOpacity: 0.55, labelHalo: 3 },
   dash: { weak: '3,3', stub: '5,3', feedback: '10,3,2,3' },
   arrow: { triangle: 12, chevron: 10, diamond: 14 },
   grid: 8,

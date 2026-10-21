@@ -340,6 +340,8 @@ describe('computeLayoutMetrics', () => {
       badgeLabelOverlap: 0,
       edgeLabelOverlap: 0,
       labelNodeOverlap: 0,
+      labelEdgeOverlap: 0,
+      labelLabelOverlap: 0,
       hubArrowStack: 0,
       maxEmptyBlockRatio: 0,
       edgeFlushCount: 0,
@@ -490,5 +492,64 @@ describe('computeLayoutMetrics', () => {
       height: 250,
     };
     expect(computeLayoutMetrics(model, layout).nonOrthogonalEdgeCount).toBe(1);
+  });
+
+  it('counts labels struck by a foreign edge (labelEdgeOverlap) and label pairs that collide (labelLabelOverlap)', () => {
+    const rel = (label?: string, weight?: number) =>
+      ({ source: 'A', target: 'B', type: 'association', label, weight }) as PlantUmlModel['relations'][number];
+    const nodes = [
+      { id: 'A', x: 0, y: 0, width: 20, height: 50 },
+      { id: 'B', x: 220, y: 0, width: 20, height: 50 },
+      { id: 'C', x: 100, y: 200, width: 20, height: 20 },
+      { id: 'D', x: 100, y: 300, width: 20, height: 20 },
+    ];
+    const ab = [{ x: 20, y: 25 }, { x: 220, y: 25 }];
+
+    // Clean: a labelled edge alone on the canvas.
+    const clean: PlantUmlModel = {
+      diagramType: 'class', entities: [entity('A'), entity('B')], relations: [rel('uses')], packages: [],
+    };
+    const cleanLayout: LayoutResult = {
+      nodes: nodes.slice(0, 2), edges: [{ id: 'rel-0', source: 'A', target: 'B', points: ab }], width: 240, height: 50,
+    };
+    expect(computeLayoutMetrics(clean, cleanLayout)).toMatchObject({ labelEdgeOverlap: 0, labelLabelOverlap: 0 });
+
+    // Struck: a dense comb of foreign verticals crosses every spot along the edge.
+    const xs = Array.from({ length: 40 }, (_, k) => 24 + k * 5);
+    const struck: PlantUmlModel = {
+      diagramType: 'class',
+      entities: [entity('A'), entity('B'), entity('C'), entity('D')],
+      relations: [rel(undefined, 3), { source: 'C', target: 'D', type: 'association' }],
+      packages: [],
+    };
+    const struckLayout: LayoutResult = {
+      nodes,
+      edges: [
+        { id: 'rel-0', source: 'A', target: 'B', points: ab },
+        ...xs.map((x, k) => ({ id: `rel-${k === 0 ? 1 : 100 + k}`, source: 'C', target: 'D', points: [{ x, y: -40 }, { x, y: 90 }] })),
+      ],
+      width: 240,
+      height: 320,
+    };
+    expect(computeLayoutMetrics(struck, struckLayout)).toMatchObject({ labelEdgeOverlap: 1, labelLabelOverlap: 0 });
+
+    // Colliding: two weighted edges over the same 14px stub leave no free spot.
+    const collide: PlantUmlModel = {
+      diagramType: 'class',
+      entities: [entity('A'), entity('B')],
+      relations: [rel(undefined, 2), rel(undefined, 2)],
+      packages: [],
+    };
+    const stub = [{ x: 20, y: 25 }, { x: 34, y: 25 }];
+    const collideLayout: LayoutResult = {
+      nodes: [nodes[0], { id: 'B', x: 34, y: 0, width: 20, height: 50 }],
+      edges: [
+        { id: 'rel-0', source: 'A', target: 'B', points: stub },
+        { id: 'rel-1', source: 'A', target: 'B', points: stub },
+      ],
+      width: 60,
+      height: 50,
+    };
+    expect(computeLayoutMetrics(collide, collideLayout).labelLabelOverlap).toBe(1);
   });
 });

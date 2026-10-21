@@ -17,6 +17,7 @@ import {
   entityTextRects,
   hubBadgeRect,
   placeEdgeLabels,
+  rectHitsOtherEdge,
   rectsIntersect,
 } from './render/labels.js';
 
@@ -58,6 +59,10 @@ export interface LayoutMetrics {
   edgeLabelOverlap: number;
   /** Edge labels whose rectangle intersects any node rectangle (should be 0). */
   labelNodeOverlap: number;
+  /** Edge labels whose rectangle is crossed by a segment of an edge other than their own. */
+  labelEdgeOverlap: number;
+  /** Pairs of edge-label rectangles that intersect each other. */
+  labelLabelOverlap: number;
   /**
    * Incoming arrowheads stacked beyond a threshold on the same side of the
    * same node — the "everything points at this hub" pile-up that
@@ -106,6 +111,8 @@ export function computeLayoutMetrics(
     badgeLabelOverlap: countBadgeLabelOverlap(model, layout),
     edgeLabelOverlap: countEdgeLabelOverlap(model, layout),
     labelNodeOverlap: countLabelNodeOverlap(model, layout),
+    labelEdgeOverlap: countLabelEdgeOverlap(model, layout),
+    labelLabelOverlap: countLabelLabelOverlap(model, layout),
     hubArrowStack: countHubArrowStack(edges),
     maxEmptyBlockRatio: computeMaxEmptyBlockRatio(layout),
     edgeFlushCount: countEdgeFlush(edges, layout),
@@ -335,6 +342,22 @@ function countLabelNodeOverlap(model: PlantUmlModel, layout: LayoutResult): numb
   return placeEdgeLabels(model, layout).filter((l) =>
     nodeRects.some((n) => rectsIntersect(l.rect, n)),
   ).length;
+}
+
+function countLabelEdgeOverlap(model: PlantUmlModel, layout: LayoutResult): number {
+  const edges = layout.edges ?? [];
+  return placeEdgeLabels(model, layout).filter((l) => rectHitsOtherEdge(l.rect, edges, `rel-${l.edge}`)).length;
+}
+
+function countLabelLabelOverlap(model: PlantUmlModel, layout: LayoutResult): number {
+  const labels = placeEdgeLabels(model, layout);
+  let count = 0;
+  for (let i = 0; i < labels.length; i++) {
+    for (let j = i + 1; j < labels.length; j++) {
+      if (rectsIntersect(labels[i].rect, labels[j].rect)) count++;
+    }
+  }
+  return count;
 }
 
 /**
