@@ -24,12 +24,12 @@ depends_on:
 
 ## AC
 
-- [ ] 边按权重与类别分层：`weight ≥ 3` 的边线宽/不透明度高于 `weight = 1` 的边；弱依赖（type-only 或 dependency）与强依赖（继承/组合/实现/关联）线型不同；循环回边仍为单独样式；`tests/edge-hierarchy.test.ts` 对合成模型断言这三层在 SVG 中的 `stroke-width`/`stroke-opacity`/`stroke-dasharray` 互不相同，且全部来自 theme token
-- [ ] 并行边合并：`m-package` 的 `overlappingEdgeLength` 相对第五轮（24936）降低 ≥ 60%，`xl-all-classes` 相对（95374.84）降低 ≥ 50%；`tests/bundling.test.ts` 追加断言：同源同方向 ≥ 5 条边渲染为共享干线再分叉
-- [ ] 包内依赖流向：`tests/package-flow.test.ts` 对合成的 5 层依赖链断言，包内布局后上游节点的 y（或环绕列序）单调不逆，违反依赖方向的节点对占比 ≤ 10%；`m-package` 的 Src Layer 中 `src/cli/commands` 的位置高于 `src/types`
-- [ ] 对比度：主题测试断言各类边（含虚线/点线）与其可能所处的最深包填充色的对比度 ≥ 3:1（`tests/theme-contrast.test.ts` 扩展）
+- [x] 边按权重与类别分层：`weight ≥ 3` 的边线宽/不透明度高于 `weight = 1` 的边；弱依赖（type-only 或 dependency）与强依赖（继承/组合/实现/关联）线型不同；循环回边仍为单独样式；`tests/edge-hierarchy.test.ts` 对合成模型断言这三层在 SVG 中的 `stroke-width`/`stroke-opacity`/`stroke-dasharray` 互不相同，且全部来自 theme token
+- [x] 并行边合并：`m-package` 的 `overlappingEdgeLength` 相对第五轮（24936）降低 ≥ 60%，`xl-all-classes` 相对（95374.84）降低 ≥ 50%；`tests/bundling.test.ts` 追加断言：同源同方向 ≥ 5 条边渲染为共享干线再分叉
+- [x] 包内依赖流向：`tests/package-flow.test.ts` 对合成的 5 层依赖链断言，包内布局后上游节点的 y（或环绕列序）单调不逆，违反依赖方向的节点对占比 ≤ 10%；`m-package` 的 Src Layer 中 `src/cli/commands` 的位置高于 `src/types`
+- [x] 对比度：主题测试断言各类边（含虚线/点线）与其可能所处的最深包填充色的对比度 ≥ 3:1（`tests/theme-contrast.test.ts` 扩展）
 - [ ] 阈值收紧并通过：`maxEmptyBlockRatio` 的 XL 阈值改为 ≤ 0.08、M 档 ≤ 0.1；`s-cli-utils-view` 的 `areaUtilization` ≥ 0.25；`node scripts/render-samples.mjs --manifest <archguard 输出根目录>` 退出码 0
-- [ ] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
+- [x] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
 
 ## DoD
 
@@ -39,9 +39,14 @@ depends_on:
 
 - tasks/gap-layout-edge-hierarchy-and-flow.md
 - src/layout/elk.ts
+- src/layout/compound.ts
+- src/layout/elk-graph.ts
+- src/layout/grid-router.ts
+- src/layout/lane-spread.ts (new)
 - src/transform.ts
 - src/render/svg.ts
 - src/render/theme.ts
+- src/render/legend.ts
 - src/layout-metrics.ts
 - scripts/samples.json
 - docs/layout-routing-eval.md
