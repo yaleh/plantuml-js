@@ -23,9 +23,9 @@ Architecture-tab 请求把容器比例作为运行时入参暴露：`createRende
 
 ## AC
 
-- [ ] `tests/layout-aspect-ratio-option.test.ts`（新增）同一合成模型 `aspectRatio` ∈ {0.5, 1, 2}：`layout.width/layout.height` 随档位单调递增，且每档与请求值偏差 ≤ ±30%（如 2 → 比值 ∈ [1.4, 2.6]）。`npx vitest run tests/layout-aspect-ratio-option.test.ts` 退出 0。
-- [ ] 不传 `layoutOptions` 时 `createRenderer().render(<既有 fixture>)` 输出与当前逐字一致（断言 bytes 不变），既有 `tests/layout-foundation.test.ts` determinism 用例仍绿。
-- [ ] 同参数两次 `ElkLayoutEngine.layout()` 深比较相等（确定性不与现有 AC 冲突）；`npm test` 与 `npm run typecheck` 退出 0。
+- [x] `tests/layout-aspect-ratio-option.test.ts`（新增）同一合成模型 `aspectRatio` ∈ {0.5, 1, 2}：`layout.width/layout.height` 随档位单调递增，且每档与请求值偏差 ≤ ±30%（如 2 → 比值 ∈ [1.4, 2.6]）。`npx vitest run tests/layout-aspect-ratio-option.test.ts` 退出 0。
+- [x] 不传 `layoutOptions` 时 `createRenderer().render(<既有 fixture>)` 输出与当前逐字一致（断言 bytes 不变），既有 `tests/layout-foundation.test.ts` determinism 用例仍绿。
+- [x] 同参数两次 `ElkLayoutEngine.layout()` 深比较相等（确定性不与现有 AC 冲突）；`npm test` 与 `npm run typecheck` 退出 0。
 
 ## DoD
 
@@ -35,6 +35,7 @@ Architecture-tab 用 `createRenderer({ layout: 'elk', layoutOptions: { aspectRat
 
 - src/core.ts
 - src/layout/elk.ts
+- src/layout/elk-graph.ts
 - src/layout/compound.ts
 - tests/layout-aspect-ratio-option.test.ts
 - tasks/gap-layout-aspect-ratio-option.md
