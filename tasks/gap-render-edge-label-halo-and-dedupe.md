@@ -1,7 +1,7 @@
 ---
 id: gap-render-edge-label-halo-and-dedupe
 title: 边标签：白色描边光晕、避让其它边、同束重复标签去重（uses/returns 走廊拥挤）
-status: ready
+status: done
 labels:
   - gap
   - layout
