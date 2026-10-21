@@ -17,11 +17,11 @@ extra:
 
 ## AC
 
-- [ ] `tests/undeclared-endpoints.test.ts`：对 `@startuml\nclass A\nA --> B\n@enduml`（`B` 未声明）渲染成功，输出 SVG 含 `B` 的类框与 A→B 的边；`parsePlantUml` 产出的 `model.entities` 含隐式创建的 `B`（成员为空）
-- [ ] 同文件：关系端点为包别名时（`package "X Layer" as X { class A }` 加 `X --> A` 与 `A --> X`），渲染不抛异常；包端点按设计处理（把边挂到包内代表节点，或以包框边界为端点），并在 `RenderResult.warnings` 记录一条说明
-- [ ] 两个真实文件 `archguard-architecture-manual.puml` 与 `archguard-architecture.puml` 复制到 `tests/fixtures/`，`createRenderer().render` 都成功，输出 SVG 合法且 `textOverflowCount === 0`
-- [ ] `checkSyntax` 对隐式声明的端点返回 `warning`（不是 `error`），`tests/api.test.ts` 断言
-- [ ] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
+- [x] `tests/undeclared-endpoints.test.ts`：对 `@startuml\nclass A\nA --> B\n@enduml`（`B` 未声明）渲染成功，输出 SVG 含 `B` 的类框与 A→B 的边；`parsePlantUml` 产出的 `model.entities` 含隐式创建的 `B`（成员为空）
+- [x] 同文件：关系端点为包别名时（`package "X Layer" as X { class A }` 加 `X --> A` 与 `A --> X`），渲染不抛异常；包端点按设计处理（把边挂到包内代表节点，或以包框边界为端点），并在 `RenderResult.warnings` 记录一条说明
+- [x] 两个真实文件 `archguard-architecture-manual.puml` 与 `archguard-architecture.puml` 复制到 `tests/fixtures/`，`createRenderer().render` 都成功，输出 SVG 合法且 `textOverflowCount === 0`
+- [x] `checkSyntax` 对隐式声明的端点返回 `warning`（不是 `error`），`tests/api.test.ts` 断言
+- [x] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
 
 ## DoD
 
@@ -31,6 +31,7 @@ extra:
 
 - tasks/gap-render-undeclared-relation-endpoints.md
 - src/parser.ts
+- src/core.ts
 - src/layout/elk.ts
 - src/index.ts
 - tests/undeclared-endpoints.test.ts (new)
