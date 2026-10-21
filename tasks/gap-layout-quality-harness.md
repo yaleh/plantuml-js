@@ -1,7 +1,7 @@
 ---
 id: gap-layout-quality-harness
 title: 布局质量度量 + 渲染/截图脚本（后续所有 layout 任务的度量基线）
-status: todo
+status: ready
 labels:
   - gap
   - layout
