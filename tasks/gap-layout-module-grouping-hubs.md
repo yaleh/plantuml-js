@@ -1,7 +1,7 @@
 ---
 id: gap-layout-module-grouping-hubs
 title: 模块目录分组 + 默认枢纽汇总 + 边束合并 + 按依赖方向排 Layer
-status: ready
+status: done
 labels:
   - gap
   - layout
