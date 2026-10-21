@@ -4,6 +4,10 @@
   "description": "Pure-TypeScript PlantUML class diagram renderer (MIT)",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yaleh/plantuml-js.git"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
