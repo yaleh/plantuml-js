@@ -1,7 +1,7 @@
 ---
 id: gap-compound-layout-proportion
 title: compound 布局成比例打包：嵌套容器画布 + flat 大图退化回归
-status: ready
+status: done
 labels:
   - gap
   - layout
