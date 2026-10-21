@@ -9,7 +9,7 @@
 
 import { PlantUmlModel } from './model.js';
 import { parsePlantUml, parseWithDiagnostics } from './parser.js';
-import { LayoutEngine, DetailLevel, applyDetail } from './layout.js';
+import { LayoutEngine, LayoutResult, DetailLevel, applyDetail } from './layout.js';
 import { ThemeOverrides } from './render/theme.js';
 import { ElkLayoutEngine, type ElkLayoutOptions } from './layout/elk.js';
 import { renderSvg, RenderSvgOptions } from './render/svg.js';
@@ -64,6 +64,13 @@ export interface RenderResult {
   svg: string;
   diagramType: string;
   warnings: string[];
+}
+
+export interface DetailedRender {
+  /** The model actually laid out and drawn (after view, transforms and detail). */
+  model: PlantUmlModel;
+  layout: LayoutResult;
+  svg: string;
 }
 
 export interface Renderer {
@@ -129,12 +136,35 @@ export function createRenderer(options: RendererOptions = {}): Renderer {
       if (!syntax.ok) throw new RenderError(syntax.errors);
 
       const { model: parsed, diagnostics } = parseWithDiagnostics(puml);
-      const model = applyDetail(transformForRender(parsed, options), options.detail);
-      const layout = await engine.layout(model);
-      const svg = renderSvg(model, layout, { legend: options.legend, theme: options.theme });
+      const { svg, model } = await renderParsed(parsed, options, engine);
       return { svg, diagramType: model.diagramType, warnings: diagnostics.map((d) => `line ${d.line}: ${d.message}`) };
     },
   };
+}
+
+async function renderParsed(
+  parsed: PlantUmlModel,
+  options: RendererOptions,
+  engine: LayoutEngine,
+): Promise<DetailedRender> {
+  const model = applyDetail(transformForRender(parsed, options), options.detail);
+  const layout = await engine.layout(model);
+  const svg = renderSvg(model, layout, { legend: options.legend, theme: options.theme });
+  return { model, layout, svg };
+}
+
+/**
+ * Run an already-parsed model through the exact pipeline `createRenderer` uses
+ * (view/transforms → detail → layout → svg) and return every intermediate, so
+ * tooling (the sample harness) measures the same diagram a user gets. The
+ * model-level counterpart of `createRenderer(options).render(puml)`; it skips
+ * the syntax check because the caller already holds a parsed model.
+ */
+export async function renderDetailed(
+  parsed: PlantUmlModel,
+  options: RendererOptions = {},
+): Promise<DetailedRender> {
+  return renderParsed(parsed, options, resolveEngine(options.layout, options.layoutOptions));
 }
 
 /**
