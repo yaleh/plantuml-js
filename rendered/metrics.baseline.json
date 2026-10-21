@@ -1,0 +1,70 @@
+[
+  {
+    "group": "fixture",
+    "engine": "elk",
+    "svg": "fixture.elk.svg",
+    "png": "fixture.elk.png",
+    "width": 1492,
+    "height": 1150,
+    "metrics": {
+      "edgeCrossings": 0,
+      "edgeNodeIntersections": 0,
+      "totalEdgeLength": 611.0566666666666,
+      "areaUtilization": 0.3136231961767106,
+      "aspectRatio": 1.297391304347826,
+      "textOverflowCount": 0,
+      "labelOverlapCount": 1
+    }
+  },
+  {
+    "group": "fixture",
+    "engine": "viz",
+    "svg": "fixture.viz.svg",
+    "png": "fixture.viz.png",
+    "width": 2104.8,
+    "height": 180,
+    "metrics": {
+      "edgeCrossings": 0,
+      "edgeNodeIntersections": 0,
+      "totalEdgeLength": 351.914943355989,
+      "areaUtilization": 0.26751242873432146,
+      "aspectRatio": 11.693333333333335,
+      "textOverflowCount": 84,
+      "labelOverlapCount": 0
+    }
+  },
+  {
+    "group": "package",
+    "engine": "elk",
+    "svg": "package.elk.svg",
+    "png": "package.elk.png",
+    "width": 3431.46,
+    "height": 2537.99,
+    "metrics": {
+      "edgeCrossings": 1868,
+      "edgeNodeIntersections": 25,
+      "totalEdgeLength": 321152.1204220018,
+      "areaUtilization": 0.042849706788163015,
+      "aspectRatio": 1.3520384779173849,
+      "textOverflowCount": 0,
+      "labelOverlapCount": 4
+    }
+  },
+  {
+    "group": "package",
+    "engine": "viz",
+    "svg": "package.viz.svg",
+    "png": "package.viz.png",
+    "width": 4498.4,
+    "height": 1188,
+    "metrics": {
+      "edgeCrossings": 1352,
+      "edgeNodeIntersections": 50,
+      "totalEdgeLength": 214245.01890388745,
+      "areaUtilization": 0.055793015698511,
+      "aspectRatio": 3.7865319865319864,
+      "textOverflowCount": 63,
+      "labelOverlapCount": 0
+    }
+  }
+]

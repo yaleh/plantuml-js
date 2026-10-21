@@ -23,4 +23,5 @@ dist/
 *.tsbuildinfo
 
 # local inspection renders (generated on demand, not shipped)
-rendered/
+rendered/*
+!rendered/metrics.baseline.json

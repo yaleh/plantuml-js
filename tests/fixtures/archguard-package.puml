@@ -1,0 +1,357 @@
+@startuml
+package "(root) Layer" as _root__Layer {
+  class "(root)" as _root_ {
+  }
+}
+package "Examples Layer" as Examples_Layer {
+  class examples {
+  }
+}
+package "Src Layer" as Src_Layer {
+  class "src/analysis/duplicates" as src_analysis_duplicates {
+  }
+  class "src/analysis/fitness" as src_analysis_fitness {
+  }
+  class "src/analysis/gim" as src_analysis_gim {
+  }
+  class "src/analysis/git-history" as src_analysis_git_history {
+  }
+  class "src/analysis/jl" as src_analysis_jl {
+  }
+  class "src/analysis/shape-smells" as src_analysis_shape_smells {
+  }
+  class "src/analysis/slice-delta" as src_analysis_slice_delta {
+  }
+  class "src/analysis" as src_analysis {
+  }
+  class "src/cli/analyze" as src_cli_analyze {
+  }
+  class "src/cli/cache" as src_cli_cache {
+  }
+  class "src/cli/cognitive" as src_cli_cognitive {
+  }
+  class "src/cli/commands" as src_cli_commands {
+  }
+  class "src/cli/errors" as src_cli_errors {
+  }
+  class "src/cli/git-history" as src_cli_git_history {
+  }
+  class "src/cli/mcp/tools" as src_cli_mcp_tools {
+  }
+  class "src/cli/mcp" as src_cli_mcp {
+  }
+  class "src/cli/processors" as src_cli_processors {
+  }
+  class "src/cli/progress" as src_cli_progress {
+  }
+  class "src/cli/query" as src_cli_query {
+  }
+  class "src/cli/utils" as src_cli_utils {
+  }
+  class "src/cli" as src_cli {
+  }
+  class "src/core/interfaces" as src_core_interfaces {
+  }
+  class "src/core/pack-registry" as src_core_pack_registry {
+  }
+  class "src/core/parser-runtime" as src_core_parser_runtime {
+  }
+  class "src/core/query" as src_core_query {
+  }
+  class "src/core/rule-engine" as src_core_rule_engine {
+  }
+  class "src/core" as src_core {
+  }
+  class "src/mermaid" as src_mermaid {
+  }
+  class "src/parser" as src_parser {
+  }
+  class "src/plantuml" as src_plantuml {
+  }
+  class "src/plugins/cpp/builders" as src_plugins_cpp_builders {
+  }
+  class "src/plugins/cpp/mappers" as src_plugins_cpp_mappers {
+  }
+  class "src/plugins/cpp" as src_plugins_cpp {
+  }
+  class "src/plugins/golang/atlas/builders" as src_plugins_golang_atlas_builders {
+  }
+  class "src/plugins/golang/atlas/renderers" as src_plugins_golang_atlas_renderers {
+  }
+  class "src/plugins/golang/atlas" as src_plugins_golang_atlas {
+  }
+  class "src/plugins/golang/builders" as src_plugins_golang_builders {
+  }
+  class "src/plugins/golang" as src_plugins_golang {
+  }
+  class "src/plugins/java" as src_plugins_java {
+  }
+  class "src/plugins/kotlin/builders" as src_plugins_kotlin_builders {
+  }
+  class "src/plugins/kotlin" as src_plugins_kotlin {
+  }
+  class "src/plugins/python" as src_plugins_python {
+  }
+  class "src/plugins/shared" as src_plugins_shared {
+  }
+  class "src/plugins/typescript/builders" as src_plugins_typescript_builders {
+  }
+  class "src/plugins/typescript" as src_plugins_typescript {
+  }
+  class "src/types/extensions" as src_types_extensions {
+  }
+  class "src/types" as src_types {
+  }
+  class "src/utils" as src_utils {
+  }
+  class src {
+  }
+}
+package "Templates Layer" as Templates_Layer {
+  class "templates/plugin-template/src" as templates_plugin_template_src {
+  }
+}
+package "Tests Layer" as Tests_Layer {
+  class "tests/fixtures/cross-language/01-simple-class" as tests_fixtures_cross_language_01_simple_class {
+  }
+  class "tests/fixtures/cross-language/02-interface-implementation" as tests_fixtures_cross_language_02_interface_implementation {
+  }
+  class "tests/fixtures/cross-language/03-composition" as tests_fixtures_cross_language_03_composition {
+  }
+  class "tests/fixtures/cross-language/04-inheritance" as tests_fixtures_cross_language_04_inheritance {
+  }
+  class "tests/fixtures/invalid-plugin" as tests_fixtures_invalid_plugin {
+  }
+  class "tests/fixtures/mock-plugin" as tests_fixtures_mock_plugin {
+  }
+  class "tests/fixtures/non-constructor-plugin" as tests_fixtures_non_constructor_plugin {
+  }
+  class "tests/fixtures/plantuml/src" as tests_fixtures_plantuml_src {
+  }
+  class "tests/fixtures/typescript-plugin" as tests_fixtures_typescript_plugin {
+  }
+  class "tests/integration" as tests_integration {
+  }
+  class "tests/poc/mermaid-poc" as tests_poc_mermaid_poc {
+  }
+  class tests {
+  }
+}
+examples ..> src_parser
+examples ..> src_plugins_golang
+examples ..> src_types
+src ..> src_analysis_slice_delta
+src ..> src_parser
+src ..> src_types
+src ..> src_utils
+src_analysis ..> src_core_interfaces
+src_analysis ..> src_core_query
+src_analysis ..> src_types_extensions
+src_analysis ..> src_types
+src_analysis_duplicates ..> src_parser
+src_analysis_duplicates ..> src_utils
+src_analysis_fitness ..> src_analysis_gim
+src_analysis_fitness ..> src_types
+src_analysis_gim ..> src_analysis_fitness
+src_analysis_gim ..> src_analysis
+src_analysis_gim ..> src_types
+src_analysis_git_history ..> src_types
+src_analysis_jl ..> src_types
+src_analysis_shape_smells ..> src_utils
+src_analysis_slice_delta ..> src_types_extensions
+src_cli ..> src_analysis
+src_cli ..> src_cli_commands
+src_cli ..> src_cli_utils
+src_cli ..> src_types_extensions
+src_cli ..> src_types
+src_cli_analyze ..> src_analysis_jl
+src_cli_analyze ..> src_analysis
+src_cli_analyze ..> src_cli_cache
+src_cli_analyze ..> src_cli_git_history
+src_cli_analyze ..> src_cli_mcp_tools
+src_cli_analyze ..> src_cli_processors
+src_cli_analyze ..> src_cli_progress
+src_cli_analyze ..> src_cli_query
+src_cli_analyze ..> src_cli_utils
+src_cli_analyze ..> src_cli
+src_cli_analyze ..> src_core_interfaces
+src_cli_analyze ..> src_core_query
+src_cli_analyze ..> src_core
+src_cli_analyze ..> src_parser
+src_cli_analyze ..> src_plugins_shared
+src_cli_analyze ..> src_plugins_typescript
+src_cli_analyze ..> src_types_extensions
+src_cli_analyze ..> src_types
+src_cli_cache ..> src_cli_utils
+src_cli_cache ..> src_types_extensions
+src_cli_cache ..> src_types
+src_cli_cognitive ..> src_cli_git_history
+src_cli_cognitive ..> src_cli_query
+src_cli_cognitive ..> src_types
+src_cli_commands ..> src_analysis_fitness
+src_cli_commands ..> src_analysis_gim
+src_cli_commands ..> src_analysis_jl
+src_cli_commands ..> src_analysis_slice_delta
+src_cli_commands ..> src_analysis
+src_cli_commands ..> src_cli_analyze
+src_cli_commands ..> src_cli_cache
+src_cli_commands ..> src_cli_errors
+src_cli_commands ..> src_cli_git_history
+src_cli_commands ..> src_cli_mcp_tools
+src_cli_commands ..> src_cli_mcp
+src_cli_commands ..> src_cli_processors
+src_cli_commands ..> src_cli_progress
+src_cli_commands ..> src_cli_query
+src_cli_commands ..> src_cli_utils
+src_cli_commands ..> src_cli
+src_cli_commands ..> src_core_query
+src_cli_commands ..> src_types_extensions
+src_cli_commands ..> src_types
+src_cli_errors ..> src_parser
+src_cli_git_history ..> src_analysis_git_history
+src_cli_git_history ..> src_types
+src_cli_mcp ..> src_cli_analyze
+src_cli_mcp ..> src_cli_mcp_tools
+src_cli_mcp ..> src_cli_progress
+src_cli_mcp ..> src_cli_query
+src_cli_mcp ..> src_core_query
+src_cli_mcp ..> src_parser
+src_cli_mcp ..> src_plugins_shared
+src_cli_mcp ..> src_types_extensions
+src_cli_mcp ..> src_types
+src_cli_mcp_tools ..> src_analysis_duplicates
+src_cli_mcp_tools ..> src_analysis_gim
+src_cli_mcp_tools ..> src_analysis_jl
+src_cli_mcp_tools ..> src_analysis_shape_smells
+src_cli_mcp_tools ..> src_analysis_slice_delta
+src_cli_mcp_tools ..> src_analysis
+src_cli_mcp_tools ..> src_cli_analyze
+src_cli_mcp_tools ..> src_cli_cognitive
+src_cli_mcp_tools ..> src_cli_commands
+src_cli_mcp_tools ..> src_cli_git_history
+src_cli_mcp_tools ..> src_cli_mcp
+src_cli_mcp_tools ..> src_cli_query
+src_cli_mcp_tools ..> src_cli_utils
+src_cli_mcp_tools ..> src_cli
+src_cli_mcp_tools ..> src_core_query
+src_cli_mcp_tools ..> src_types_extensions
+src_cli_mcp_tools ..> src_types
+src_cli_mcp_tools ..> src_utils
+src_cli_processors ..> src_analysis
+src_cli_processors ..> src_cli_cache
+src_cli_processors ..> src_cli_progress
+src_cli_processors ..> src_cli_query
+src_cli_processors ..> src_cli_utils
+src_cli_processors ..> src_core_interfaces
+src_cli_processors ..> src_core_query
+src_cli_processors ..> src_core
+src_cli_processors ..> src_mermaid
+src_cli_processors ..> src_parser
+src_cli_processors ..> src_plantuml
+src_cli_processors ..> src_plugins_golang_atlas_renderers
+src_cli_processors ..> src_plugins_golang
+src_cli_processors ..> src_plugins_shared
+src_cli_processors ..> src_plugins_typescript
+src_cli_processors ..> src_types_extensions
+src_cli_processors ..> src_types
+src_cli_query ..> src_cli_processors
+src_cli_query ..> src_cli_utils
+src_cli_query ..> src_core_query
+src_cli_query ..> src_types_extensions
+src_cli_query ..> src_types
+src_cli_utils ..> src_analysis_jl
+src_cli_utils ..> src_types_extensions
+src_cli_utils ..> src_types
+src_core ..> src_core_interfaces
+src_core ..> src_core_pack_registry
+src_core ..> src_core_rule_engine
+src_core_interfaces ..> src_types_extensions
+src_core_interfaces ..> src_types
+src_core_parser_runtime ..> src_types
+src_core_parser_runtime ..> src_utils
+src_core_query ..> src_types_extensions
+src_core_query ..> src_types
+src_core_rule_engine ..> src_core_interfaces
+src_core_rule_engine ..> src_core_pack_registry
+src_core_rule_engine ..> src_core_parser_runtime
+src_core_rule_engine ..> src_types
+src_mermaid ..> src_core_interfaces
+src_mermaid ..> src_core
+src_mermaid ..> src_types_extensions
+src_mermaid ..> src_types
+src_parser ..> src_core_interfaces
+src_parser ..> src_core_parser_runtime
+src_parser ..> src_core_query
+src_parser ..> src_plugins_cpp
+src_parser ..> src_plugins_golang_atlas
+src_parser ..> src_plugins_java
+src_parser ..> src_plugins_kotlin
+src_parser ..> src_plugins_python
+src_parser ..> src_plugins_typescript
+src_parser ..> src_types
+src_parser ..> src_utils
+src_plantuml ..> src_mermaid
+src_plantuml ..> src_types
+src_plugins_cpp ..> src_core_interfaces
+src_plugins_cpp ..> src_plugins_cpp_builders
+src_plugins_cpp ..> src_plugins_cpp_mappers
+src_plugins_cpp ..> src_plugins_shared
+src_plugins_cpp ..> src_types_extensions
+src_plugins_cpp ..> src_types
+src_plugins_cpp_builders ..> src_plugins_cpp
+src_plugins_cpp_builders ..> src_plugins_shared
+src_plugins_cpp_mappers ..> src_plugins_cpp_builders
+src_plugins_cpp_mappers ..> src_plugins_cpp
+src_plugins_cpp_mappers ..> src_plugins_shared
+src_plugins_golang ..> src_core_interfaces
+src_plugins_golang ..> src_plugins_golang_atlas_renderers
+src_plugins_golang ..> src_plugins_golang_atlas
+src_plugins_golang ..> src_plugins_golang_builders
+src_plugins_golang ..> src_plugins_shared
+src_plugins_golang ..> src_types_extensions
+src_plugins_golang ..> src_types
+src_plugins_golang_atlas ..> src_plugins_golang_atlas_builders
+src_plugins_golang_atlas ..> src_plugins_golang
+src_plugins_golang_atlas ..> src_types_extensions
+src_plugins_golang_atlas_builders ..> src_plugins_golang_atlas
+src_plugins_golang_atlas_builders ..> src_plugins_golang
+src_plugins_golang_atlas_builders ..> src_types_extensions
+src_plugins_golang_atlas_renderers ..> src_plugins_golang_atlas
+src_plugins_golang_builders ..> src_plugins_golang
+src_plugins_golang_builders ..> src_plugins_shared
+src_plugins_java ..> src_core_interfaces
+src_plugins_java ..> src_plugins_shared
+src_plugins_java ..> src_types_extensions
+src_plugins_java ..> src_types
+src_plugins_kotlin ..> src_core_interfaces
+src_plugins_kotlin ..> src_plugins_kotlin_builders
+src_plugins_kotlin ..> src_plugins_shared
+src_plugins_kotlin ..> src_types_extensions
+src_plugins_kotlin ..> src_types
+src_plugins_kotlin_builders ..> src_plugins_kotlin
+src_plugins_kotlin_builders ..> src_plugins_shared
+src_plugins_python ..> src_core_interfaces
+src_plugins_python ..> src_plugins_shared
+src_plugins_python ..> src_types
+src_plugins_shared ..> src_core_interfaces
+src_plugins_shared ..> src_core_parser_runtime
+src_plugins_shared ..> src_plugins_cpp
+src_plugins_shared ..> src_plugins_golang_atlas
+src_plugins_shared ..> src_plugins_java
+src_plugins_shared ..> src_plugins_kotlin
+src_plugins_shared ..> src_plugins_python
+src_plugins_shared ..> src_types
+src_plugins_typescript ..> src_cli_utils
+src_plugins_typescript ..> src_core_interfaces
+src_plugins_typescript ..> src_parser
+src_plugins_typescript ..> src_plugins_typescript_builders
+src_plugins_typescript ..> src_types_extensions
+src_plugins_typescript ..> src_types
+src_plugins_typescript ..> src_utils
+src_plugins_typescript_builders ..> src_types_extensions
+src_plugins_typescript_builders ..> src_types
+src_types ..> src_types_extensions
+tests_fixtures_mock_plugin ..> src_core_interfaces
+tests_fixtures_mock_plugin ..> src_types
+tests_integration ..> src_utils
+@enduml
