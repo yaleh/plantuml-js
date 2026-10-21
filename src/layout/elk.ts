@@ -50,6 +50,7 @@ import { buildElkGraph } from './elk-graph.js';
 import { clipPackageEndpoints } from './package-endpoints.js';
 import { mapElkResult } from './elk-result.js';
 import { spreadParallelLanes } from './lane-spread.js';
+import { mergeFanoutTrunks } from './fanout-trunk.js';
 
 // elkjs ships a `typeof import(...)` default-export type under NodeNext; pin the
 // real constructor shape so `new` type-checks and the layout result stays typed.
@@ -154,25 +155,40 @@ export class ElkLayoutEngine implements LayoutEngine {
 
   async layout(model: PlantUmlModel): Promise<LayoutResult> {
     const finish = (raw: LayoutResult): LayoutResult =>
-      spreadParallelLanes(clipPackageEndpoints(model, alignIsolatedFrames(model, alignRows(model, raw))));
-    const first = finish(await this.layoutRaw(model));
-    if (!model.entities.some((e) => e.stub) || !this.stubsOrbited) return first;
+      mergeFanoutTrunks(
+        model,
+        spreadParallelLanes(clipPackageEndpoints(model, alignIsolatedFrames(model, alignRows(model, raw)))),
+      );
+    if (!model.entities.some((e) => e.stub)) return finish(await this.layoutRaw(model));
     // Where the orbiting stubs sit decides how the router weaves their edges
     // through the frame; the outcome is chaotic enough that a handful of
-    // orbits is tried and the least cluttered picture kept.
-    let best = first;
-    let bestCost = stubViewCost(model, first);
-    for (const orbit of STUB_ORBITS) {
-      if (bestCost <= STUB_GOOD_ENOUGH) break;
-      const candidate = finish(await this.layoutRaw(model, orbit));
-      const cost = stubViewCost(model, candidate);
-      if (cost < bestCost) {
-        best = candidate;
-        bestCost = cost;
+    // orbits is tried and the least cluttered picture kept. The trials skip the
+    // router's rip-up passes (the slow part); only the winner is routed in full.
+    this.quickRouting = true;
+    let bestOrbit: StubOrbit | undefined;
+    try {
+      const first = finish(await this.layoutRaw(model));
+      if (!this.stubsOrbited) {
+        this.quickRouting = false;
+        return first;
       }
+      let bestCost = stubViewCost(model, first);
+      for (const orbit of STUB_ORBITS) {
+        if (bestCost <= STUB_GOOD_ENOUGH) break;
+        const cost = stubViewCost(model, finish(await this.layoutRaw(model, orbit)));
+        if (cost < bestCost) {
+          bestCost = cost;
+          bestOrbit = orbit;
+        }
+      }
+    } finally {
+      this.quickRouting = false;
     }
-    return best;
+    return finish(await this.layoutRaw(model, bestOrbit));
   }
+
+  /** Skip the router's rip-up passes (set while stub orbits are only being compared). */
+  private quickRouting = false;
 
   /** Set by the compound strategy when it placed stub nodes (so orbit variants can differ). */
   private stubsOrbited = false;
@@ -252,6 +268,7 @@ export class ElkLayoutEngine implements LayoutEngine {
         rectPackDense,
         partitions: layers.length > 0 ? partitions : new Map(),
         stubOrbit: this.orbit,
+        ripupPasses: this.quickRouting ? 0 : undefined,
       });
     const ordered = await run(false);
     // Dependency-ordered rows cost canvas on very large graphs; past the budget

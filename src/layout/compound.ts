@@ -89,6 +89,8 @@ export interface CompoundOptions {
   aspectRatio?: number;
   /** Block id → semantic-layer partition index (layered mode only). */
   partitions: Map<string, number>;
+  /** Rip-up passes of the cross-block router; its default when omitted. */
+  ripupPasses?: number;
   /** Where stub nodes orbit the placed blocks; default [[DEFAULT_STUB_ORBIT]]. */
   stubOrbit?: StubOrbit;
 }
@@ -100,6 +102,13 @@ export interface StubOrbit {
   /** Row/column a stub slides to: its targets' centroid (default) or the target nearest its side. */
   anchor?: 'centroid' | 'nearest';
 }
+/** Tightest gap between neighbouring stubs on the rail, px. */
+const RAIL_MIN_GAP = 24;
+/** Lattice cost of crossing a wire in a view with stub rails (their fans are crossing-prone), and elsewhere. */
+const STUB_CROSSING_COST = 40;
+const CROSSING_COST = 12;
+/** Cost per px a rail runs past the frame side it follows (in px of target distance). */
+const RAIL_OVERFLOW_WEIGHT = 0.5;
 export const DEFAULT_STUB_ORBIT: StubOrbit = { gap: 48, spacing: 120, anchor: 'centroid' };
 
 interface Block {
@@ -225,10 +234,18 @@ export async function compoundLayout(
     const target = nodeById.get(relation.target);
     if (source && target) requests.push({ id: String(index), source, target });
   }
+  const drawn = [...edgePoints].map(([index, points]) => ({
+    source: model.relations[index].source,
+    target: model.relations[index].target,
+    points,
+  }));
   const routed = routeOrthogonal(requests, nodes, {
     width: placed.width,
     height: placed.height,
     frames: packagesOut,
+    existing: drawn,
+    ripupPasses: options.ripupPasses,
+    crossingCost: model.entities.some((e) => e.stub) ? STUB_CROSSING_COST : CROSSING_COST,
   });
   for (const [id, points] of routed) edgePoints.set(Number(id), points);
 
@@ -835,11 +852,16 @@ function placeStubsNearTargets(
     }
   }
   type Side = 'left' | 'right' | 'top' | 'bottom';
-  const bySide = new Map<Side, { key: string; along: number }[]>();
+  interface Stub {
+    key: string;
+    /** Centroid of the nodes it connects to, and those nodes' centres. */
+    centroid: Point;
+    targets: Point[];
+  }
+  const stubs: Stub[] = [];
   for (const key of [...stubKeys].sort()) {
     let sx = 0;
     let sy = 0;
-    let count = 0;
     const targets: Point[] = [];
     for (const index of crossRelations) {
       const r = model.relations[index];
@@ -848,73 +870,82 @@ function placeStubsNearTargets(
       if (c) {
         sx += c.x;
         sy += c.y;
-        count++;
         targets.push(c);
       }
     }
-    const cx = count > 0 ? sx / count : main.width / 2;
-    const cy = count > 0 ? sy / count : main.height / 2;
-    const dist: [Side, number][] = [
-      ['left', cx],
-      ['right', main.width - cx],
-      ['top', cy],
-      ['bottom', main.height - cy],
-    ];
-    // Left/right sides are preferred on ties: side stubs keep text horizontal.
-    const side = dist.reduce((a, b) => (b[1] < a[1] - 1e-6 ? b : a))[0];
-    // Slide to the row/column of the connected node nearest this side, so the
-    // straight run into it is short and ends at the node's own centre line.
-    const vertical = side === 'left' || side === 'right';
-    const depth = (c: Point): number =>
-      side === 'left' ? c.x : side === 'right' ? main.width - c.x : side === 'top' ? c.y : main.height - c.y;
-    const anchor = targets.reduce((a, c) => (depth(c) < depth(a) ? c : a), targets[0] ?? { x: cx, y: cy });
-    const along = orbit.anchor === 'nearest' ? anchor : { x: cx, y: cy };
-    const alongValue = vertical ? along.y : along.x;
-    const list = bySide.get(side) ?? [];
-    list.push({ key, along: alongValue });
-    bySide.set(side, list);
+    const count = targets.length;
+    stubs.push({
+      key,
+      centroid: { x: count > 0 ? sx / count : main.width / 2, y: count > 0 ? sy / count : main.height / 2 },
+      targets,
+    });
   }
+
+  // All stubs form one rail along a single side of the frame. The side is the
+  // one that is nearest to the stubs' targets overall; a side too short to hold
+  // the whole rail only wins when the others are even shorter.
+  const sides: Side[] = ['right', 'left', 'top', 'bottom'];
+  const depthOf = (side: Side, c: Point): number =>
+    side === 'left' ? c.x : side === 'right' ? main.width - c.x : side === 'top' ? c.y : main.height - c.y;
+  const railLength = (side: Side): number => {
+    const vertical = side === 'left' || side === 'right';
+    return stubs.reduce((sum, { key }) => sum + (vertical ? blocks.get(key)!.height : blocks.get(key)!.width) + RAIL_MIN_GAP, 0);
+  };
+  const sideCost = (side: Side): number => {
+    const extent = side === 'left' || side === 'right' ? main.height : main.width;
+    const overflow = Math.max(0, railLength(side) - extent);
+    return stubs.reduce((sum, s) => sum + depthOf(side, s.centroid), 0) / Math.max(1, stubs.length) + overflow * RAIL_OVERFLOW_WEIGHT;
+  };
+  // Left/right sides are preferred on ties: side stubs keep text horizontal.
+  const side: Side = stubs.length === 0 ? 'right' : sides.reduce((a, b) => (sideCost(b) < sideCost(a) - 1e-6 ? b : a));
 
   const positions = new Map(main.positions);
   let minX = 0;
   let minY = 0;
   let maxX = main.width;
   let maxY = main.height;
-  for (const [side, list] of bySide) {
-    list.sort((a, b) => a.along - b.along || a.key.localeCompare(b.key));
+  if (stubs.length > 0) {
     const vertical = side === 'left' || side === 'right';
     const extent = vertical ? main.height : main.width;
     const lenOf = (key: string): number => (vertical ? blocks.get(key)!.height : blocks.get(key)!.width);
     const thickOf = (key: string): number => (vertical ? blocks.get(key)!.width : blocks.get(key)!.height);
-    // A side that would outgrow the frame extent wraps into outward lanes; stubs
-    // interleave over the lanes so each lane still spans the whole side.
-    const totalLen = list.reduce((sum, { key }) => sum + lenOf(key) + orbit.spacing, 0);
-    const laneCount = Math.max(1, Math.ceil(totalLen / Math.max(extent, 1)));
-    let offset = orbit.gap - CANVAS_MARGIN;
-    for (let lane = 0; lane < laneCount; lane++) {
-      const members = list.filter((_, i) => i % laneCount === lane);
-      const thick = Math.max(0, ...members.map(({ key }) => thickOf(key)));
-      let cursor = -Infinity;
-      for (const { key, along } of members) {
-        const b = blocks.get(key)!;
-        const start = Math.max(along - lenOf(key) / 2, cursor);
-        cursor = start + lenOf(key) + orbit.spacing;
-        let x: number;
-        let y: number;
-        if (vertical) {
-          y = start;
-          x = side === 'left' ? CANVAS_MARGIN - offset - thick + (thick - b.width) : main.width - CANVAS_MARGIN + offset;
-        } else {
-          x = start;
-          y = side === 'top' ? CANVAS_MARGIN - offset - thick + (thick - b.height) : main.height - CANVAS_MARGIN + offset;
-        }
-        positions.set(key, { x, y });
-        minX = Math.min(minX, x - CANVAS_MARGIN);
-        minY = Math.min(minY, y - CANVAS_MARGIN);
-        maxX = Math.max(maxX, x + b.width + CANVAS_MARGIN);
-        maxY = Math.max(maxY, y + b.height + CANVAS_MARGIN);
+    const alongOf = (s: Stub): number => {
+      const anchor =
+        orbit.anchor === 'nearest'
+          ? s.targets.reduce((a, c) => (depthOf(side, c) < depthOf(side, a) ? c : a), s.targets[0] ?? s.centroid)
+          : s.centroid;
+      return vertical ? anchor.y : anchor.x;
+    };
+    // Ordered by where their targets lie along the side, then spaced evenly.
+    const ordered = stubs
+      .map((s) => ({ s, along: alongOf(s) }))
+      .sort((a, b) => a.along - b.along || a.s.key.localeCompare(b.s.key));
+    const lengths = ordered.reduce((sum, { s }) => sum + lenOf(s.key), 0);
+    const slack = ordered.length > 1 ? (extent - lengths) / (ordered.length - 1) : 0;
+    const gap = Math.max(RAIL_MIN_GAP, Math.min(orbit.spacing, slack));
+    const total = lengths + gap * (ordered.length - 1);
+    const meanAlong = ordered.reduce((sum, o) => sum + o.along, 0) / ordered.length;
+    const start = Math.max(0, Math.min(meanAlong - total / 2, extent - total));
+    let cursor = start;
+    const thick = Math.max(...ordered.map(({ s }) => thickOf(s.key)));
+    const offset = orbit.gap - CANVAS_MARGIN;
+    for (const { s } of ordered) {
+      const b = blocks.get(s.key)!;
+      let x: number;
+      let y: number;
+      if (vertical) {
+        y = cursor;
+        x = side === 'left' ? CANVAS_MARGIN - offset - thick + (thick - b.width) : main.width - CANVAS_MARGIN + offset;
+      } else {
+        x = cursor;
+        y = side === 'top' ? CANVAS_MARGIN - offset - thick + (thick - b.height) : main.height - CANVAS_MARGIN + offset;
       }
-      offset += thick + orbit.gap / 2;
+      cursor += lenOf(s.key) + gap;
+      positions.set(s.key, { x, y });
+      minX = Math.min(minX, x - CANVAS_MARGIN);
+      minY = Math.min(minY, y - CANVAS_MARGIN);
+      maxX = Math.max(maxX, x + b.width + CANVAS_MARGIN);
+      maxY = Math.max(maxY, y + b.height + CANVAS_MARGIN);
     }
   }
   for (const [key, at] of positions) positions.set(key, { x: at.x - minX, y: at.y - minY });

@@ -345,6 +345,8 @@ describe('computeLayoutMetrics', () => {
       hubArrowStack: 0,
       maxEmptyBlockRatio: 0,
       edgeFlushCount: 0,
+      parallelBundleCount: 0,
+      edgeFrameCrossings: 0,
     });
   });
 
@@ -551,5 +553,126 @@ describe('computeLayoutMetrics', () => {
       height: 50,
     };
     expect(computeLayoutMetrics(collide, collideLayout).labelLabelOverlap).toBe(1);
+  });
+});
+
+describe('computeLayoutMetrics: parallelBundleCount', () => {
+  const emptyModel: PlantUmlModel = { diagramType: 'class', entities: [], relations: [], packages: [] };
+  /** `count` edges leaving one source, each a 300px horizontal run `spacing`px below the previous. */
+  const comb = (count: number, spacing: number, source = (i: number) => 'S'): LayoutResult => ({
+    nodes: [],
+    edges: Array.from({ length: count }, (_, i) => ({
+      id: `rel-${i}`,
+      source: source(i),
+      target: `T${i}`,
+      points: [
+        { x: 0, y: i * spacing },
+        { x: 300, y: i * spacing },
+      ],
+    })),
+    width: 400,
+    height: Math.max(50, count * spacing),
+  });
+
+  it('counts a comb of 12 parallel lines from one source as one bundle', () => {
+    expect(computeLayoutMetrics(emptyModel, comb(12, 8)).parallelBundleCount).toBe(1);
+    expect(computeLayoutMetrics(emptyModel, comb(5, 16)).parallelBundleCount).toBe(1);
+  });
+
+  it('counts combs that share a target as well', () => {
+    const layout = comb(8, 10);
+    layout.edges.forEach((e, i) => {
+      e.source = `S${i}`;
+      e.target = 'T';
+    });
+    expect(computeLayoutMetrics(emptyModel, layout).parallelBundleCount).toBe(1);
+  });
+
+  it('ignores groups below five edges, lines further than 16px apart and unrelated edges', () => {
+    expect(computeLayoutMetrics(emptyModel, comb(4, 8)).parallelBundleCount).toBe(0);
+    expect(computeLayoutMetrics(emptyModel, comb(12, 20)).parallelBundleCount).toBe(0);
+    expect(computeLayoutMetrics(emptyModel, comb(12, 8, (i) => `S${i}`)).parallelBundleCount).toBe(0);
+  });
+
+  it('ignores runs shorter than 120px', () => {
+    const layout = comb(12, 8);
+    for (const e of layout.edges) e.points[1].x = 100;
+    expect(computeLayoutMetrics(emptyModel, layout).parallelBundleCount).toBe(0);
+  });
+
+  it('does not count a merged trunk (edges drawn exactly on top of each other)', () => {
+    expect(computeLayoutMetrics(emptyModel, comb(12, 0)).parallelBundleCount).toBe(0);
+  });
+
+  it('does not count a trunk-and-branch tree as overlapping clutter either', () => {
+    const layout = comb(6, 0);
+    expect(computeLayoutMetrics(emptyModel, layout).overlappingEdgeLength).toBe(0);
+  });
+});
+
+describe('computeLayoutMetrics: edgeFrameCrossings', () => {
+  const model: PlantUmlModel = {
+    diagramType: 'class',
+    entities: [entity('a', 'a', 'A'), entity('b', 'b', 'B'), entity('c', 'c', 'C'), entity('q', 'q', 'Q')],
+    relations: [],
+    packages: [
+      { id: 'A', name: 'A' },
+      { id: 'B', name: 'B' },
+      { id: 'C', name: 'C' },
+      { id: 'P', name: 'P' },
+      { id: 'Q', name: 'Q', parentId: 'P' },
+    ],
+  };
+  const frame = (id: string, x: number, y: number, width: number, height: number) => ({ id, x, y, width, height });
+  const layoutWith = (points: { x: number; y: number }[], source = 'a', target = 'c'): LayoutResult => ({
+    nodes: [
+      { id: 'a', x: 60, y: 120, width: 80, height: 40 },
+      { id: 'b', x: 360, y: 120, width: 80, height: 40 },
+      { id: 'c', x: 660, y: 120, width: 80, height: 40 },
+      { id: 'q', x: 960, y: 140, width: 40, height: 20 },
+    ],
+    edges: [{ id: 'rel-0', source, target, points }],
+    packages: [
+      frame('A', 40, 100, 120, 100),
+      frame('B', 340, 100, 120, 100),
+      frame('C', 640, 100, 120, 100),
+      frame('P', 900, 100, 160, 160),
+      frame('Q', 940, 120, 100, 100),
+    ],
+    width: 1100,
+    height: 300,
+  });
+
+  it('counts an edge cut straight through an unrelated package frame', () => {
+    const across = [
+      { x: 140, y: 140 },
+      { x: 660, y: 140 },
+    ];
+    expect(computeLayoutMetrics(model, layoutWith(across)).edgeFrameCrossings).toBe(1);
+  });
+
+  it('does not count an edge that runs in the gutters around the frame', () => {
+    const around = [
+      { x: 100, y: 120 },
+      { x: 100, y: 60 },
+      { x: 700, y: 60 },
+      { x: 700, y: 120 },
+    ];
+    expect(computeLayoutMetrics(model, layoutWith(around)).edgeFrameCrossings).toBe(0);
+  });
+
+  it("does not count the frames of the edge's own endpoints or their ancestors", () => {
+    const into = [
+      { x: 140, y: 140 },
+      { x: 960, y: 140 },
+    ];
+    // a → q: A (a's own frame) and P/Q (q's frame and its parent) are related; B and C sit between.
+    const m = computeLayoutMetrics(model, layoutWith(into, 'a', 'q'));
+    expect(m.edgeFrameCrossings).toBe(2);
+    const own = [
+      { x: 100, y: 120 },
+      { x: 100, y: 180 },
+    ];
+    expect(computeLayoutMetrics(model, layoutWith(own, 'a', 'a')).edgeFrameCrossings).toBe(0);
   });
 });

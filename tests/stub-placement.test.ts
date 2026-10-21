@@ -37,12 +37,14 @@ describe('single-package view stubs', () => {
       return sum / count;
     };
     const actual = meanDistance(centre);
-    // Same stubs, all stacked in the canvas's right-most column (the old layout).
+    // Same stubs, all stacked in the canvas's right-most column: the stubs form one
+    // rail along the nearest side of the frame (see stub-rail.test.ts), so they are
+    // never farther from their targets than that column.
     const rightColumn = meanDistance((id) => ({ x: layout.width - 40, y: centre(id).y }));
-    expect(actual).toBeLessThan(rightColumn * 0.6);
+    expect(actual).toBeLessThanOrEqual(rightColumn);
 
     const m = computeLayoutMetrics(model, layout);
-    expect(m.edgeCrossings).toBeLessThanOrEqual(80);
+    expect(m.edgeCrossings).toBeLessThanOrEqual(40);
     expect(m.overlappingEdgeLength).toBeLessThanOrEqual(300);
   }, 60_000);
 });

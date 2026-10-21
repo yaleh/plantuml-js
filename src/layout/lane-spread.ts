@@ -40,11 +40,12 @@ interface Seg {
 export function spreadParallelLanes(layout: LayoutResult): LayoutResult {
   const polylines = layout.edges.map((e) => dropRepeats(e.points));
   const owners = layout.edges.map((e) => new Set([e.source, e.target]));
+  const ends = layout.edges.map((e): [string, string] => [e.source, e.target]);
   let changed = layout.edges.some((e, i) => e.points.length !== polylines[i].length);
   for (let pass = 0; pass < PASSES; pass++) {
     let moved = false;
     for (const horizontal of [true, false]) {
-      const segs = collectSegments(polylines, horizontal);
+      const segs = withoutMergedTrunks(collectSegments(polylines, horizontal), ends);
       for (const cluster of clusterSegments(segs)) {
         if (spreadCluster(cluster, polylines, owners, layout, horizontal)) moved = true;
       }
@@ -93,6 +94,29 @@ function collectSegments(polylines: Point[][], horizontal: boolean): Seg[] {
     }
   });
   return segs;
+}
+
+/**
+ * Drops segments lying exactly on a segment of another edge with the same source
+ * (or target): that overlap is a deliberately shared trunk, not a clash to fan out.
+ */
+function withoutMergedTrunks(segs: Seg[], ends: [string, string][]): Seg[] {
+  const merged = new Set<Seg>();
+  const order = segs.slice().sort((a, b) => a.c - b.c);
+  for (let x = 0; x < order.length; x++) {
+    for (let y = x + 1; y < order.length && order[y].c - order[x].c < 0.5; y++) {
+      const s = order[x];
+      const t = order[y];
+      if (s.edge === t.edge || Math.min(s.hi, t.hi) - Math.max(s.lo, t.lo) <= 1) continue;
+      const [sa, sb] = ends[s.edge];
+      const [ta, tb] = ends[t.edge];
+      if (sa === ta || sb === tb) {
+        merged.add(s);
+        merged.add(t);
+      }
+    }
+  }
+  return merged.size === 0 ? segs : segs.filter((s) => !merged.has(s));
 }
 
 /** Groups of segments (from at least two edges) that overlap within [[CLUSTER_DISTANCE]]. */

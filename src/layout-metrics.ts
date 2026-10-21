@@ -81,6 +81,21 @@ export interface LayoutMetrics {
    * do not end at — the edge then reads as part of the box outline.
    */
   edgeFlushCount: number;
+  /**
+   * "Combs": groups of at least [[BUNDLE_MIN_EDGES]] edges that share a source
+   * (or a target), run the same way, and have segments laid side by side
+   * within [[BUNDLE_LATERAL_DISTANCE]] px for at least [[BUNDLE_MIN_RUN]] px.
+   * Edges drawn exactly on top of each other (a merged trunk) are one line and
+   * do not form a comb. [[overlappingEdgeLength]] cannot see these: the lines
+   * sit just outside its proximity.
+   */
+  parallelBundleCount: number;
+  /**
+   * Edges that pass through the interior of a package frame neither endpoint
+   * belongs to (counted once per edge and frame) — a corridor should run in the
+   * gutters between frames, not across unrelated packages.
+   */
+  edgeFrameCrossings: number;
 }
 
 /** Package label tab geometry, kept in step with [[../render/svg]]. */
@@ -107,7 +122,10 @@ export function computeLayoutMetrics(
     aspectRatio: layout.height > 0 ? layout.width / layout.height : 0,
     textOverflowCount: countTextOverflow(model, layout),
     labelOverlapCount: countLabelOverlap(model, layout),
-    overlappingEdgeLength: countOverlappingEdgeLength(edges.map((e) => e.points)),
+    overlappingEdgeLength: countOverlappingEdgeLength(
+      edges.map((e) => e.points),
+      edges.map((e): [string, string] => [e.source, e.target]),
+    ),
     badgeLabelOverlap: countBadgeLabelOverlap(model, layout),
     edgeLabelOverlap: countEdgeLabelOverlap(model, layout),
     labelNodeOverlap: countLabelNodeOverlap(model, layout),
@@ -116,6 +134,8 @@ export function computeLayoutMetrics(
     hubArrowStack: countHubArrowStack(edges),
     maxEmptyBlockRatio: computeMaxEmptyBlockRatio(layout),
     edgeFlushCount: countEdgeFlush(edges, layout),
+    parallelBundleCount: countParallelBundles(edges),
+    edgeFrameCrossings: countEdgeFrameCrossings(model, edges, layout),
   };
 }
 
@@ -142,6 +162,11 @@ function segmentsCross(a: Point, b: Point, c: Point, d: Point): boolean {
 }
 
 function countEdgeCrossings(polylines: Point[][]): number {
+  return perEdgeCrossings(polylines).reduce((sum, n) => sum + n, 0) / 2;
+}
+
+/** For each polyline, the number of crossings it takes part in (each crossing counts for both edges). */
+export function perEdgeCrossings(polylines: Point[][]): number[] {
   interface Seg {
     a: Point;
     b: Point;
@@ -169,7 +194,7 @@ function countEdgeCrossings(polylines: Point[][]): number {
   });
   segs.sort((p, q) => p.minX - q.minX);
 
-  let count = 0;
+  const counts = polylines.map(() => 0);
   for (let i = 0; i < segs.length; i++) {
     const s = segs[i];
     for (let j = i + 1; j < segs.length; j++) {
@@ -177,10 +202,13 @@ function countEdgeCrossings(polylines: Point[][]): number {
       if (t.minX > s.maxX) break;
       if (t.edge === s.edge) continue;
       if (t.maxY < s.minY || t.minY > s.maxY) continue;
-      if (segmentsCross(s.a, s.b, t.a, t.b)) count++;
+      if (segmentsCross(s.a, s.b, t.a, t.b)) {
+        counts[s.edge]++;
+        counts[t.edge]++;
+      }
     }
   }
-  return count;
+  return counts;
 }
 
 function countTextOverflow(model: PlantUmlModel, layout: LayoutResult): number {
@@ -257,7 +285,7 @@ export const PARALLEL_PROXIMITY = 8;
  * of each other and share a stretch of their projection read as one "wall" of
  * lines. Each (segment, segment) pair is counted once, in canvas pixels.
  */
-function countOverlappingEdgeLength(polylines: Point[][]): number {
+function countOverlappingEdgeLength(polylines: Point[][], ends: [string, string][]): number {
   interface Seg {
     a: Point;
     b: Point;
@@ -274,10 +302,26 @@ function countOverlappingEdgeLength(polylines: Point[][]): number {
   for (let i = 0; i < segs.length; i++) {
     for (let j = i + 1; j < segs.length; j++) {
       if (segs[i].edge === segs[j].edge) continue;
-      total += nearParallelOverlapLength(segs[i].a, segs[i].b, segs[j].a, segs[j].b);
+      const length = nearParallelOverlapLength(segs[i].a, segs[i].b, segs[j].a, segs[j].b);
+      if (length > 0 && sharesEnd(ends[segs[i].edge], ends[segs[j].edge]) && isCoincident(segs[i], segs[j])) continue;
+      total += length;
     }
   }
   return total;
+}
+
+/** Two edges leave the same source or arrive at the same target. */
+function sharesEnd(a: [string, string], b: [string, string]): boolean {
+  return a[0] === b[0] || a[1] === b[1];
+}
+
+/** Segments lying on one line: a merged fan-out trunk draws them once, so they are not clutter. */
+function isCoincident(s: { a: Point; b: Point }, t: { a: Point; b: Point }): boolean {
+  const onLine = (p: Point, a: Point, b: Point): boolean => {
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    return len > 1e-9 && Math.abs((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)) / len < COINCIDENT_DISTANCE;
+  };
+  return onLine(t.a, s.a, s.b) && onLine(t.b, s.a, s.b);
 }
 
 /** Shared projected length of two near-parallel segments, else 0 (canvas pixels). */
@@ -487,4 +531,155 @@ function segmentFlushRect(a: Point, b: Point, vertical: boolean, r: Rect): boole
     Math.abs(a.y - r.y) < EDGE_FLUSH_DISTANCE ||
     Math.abs(a.y - (r.y + r.height)) < EDGE_FLUSH_DISTANCE
   );
+}
+
+/** Edges per comb needed to count it. */
+export const BUNDLE_MIN_EDGES = 5;
+/** Lateral distance (px) within which two same-way segments sit "side by side". */
+export const BUNDLE_LATERAL_DISTANCE = 16;
+/** Shared run (px) two side-by-side segments need to count. */
+export const BUNDLE_MIN_RUN = 120;
+/** Segments closer than this are one drawn line (an intentionally merged trunk). */
+const COINCIDENT_DISTANCE = 0.5;
+
+/** One comb: the shared end node and the ids of the edges laid side by side. */
+export interface ParallelBundle {
+  end: 'source' | 'target';
+  node: string;
+  edges: string[];
+}
+
+/** Lists source-sharing and target-sharing combs; see [[LayoutMetrics.parallelBundleCount]]. */
+export function findParallelBundles(edges: EdgeLayout[]): ParallelBundle[] {
+  const found: ParallelBundle[] = [];
+  for (const end of ['source', 'target'] as const) {
+    const byEnd = new Map<string, number[]>();
+    edges.forEach((e, i) => {
+      if (e.points.length < 2) return;
+      const list = byEnd.get(e[end]);
+      if (list) list.push(i);
+      else byEnd.set(e[end], [i]);
+    });
+    for (const [node, members] of byEnd) {
+      if (members.length < BUNDLE_MIN_EDGES) continue;
+      for (const comb of combsAmong(members.map((i) => edges[i].points))) {
+        if (comb.length >= BUNDLE_MIN_EDGES) found.push({ end, node, edges: comb.map((k) => edges[members[k]].id) });
+      }
+    }
+  }
+  return found;
+}
+
+function countParallelBundles(edges: EdgeLayout[]): number {
+  return findParallelBundles(edges).length;
+}
+
+/** Components of polylines (as index lists) linked by side-by-side same-way segments. */
+function combsAmong(polylines: Point[][]): number[][] {
+  interface Seg {
+    edge: number;
+    horizontal: boolean;
+    sign: number;
+    c: number;
+    lo: number;
+    hi: number;
+  }
+  const segs: Seg[] = [];
+  polylines.forEach((pts, edge) => {
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      const horizontal = Math.abs(a.y - b.y) < 1e-6;
+      const vertical = Math.abs(a.x - b.x) < 1e-6;
+      if (horizontal === vertical) continue;
+      const [from, to] = horizontal ? [a.x, b.x] : [a.y, b.y];
+      if (Math.abs(to - from) < BUNDLE_MIN_RUN) continue;
+      segs.push({
+        edge,
+        horizontal,
+        sign: Math.sign(to - from),
+        c: horizontal ? a.y : a.x,
+        lo: Math.min(from, to),
+        hi: Math.max(from, to),
+      });
+    }
+  });
+  const parent = polylines.map((_, i) => i);
+  const find = (i: number): number => {
+    while (parent[i] !== i) i = parent[i] = parent[parent[i]];
+    return i;
+  };
+  for (let i = 0; i < segs.length; i++) {
+    for (let j = i + 1; j < segs.length; j++) {
+      const s = segs[i];
+      const t = segs[j];
+      if (s.edge === t.edge || s.horizontal !== t.horizontal || s.sign !== t.sign) continue;
+      const lateral = Math.abs(s.c - t.c);
+      if (lateral < COINCIDENT_DISTANCE || lateral > BUNDLE_LATERAL_DISTANCE) continue;
+      if (Math.min(s.hi, t.hi) - Math.max(s.lo, t.lo) < BUNDLE_MIN_RUN) continue;
+      parent[find(s.edge)] = find(t.edge);
+    }
+  }
+  const comps = new Map<number, number[]>();
+  polylines.forEach((_, i) => {
+    const root = find(i);
+    const list = comps.get(root);
+    if (list) list.push(i);
+    else comps.set(root, [i]);
+  });
+  return [...comps.values()];
+}
+
+/** Depth (px) a segment must run inside a frame to count as crossing it. */
+const FRAME_CROSSING_MIN_RUN = 4;
+
+/** Ids of the packages an endpoint lives in (itself too, when it is a package). */
+function packageChain(
+  id: string,
+  entityPackage: Map<string, string | undefined>,
+  parentOf: Map<string, string | undefined>,
+): Set<string> {
+  const chain = new Set<string>();
+  let cur: string | undefined = parentOf.has(id) ? id : entityPackage.get(id);
+  while (cur !== undefined && !chain.has(cur)) {
+    chain.add(cur);
+    cur = parentOf.get(cur);
+  }
+  return chain;
+}
+
+function countEdgeFrameCrossings(model: PlantUmlModel, edges: EdgeLayout[], layout: LayoutResult): number {
+  const frames = layout.packages ?? [];
+  if (frames.length === 0) return 0;
+  const entityPackage = new Map(model.entities.map((e) => [e.id, e.packageId]));
+  const parentOf = new Map(model.packages.map((p) => [p.id, p.parentId]));
+  let count = 0;
+  for (const edge of edges) {
+    if (edge.points.length < 2) continue;
+    const related = new Set([
+      ...packageChain(edge.source, entityPackage, parentOf),
+      ...packageChain(edge.target, entityPackage, parentOf),
+    ]);
+    for (const frame of frames) {
+      if (related.has(frame.id)) continue;
+      if (polylineRunsInside(edge.points, frame)) count++;
+    }
+  }
+  return count;
+}
+
+/** True when some axis-aligned segment runs ≥ [[FRAME_CROSSING_MIN_RUN]] px strictly inside `r`. */
+function polylineRunsInside(points: Point[], r: Rect): boolean {
+  for (let i = 0; i + 1 < points.length; i++) {
+    const a = points[i];
+    const b = points[i + 1];
+    if (Math.abs(a.y - b.y) < 1e-6) {
+      if (a.y <= r.y || a.y >= r.y + r.height) continue;
+      if (Math.min(Math.max(a.x, b.x), r.x + r.width) - Math.max(Math.min(a.x, b.x), r.x) >= FRAME_CROSSING_MIN_RUN) return true;
+    } else if (Math.abs(a.x - b.x) < 1e-6) {
+      if (a.x <= r.x || a.x >= r.x + r.width) continue;
+      if (Math.min(Math.max(a.y, b.y), r.y + r.height) - Math.max(Math.min(a.y, b.y), r.y) >= FRAME_CROSSING_MIN_RUN) return true;
+    }
+  }
+  return false;
 }

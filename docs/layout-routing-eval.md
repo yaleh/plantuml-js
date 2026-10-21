@@ -274,3 +274,54 @@ XL silhouette 4, M-tier balance 3.
 
 `render-samples.mjs --manifest --compare`: no regressions; all thresholds satisfied. Metrics
 only — the 1:1 tile / thumbnail visual re-score is not recorded here.
+
+## Round 8 — fan-out trunks, frame gutters, stub rail
+
+- **Fan-out trunks.** `src/layout/fanout-trunk.ts`: edges of one kind that leave (or enter) one node
+  through the same side, five or more, are redrawn as a tree — one trunk out of the node, a common
+  bus level just before the nearest target, short drops into each target (`tests/fanout-trunk.test.ts`:
+  ≥ 70% of the group's drawn length lies on another group edge; `svg.ts` already draws the shared
+  stretch once). Targets that sit behind other nodes keep ELK's route unless the tree is clear of
+  nodes and no worse on crossings, frame crossings and crowding. Combs the tree cannot replace are
+  re-routed on the lattice router with a shared-trunk reward (same source or same target), kept only
+  when that removes the comb without adding more than a few crossings.
+- **Router.** Wires with the same source or target share lanes at 0.4 of a fresh step, so fan-outs grow
+  a trunk while routing. A step through a frame neither endpoint lives in costs +7
+  (`FOREIGN_FRAME_COST`), so corridors take the gutters. Crossings are priced at 12 (40 in a view with
+  stubs) and the intra-block edges already drawn count as obstacles for that price; after the first
+  pass up to three rip-up-and-re-route passes lift the wires that still cross others.
+  A search window around the two nodes keeps each A* local (whole lattice only as a fallback).
+- **Stub rail.** The stubs of a single-package view form one rail along the side of the frame nearest
+  their targets (all flush to one line, equal gaps, ordered by where their targets lie). The engine
+  still compares a handful of orbits, now without the rip-up passes, and routes only the winner in full.
+- **Metrics.** `parallelBundleCount` (≥ 5 edges of one source/target, same way, laid side by side at
+  ≤ 16 px for ≥ 120 px; exactly coincident edges are one line, not a comb) and `edgeFrameCrossings`
+  (edges through the interior of a frame neither end belongs to). `overlappingEdgeLength` no longer
+  counts edges of one source/target drawn exactly on top of each other (a merged trunk).
+- **Tests Layer.** `m-package`'s Tests Layer already packs as a 576×496 grid, top-aligned with the other
+  small layers (asserted in `tests/small-layers.test.ts`); no layout change was needed.
+
+| elk sample | edgeCrossings r7 → r8 | parallelBundleCount | edgeFrameCrossings | overlappingEdgeLength | totalEdgeLength |
+| --- | --- | --- | --- | --- | --- |
+| `m-architecture` | 61 → 58 | 2 → 1 | 0 → 0 | 0 → 0 | 74227 → 72293 |
+| `m-package` | 466 → 255 | 1 → 1 | 3 → 0 | 8336 → 4779 | 58014 → 58610 |
+| `m-mermaid-view` | 36 → 38 | 1 → 1 | 0 → 0 | 496 → 4277 | 45667 → 50780 |
+| `m-types-view` | 70 → 29 | 1 → 0 | 0 → 0 | 18 → 0 | 39193 → 49286 |
+| `l-plugins` | 213 → 132 | 3 → 0 | 12 → 0 | 1302 → 3332 | 94170 → 94443 |
+| `xl-all-classes` | 975 → 621 | 0 → 0 | 84 → 2 | 2282 → 7854 | 252739 → 282289 |
+
+`render-samples.mjs --manifest --compare`: no regressions; all thresholds (now including
+`parallelBundleCount` ≤ 1 everywhere, `edgeFrameCrossings` ≤ 2 / ≤ 16 for L / XL and
+`m-types-view` `edgeCrossings` ≤ 40) satisfied; `rendered/metrics.baseline.json` refreshed.
+
+Costs, stated plainly: wires are longer (XL +12% total length, `m-types-view` +26%) because crossings
+and foreign frames are now priced; `m-mermaid-view` and `xl-all-classes` have more near-parallel
+overlap than in round 7 (still far under the XL threshold); and layout is slower — all-classes
+package views take about 3× as long as before (XL ≈ 6 s instead of ≈ 2 s), so `vitest.config.ts` now
+sets a 60 s test timeout.
+
+Looked at the re-rendered `l-plugins`, `m-package`, `m-types-view` and `xl-all-classes` (thumbnails
+and 1:1 crops): the Java and Python fan-outs are trees (a shared trunk and bus with short drops,
+though the Python frame still shows two sources fanning to the same targets side by side),
+corridors run in the gutters, the stubs sit on an even rail along the frame's right side. Self-score
+(1–5, not a reviewer score): fan-out readability 4, corridors 4, stub rail 4, runtime 2.
