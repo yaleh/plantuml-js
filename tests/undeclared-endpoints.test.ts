@@ -7,7 +7,7 @@ import {
   transformFullGraph,
   ElkLayoutEngine,
 } from '../src/index.js';
-import { computeLayoutMetrics } from '../src/layout-metrics.js';
+import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
 
 const fixture = (name: string) =>
   readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');

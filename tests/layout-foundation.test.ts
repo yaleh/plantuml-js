@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { ElkLayoutEngine } from '../src/layout/elk.js';
 import { VizLayoutEngine } from '../src/layout/viz.js';
-import { computeLayoutMetrics } from '../src/layout-metrics.js';
+import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
 import { estimateEntitySize } from '../src/foundation/layout.js';
 import { parsePlantUml } from '../src/parser.js';
 

@@ -423,8 +423,8 @@ function classifyLine(
 
 export { parsePlantUml, ElkLayoutEngine, renderSvg };
 export type { RenderSvgOptions };
-export { computeLayoutMetrics } from './layout-metrics.js';
-export type { LayoutMetrics } from './layout-metrics.js';
+export { computeLayoutMetrics } from './layout/layout-metrics.js';
+export type { LayoutMetrics } from './layout/layout-metrics.js';
 export {
   applyView,
   transformModel,

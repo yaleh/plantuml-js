@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ElkLayoutEngine } from '../src/elk.js';
 import { parsePlantUml, renderDetailed } from '../src/core.js';
-import { computeLayoutMetrics } from '../src/layout-metrics.js';
+import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
 
 const fixture = readFileSync(new URL('./fixtures/all-classes.puml', import.meta.url), 'utf8');
 

@@ -9,17 +9,17 @@
  * against a later run to prove an improvement or a regression.
  */
 
-import { PlantUmlModel } from './foundation/model.js';
-import { LayoutResult, EdgeLayout, METRICS, PACKAGE_LABEL, Point, displayName } from './foundation/layout.js';
-import { countEdgeBoxIntersections, countNonOrthogonalSegments, nodeRect, Rect } from './foundation/edge-router.js';
-import { measureTextWidth } from './foundation/text-measure.js';
+import { PlantUmlModel } from '../foundation/model.js';
+import { LayoutResult, EdgeLayout, METRICS, PACKAGE_LABEL, Point, displayName } from '../foundation/layout.js';
+import { countEdgeBoxIntersections, countNonOrthogonalSegments, nodeRect, Rect } from '../foundation/edge-router.js';
+import { measureTextWidth } from '../foundation/text-measure.js';
 import {
   entityTextRects,
   hubBadgeRect,
   placeEdgeLabels,
   rectHitsOtherEdge,
   rectsIntersect,
-} from './render/labels.js';
+} from '../render/labels.js';
 
 export interface LayoutMetrics {
   /** Proper crossings between segments of two different edges. */

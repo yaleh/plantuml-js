@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { renderSvg } from '../src/render/svg.js';
-import { computeLayoutMetrics } from '../src/layout-metrics.js';
+import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
 import { ElkLayoutEngine } from '../src/layout/elk.js';
 import { entityTextRects, hubBadgeRect, rectsIntersect } from '../src/render/labels.js';
 import { LayoutResult } from '../src/foundation/layout.js';

@@ -11,7 +11,7 @@ import {
   ElkLayoutEngine,
   renderSvg,
 } from '../src/index.js';
-import { computeLayoutMetrics } from '../src/layout-metrics.js';
+import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
 import { placeEdgeLabels, rectsIntersect } from '../src/render/labels.js';
 
 const testDir = dirname(fileURLToPath(import.meta.url));

@@ -44,8 +44,8 @@ import type {
 import { PlantUmlModel } from '../foundation/model.js';
 import { LayoutEngine, LayoutResult, alignRows, alignIsolatedFrames } from '../foundation/layout.js';
 import { compoundLayout, type StubOrbit } from './compound.js';
-import { computeLayoutMetrics, computeMaxEmptyBlockRatio } from '../layout-metrics.js';
-import { resolveLayerOrder, assignPartitions } from './layers.js';
+import { computeLayoutMetrics, computeMaxEmptyBlockRatio } from './layout-metrics.js';
+import { resolveLayerOrder, assignPartitions } from '../foundation/layers.js';
 import { buildElkGraph } from './elk-graph.js';
 import { clipPackageEndpoints } from './package-endpoints.js';
 import { mapElkResult } from './elk-result.js';

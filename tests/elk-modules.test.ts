@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { ElkExtendedEdge } from 'elkjs';
 import { emptyModel, PlantUmlEntity, PlantUmlModel } from '../src/foundation/model.js';
 import type { NodeLayout, Point } from '../src/foundation/layout.js';
-import { topologicalLayerOrder } from '../src/layout/layers.js';
+import { topologicalLayerOrder } from '../src/foundation/layers.js';
 import { buildChildren } from '../src/layout/elk-graph.js';
 import { edgePoints } from '../src/layout/elk-result.js';
 

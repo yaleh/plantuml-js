@@ -4,7 +4,7 @@
  * Pure functions over the model; no ELK types involved.
  */
 
-import { PlantUmlModel, PlantUmlPackage } from '../foundation/model.js';
+import { PlantUmlModel, PlantUmlPackage } from './model.js';
 
 /** Name convention: `"X Layer"` declares a semantic layer `X`. */
 const LAYER_SUFFIX = /^(.*)\s+Layer$/i;

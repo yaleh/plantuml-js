@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { routeOrthogonal } from '../src/layout/grid-router.js';
-import { computeLayoutMetrics } from '../src/layout-metrics.js';
+import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
 import type { LayoutResult, NodeLayout } from '../src/foundation/layout.js';
 import type { PlantUmlModel } from '../src/foundation/model.js';
 

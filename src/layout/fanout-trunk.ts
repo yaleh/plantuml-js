@@ -14,7 +14,7 @@
 
 import { LayoutResult, NodeLayout, Point } from '../foundation/layout.js';
 import { PlantUmlModel } from '../foundation/model.js';
-import { findParallelBundles } from '../layout-metrics.js';
+import { findParallelBundles } from './layout-metrics.js';
 import { routeOrthogonal, RouteRequest } from './grid-router.js';
 
 /** Edges leaving (or entering) one side that make a group worth merging. */

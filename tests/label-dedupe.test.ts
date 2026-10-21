@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parsePlantUml, ElkLayoutEngine, renderSvg } from '../src/index.js';
-import { computeLayoutMetrics } from '../src/layout-metrics.js';
+import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
 
 const targets = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'];
 const puml = `@startuml

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ElkLayoutEngine } from '../src/index.js';
-import { computeLayoutMetrics } from '../src/layout-metrics.js';
+import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
 import type { PlantUmlEntity, PlantUmlModel, PlantUmlPackage, PlantUmlRelation } from '../src/foundation/model.js';
 
 /** 4 top packages × 5 sub-packages × 2 leaf packages × 7 classes = 280 nested classes + cross-package edges. */
