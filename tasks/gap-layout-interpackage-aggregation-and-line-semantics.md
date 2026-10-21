@@ -1,7 +1,7 @@
 ---
 id: gap-layout-interpackage-aggregation-and-line-semantics
 title: 大图包间边聚合成走廊 + 线型语义（强边不再用点线）+ 同层框对齐与孤立框并排
-status: todo
+status: ready
 labels:
   - gap
   - layout
