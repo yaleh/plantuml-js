@@ -4,7 +4,7 @@
  * helpers for edges. Pure functions over the model.
  */
 
-import type { ElkNode } from 'elkjs';
+import type { ElkNode, ElkExtendedEdge } from 'elkjs';
 import { PlantUmlModel, PlantUmlEntity, PlantUmlRelation } from '../model.js';
 import { PACKAGE_LABEL, estimateEntitySize } from '../layout.js';
 import { measureTextWidth } from '../text-measure.js';
@@ -133,4 +133,64 @@ export function buildChildren(model: PlantUmlModel, partitions: Map<string, numb
   }
 
   return top;
+}
+
+export interface ElkGraphOptions {
+  edgeRouting: string;
+  mergeEdges?: boolean;
+}
+
+/** The root ELK graph for one hierarchical run over the whole nested model. */
+export function buildElkGraph(
+  model: PlantUmlModel,
+  layers: string[],
+  partitions: Map<string, number>,
+  options: ElkGraphOptions,
+): ElkNode {
+  const partitionsActive = layers.length > 0;
+  // Memberless one-line boxes (overview / grouped / stub-only graphs) are tiny
+  // next to the default gaps, which leaves the canvas mostly empty.
+  const compact =
+    model.packages.length === 0 && model.entities.every((e) => e.members.length === 0);
+  const children = buildChildren(model, partitions);
+  const edges: ElkExtendedEdge[] = model.relations.map((relation, i) => ({
+    id: `rel-${i}`,
+    sources: [layoutSource(relation)],
+    targets: [layoutTarget(relation)],
+  }));
+
+  const layoutOptions: Record<string, string> = {
+    'elk.algorithm': 'layered',
+    'elk.direction': 'DOWN',
+    'elk.edgeRouting': options.edgeRouting,
+    'elk.spacing.nodeNode': compact ? '12' : '40',
+    'elk.layered.spacing.nodeNodeBetweenLayers': compact ? '24' : '60',
+    // Ports keep a fixed side per edge, so same-direction edges fan out across
+    // one node edge instead of scattering onto every side (or one point).
+    'elk.layered.portConstraints': 'FIXED_SIDE',
+    // Soft targets: pack disconnected components into a balanced rectangle
+    // instead of a long horizontal strip. (hierarchyHandling stays INHERIT
+    // unless cross-package edges exist — see the header comment.)
+    'elk.aspectRatio': '1.6',
+    'elk.separateConnectedComponents': 'true',
+    // INTERACTIVE placement keeps each layer's boxes centred on the widest
+    // partition instead of fanning them out sideways, which is what lets a
+    // topologically-stacked package diagram stay compact (see
+    // docs/layout-routing-eval.md).
+    'elk.layered.nodePlacement.strategy': 'INTERACTIVE',
+  };
+  if (partitionsActive) layoutOptions['elk.partitioning.activate'] = 'true';
+  if (compact) {
+    layoutOptions['elk.layered.nodePlacement.strategy'] = 'NETWORK_SIMPLEX';
+    layoutOptions['elk.layered.spacing.edgeEdgeBetweenLayers'] = '5';
+    layoutOptions['elk.layered.spacing.edgeNodeBetweenLayers'] = '12';
+  }
+  // Every edge that crosses a container boundary (package↔package or
+  // package↔top-level stub) needs INCLUDE_CHILDREN to get a routing section.
+  if (hasContainerCrossingEdge(model)) {
+    layoutOptions['elk.hierarchyHandling'] = 'INCLUDE_CHILDREN';
+  }
+  if (options.mergeEdges) layoutOptions['elk.layered.mergeEdges'] = 'true';
+
+  return { id: 'root', layoutOptions, children, edges };
 }

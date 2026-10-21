@@ -37,31 +37,16 @@
 
 import ELKDefault from 'elkjs';
 import type {
-  ElkNode,
-  ElkExtendedEdge,
   ElkPoint,
   ELK as ElkInstance,
   ELKConstructorArguments,
 } from 'elkjs';
 import { PlantUmlModel } from '../model.js';
-import {
-  LayoutEngine,
-  LayoutResult,
-  NodeLayout,
-  EdgeLayout,
-  PackageLayout,
-  Point,
-} from '../layout.js';
+import { LayoutEngine, LayoutResult } from '../layout.js';
 import { compoundLayout } from './compound.js';
 import { resolveLayerOrder, assignPartitions } from './layers.js';
-import {
-  buildChildren,
-  layoutSource,
-  layoutTarget,
-  hasContainerCrossingEdge,
-  REVERSED_RELATION_TYPES,
-} from './elk-graph.js';
-import { flatten, edgePoints, enforcePackageMinWidth } from './elk-result.js';
+import { buildElkGraph } from './elk-graph.js';
+import { mapElkResult } from './elk-result.js';
 
 // elkjs ships a `typeof import(...)` default-export type under NodeNext; pin the
 // real constructor shape so `new` type-checks and the layout result stays typed.
@@ -154,91 +139,11 @@ export class ElkLayoutEngine implements LayoutEngine {
     layers: string[],
     partitions: Map<string, number>,
   ): Promise<LayoutResult> {
-    const partitionsActive = layers.length > 0;
-    // Memberless one-line boxes (overview / grouped / stub-only graphs) are tiny
-    // next to the default gaps, which leaves the canvas mostly empty.
-    const compact =
-      model.packages.length === 0 && model.entities.every((e) => e.members.length === 0);
-    const children = buildChildren(model, partitions);
-    const edges: ElkExtendedEdge[] = model.relations.map((relation, i) => ({
-      id: `rel-${i}`,
-      sources: [layoutSource(relation)],
-      targets: [layoutTarget(relation)],
-    }));
-
-    const layoutOptions: Record<string, string> = {
-      'elk.algorithm': 'layered',
-      'elk.direction': 'DOWN',
-      'elk.edgeRouting': this.options.edgeRouting ?? 'ORTHOGONAL',
-      'elk.spacing.nodeNode': compact ? '12' : '40',
-      'elk.layered.spacing.nodeNodeBetweenLayers': compact ? '24' : '60',
-      // Ports keep a fixed side per edge, so same-direction edges fan out across
-      // one node edge instead of scattering onto every side (or one point).
-      'elk.layered.portConstraints': 'FIXED_SIDE',
-      // Soft targets: pack disconnected components into a balanced rectangle
-      // instead of a long horizontal strip. (hierarchyHandling stays INHERIT
-      // unless cross-package edges exist — see the header comment.)
-      'elk.aspectRatio': '1.6',
-      'elk.separateConnectedComponents': 'true',
-      // INTERACTIVE placement keeps each layer's boxes centred on the widest
-      // partition instead of fanning them out sideways, which is what lets a
-      // topologically-stacked package diagram stay compact (see
-      // docs/layout-routing-eval.md).
-      'elk.layered.nodePlacement.strategy': 'INTERACTIVE',
-    };
-    if (partitionsActive) layoutOptions['elk.partitioning.activate'] = 'true';
-    if (compact) {
-      layoutOptions['elk.layered.nodePlacement.strategy'] = 'NETWORK_SIMPLEX';
-      layoutOptions['elk.layered.spacing.edgeEdgeBetweenLayers'] = '5';
-      layoutOptions['elk.layered.spacing.edgeNodeBetweenLayers'] = '12';
-    }
-    // Every edge that crosses a container boundary (package↔package or
-    // package↔top-level stub) needs INCLUDE_CHILDREN to get a routing section.
-    if (hasContainerCrossingEdge(model)) {
-      layoutOptions['elk.hierarchyHandling'] = 'INCLUDE_CHILDREN';
-    }
-    if (this.options.mergeEdges) layoutOptions['elk.layered.mergeEdges'] = 'true';
-
-    const graph: ElkNode = {
-      id: 'root',
-      layoutOptions,
-      children,
-      edges,
-    };
-
-    const result = await this.elk.layout(graph);
-
-    const nodes: NodeLayout[] = [];
-    const packages: PackageLayout[] = [];
-    const offsets = new Map<string, Point>([['root', { x: 0, y: 0 }]]);
-    for (const child of result.children ?? []) {
-      flatten(child, 0, 0, nodes, packages, offsets);
-    }
-    enforcePackageMinWidth(model, packages);
-
-    const nodeById = new Map(nodes.map((n) => [n.id, n]));
-    const laidEdges: EdgeLayout[] = (result.edges ?? []).map((edge, i) => {
-      const relation = model.relations[i];
-      const reversed = relation !== undefined && REVERSED_RELATION_TYPES.has(relation.type);
-      const points = edgePoints(edge, nodeById, offsets);
-      return {
-        id: edge.id ?? `rel-${i}`,
-        // Keep the model's direction (not the possibly-reversed layout
-        // direction) so the renderer's arrowheads and the overlap counter both
-        // see the endpoints the author wrote.
-        source: relation?.source ?? (edge.sources?.[0] ?? ''),
-        target: relation?.target ?? (edge.targets?.[0] ?? ''),
-        points: reversed ? points.slice().reverse() : points,
-      };
+    const graph = buildElkGraph(model, layers, partitions, {
+      edgeRouting: this.options.edgeRouting ?? 'ORTHOGONAL',
+      mergeEdges: this.options.mergeEdges,
     });
-
-    return {
-      nodes,
-      edges: laidEdges,
-      packages,
-      width: result.width ?? 0,
-      height: result.height ?? 0,
-    };
+    return mapElkResult(model, await this.elk.layout(graph));
   }
 }
 

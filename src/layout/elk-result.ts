@@ -5,8 +5,13 @@
 
 import type { ElkNode, ElkExtendedEdge, ElkEdgeSection } from 'elkjs';
 import { PlantUmlModel } from '../model.js';
-import { NodeLayout, PackageLayout, Point } from '../layout.js';
-import { PACKAGE_PREFIX, ISOLATED_PREFIX, packageMinWidth } from './elk-graph.js';
+import { LayoutResult, NodeLayout, EdgeLayout, PackageLayout, Point } from '../layout.js';
+import {
+  PACKAGE_PREFIX,
+  ISOLATED_PREFIX,
+  REVERSED_RELATION_TYPES,
+  packageMinWidth,
+} from './elk-graph.js';
 
 /**
  * INCLUDE_CHILDREN sizes a container from its content and does not honour the
@@ -105,4 +110,39 @@ function straightEdge(edge: ElkExtendedEdge, nodeById: Map<string, NodeLayout>):
     { x: source.x + source.width / 2, y: source.y + source.height / 2 },
     { x: target.x + target.width / 2, y: target.y + target.height / 2 },
   ];
+}
+
+/** Map a laid-out ELK graph back to the model's `LayoutResult`. */
+export function mapElkResult(model: PlantUmlModel, result: ElkNode): LayoutResult {
+  const nodes: NodeLayout[] = [];
+  const packages: PackageLayout[] = [];
+  const offsets = new Map<string, Point>([['root', { x: 0, y: 0 }]]);
+  for (const child of result.children ?? []) {
+    flatten(child, 0, 0, nodes, packages, offsets);
+  }
+  enforcePackageMinWidth(model, packages);
+
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
+  const laidEdges: EdgeLayout[] = (result.edges ?? []).map((edge, i) => {
+    const relation = model.relations[i];
+    const reversed = relation !== undefined && REVERSED_RELATION_TYPES.has(relation.type);
+    const points = edgePoints(edge, nodeById, offsets);
+    return {
+      id: edge.id ?? `rel-${i}`,
+      // Keep the model's direction (not the possibly-reversed layout
+      // direction) so the renderer's arrowheads and the overlap counter both
+      // see the endpoints the author wrote.
+      source: relation?.source ?? (edge.sources?.[0] ?? ''),
+      target: relation?.target ?? (edge.targets?.[0] ?? ''),
+      points: reversed ? points.slice().reverse() : points,
+    };
+  });
+
+  return {
+    nodes,
+    edges: laidEdges,
+    packages,
+    width: result.width ?? 0,
+    height: result.height ?? 0,
+  };
 }
