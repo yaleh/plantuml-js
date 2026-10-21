@@ -50,7 +50,15 @@ if (branch !== 'author') {
   console.warn(`note: releasing from branch "${branch}" (not "author")`);
 }
 
-const dirty = out('git status --porcelain');
+// Quay runtime state churns while the loop runs and is not part of the release
+// build; ignore it when deciding whether the tree is clean enough to release.
+const RUNTIME_PREFIXES = ['.quay/', '.archguard/', 'orchestration/', '.workflow-events/'];
+const dirty = out('git status --porcelain')
+  .split('\n')
+  .map((line) => line.trim())
+  .filter((line) => line !== '')
+  .filter((line) => !RUNTIME_PREFIXES.some((prefix) => line.slice(3).startsWith(prefix)))
+  .join('\n');
 if (dirty !== '') {
   console.error('working tree is not clean — commit or stash first:\n' + dirty);
   process.exit(1);
