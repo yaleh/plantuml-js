@@ -24,11 +24,11 @@ depends_on:
 
 ## AC
 
-- [ ] `tests/transform.test.ts`：合成模型断言——重复边合并后 weight 等于原条数；传递约简删除冗余边且保留必要边；超阈值枢纽的入边被汇总、徽标计数正确；环被检出且回边标记正确；`npx vitest run` 通过
-- [ ] `createRenderer({ view: { kind: 'package', id } })` 对 `tests/fixtures/archguard-package.puml` 渲染：存根节点存在、其它包的节点不出现、输出 SVG 解析合法
-- [ ] `node scripts/render-samples.mjs --views` 生成 overview 与至少两个单包视图的 SVG/PNG；overview 的 `edgeCrossings` 与 `totalEdgeLength` 相对 `rendered/metrics.baseline.json` 下降
-- [ ] 对外部 archguard 的 `all-classes.puml`（660 实体）以 `view: package` 渲染每个包均成功，且 `textOverflowCount === 0`
-- [ ] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
+- [x] `tests/transform.test.ts`：合成模型断言——重复边合并后 weight 等于原条数；传递约简删除冗余边且保留必要边；超阈值枢纽的入边被汇总、徽标计数正确；环被检出且回边标记正确；`npx vitest run` 通过
+- [x] `createRenderer({ view: { kind: 'package', id } })` 对 `tests/fixtures/archguard-package.puml` 渲染：存根节点存在、其它包的节点不出现、输出 SVG 解析合法
+- [x] `node scripts/render-samples.mjs --views` 生成 overview 与至少两个单包视图的 SVG/PNG；overview 的 `edgeCrossings` 与 `totalEdgeLength` 相对 `rendered/metrics.baseline.json` 下降
+- [x] 对外部 archguard 的 `all-classes.puml`（660 实体）以 `view: package` 渲染每个包均成功，且 `textOverflowCount === 0`
+- [x] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
 
 ## DoD
 
