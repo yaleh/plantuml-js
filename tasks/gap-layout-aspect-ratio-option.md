@@ -1,7 +1,7 @@
 ---
 id: gap-layout-aspect-ratio-option
 title: createRenderer 暴露 layoutOptions.aspectRatio 透传 ELK（运行时容器比例）
-status: todo
+status: ready
 labels:
   - gap
   - layout
