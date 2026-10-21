@@ -24,12 +24,12 @@ depends_on:
 
 ## AC
 
-- [ ] `computeLayoutMetrics` 新增 `maxEmptyBlockRatio`（画布栅格化后最大空白矩形面积 ÷ 画布面积）与 `edgeFlushCount`（边段与非端点节点或包框边界距离 < 6px 且平行的数量）；`tests/layout-metrics.test.ts` 用合成布局断言确定值
-- [ ] `xl-all-classes`：`maxEmptyBlockRatio` ≤ 0.2，宽高比保持 0.5–2.5；`m-package`：`areaUtilization` ≥ 0.12 且宽高比 0.5–2.5；`s-architecture-manual`：宽高比 ≤ 2.2（`node scripts/render-samples.mjs --manifest <archguard 输出根目录>` 的阈值判定通过，退出码 0）
-- [ ] ELK 配置边到节点、边到包框的最小净距（`elk.spacing.edgeNode` 与 `elk.spacing.edgeEdge`），对 `s-class`、`m-architecture`、`m-mermaid-view` 的 `edgeFlushCount` 为 0；`xl-all-classes` 的 `edgeFlushCount` 相对本任务落地前降低 ≥ 80%
-- [ ] `tests/hub-rail.test.ts`：hub 节点与其所属包框同侧成轨道排列，不再占据包内顶部一整行；`m-package` 的 hub 与包内其它节点的最小间距 ≥ 一个网格单位且与包内容不重叠
-- [ ] `tests/bundling.test.ts`：同一源节点向同方向发出的 ≥ 5 条边，在 `m-package` 渲染中合并为 ≤ 2 条可见线（或带权重的单线），并保留 `weight` 到 SVG 属性
-- [ ] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
+- [x] `computeLayoutMetrics` 新增 `maxEmptyBlockRatio`（画布栅格化后最大空白矩形面积 ÷ 画布面积）与 `edgeFlushCount`（边段与非端点节点或包框边界距离 < 6px 且平行的数量）；`tests/layout-metrics.test.ts` 用合成布局断言确定值
+- [x] `xl-all-classes`：`maxEmptyBlockRatio` ≤ 0.2，宽高比保持 0.5–2.5；`m-package`：`areaUtilization` ≥ 0.12 且宽高比 0.5–2.5；`s-architecture-manual`：宽高比 ≤ 2.2（`node scripts/render-samples.mjs --manifest <archguard 输出根目录>` 的阈值判定通过，退出码 0）
+- [x] ELK 配置边到节点、边到包框的最小净距（`elk.spacing.edgeNode` 与 `elk.spacing.edgeEdge`），对 `s-class`、`m-architecture`、`m-mermaid-view` 的 `edgeFlushCount` 为 0；`xl-all-classes` 的 `edgeFlushCount` 相对本任务落地前降低 ≥ 80%
+- [x] `tests/hub-rail.test.ts`：hub 节点与其所属包框同侧成轨道排列，不再占据包内顶部一整行；`m-package` 的 hub 与包内其它节点的最小间距 ≥ 一个网格单位且与包内容不重叠
+- [x] `tests/bundling.test.ts`：同一源节点向同方向发出的 ≥ 5 条边，在 `m-package` 渲染中合并为 ≤ 2 条可见线（或带权重的单线），并保留 `weight` 到 SVG 属性
+- [x] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
 
 ## DoD
 
@@ -39,6 +39,9 @@ depends_on:
 
 - tasks/gap-layout-balance-clearance-bundling.md
 - src/layout/elk.ts
+- src/layout/elk-graph.ts
+- src/layout/compound.ts
+- src/layout/grid-router.ts
 - src/layout-metrics.ts
 - src/transform.ts
 - src/render/svg.ts
@@ -46,5 +49,7 @@ depends_on:
 - scripts/samples.json
 - docs/layout-routing-eval.md
 - tests/layout-metrics.test.ts
+- tests/layout-foundation.test.ts
+- tests/overview-labels.test.ts
 - tests/hub-rail.test.ts (new)
 - tests/bundling.test.ts (new)
