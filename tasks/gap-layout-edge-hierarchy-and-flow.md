@@ -28,7 +28,7 @@ depends_on:
 - [x] 并行边合并：`m-package` 的 `overlappingEdgeLength` 相对第五轮（24936）降低 ≥ 60%，`xl-all-classes` 相对（95374.84）降低 ≥ 50%；`tests/bundling.test.ts` 追加断言：同源同方向 ≥ 5 条边渲染为共享干线再分叉
 - [x] 包内依赖流向：`tests/package-flow.test.ts` 对合成的 5 层依赖链断言，包内布局后上游节点的 y（或环绕列序）单调不逆，违反依赖方向的节点对占比 ≤ 10%；`m-package` 的 Src Layer 中 `src/cli/commands` 的位置高于 `src/types`
 - [x] 对比度：主题测试断言各类边（含虚线/点线）与其可能所处的最深包填充色的对比度 ≥ 3:1（`tests/theme-contrast.test.ts` 扩展）
-- [ ] 阈值收紧并通过：`maxEmptyBlockRatio` 的 XL 阈值改为 ≤ 0.08、M 档 ≤ 0.1；`s-cli-utils-view` 的 `areaUtilization` ≥ 0.25；`node scripts/render-samples.mjs --manifest <archguard 输出根目录>` 退出码 0
+- [x] 阈值收紧并通过：`maxEmptyBlockRatio` 的 XL 阈值改为 ≤ 0.08、M 档 ≤ 0.1；`s-cli-utils-view` 的 `areaUtilization` ≥ 0.25；`node scripts/render-samples.mjs --manifest <archguard 输出根目录>` 退出码 0
 - [x] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
 
 ## DoD
@@ -55,10 +55,6 @@ depends_on:
 - tests/bundling.test.ts
 - tests/theme-contrast.test.ts
 
-## Blocker
+## Evidence
 
-**2026-10-21T18:50:34.226Z — worker 未落地（exited-not-landed）**
-
-- 未落地原因：AC 未全勾（checked 5/6，剩余未勾 1）——续做只需验证并勾选 AC
-- run_id：wk-prod-anchor
-- session_id：eab4f0e0-9840-4517-b2f3-9d248a439916
+- `node scripts/render-samples.mjs --manifest .archguard/output` → exit 0, "all sample thresholds satisfied"; s-cli-utils-view areaUtil 0.25 (pass); samples.json thresholds: XL maxEmptyBlockRatio 0.08, M 0.1.
