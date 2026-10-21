@@ -46,6 +46,13 @@ const EDGE_EDGE_SPACING = 10;
 
 /** A layered block with at least this many nodes at lower density is repacked. */
 const SPARSE_MIN_NODES = 30;
+/** Vertical distance (px) between node centres beyond which they sit on different layers. */
+const FLOW_LAYER_GAP = 24;
+/** Dense graphs pack their blocks taller so the placed blocks do not stretch the canvas. */
+const DENSE_SHELF_ASPECT_SCALE = 0.6;
+/** Node gap of a repacked block: wide enough channels for several edge lanes. */
+const SHELF_GAP = 72;
+const SHELF_PADDING = { top: 26, side: 10, bottom: 10 };
 const SPARSE_DENSITY = 0.16;
 
 /** Hub rail: gap between hubs / columns, and the shortest column height before wrapping. */
@@ -303,6 +310,9 @@ async function layoutBlock(
 
   const graph: ElkNode = { id: 'block', layoutOptions, children: rootChildren, edges };
   let result = await elk.layout(graph);
+  // Dependency order of the plain layered run (layer by layer, left to right):
+  // a repack keeps it so dependents stay above what they consume.
+  const flowOrder = flowOrderOf(result.children ?? []);
   let repacked = false;
   let aspect = (result.width ?? 0) / Math.max(1, result.height ?? 1);
   const wide = (result.width ?? 0) > NESTED_SPLIT_WIDTH;
@@ -323,17 +333,14 @@ async function layoutBlock(
   }
   if (!hasNested && (options.dense || sparse || aspect > BLOCK_MAX_ASPECT || aspect < 1 / BLOCK_MAX_ASPECT)) {
     // A single wide layer cannot be wrapped by the layered algorithm; pack the
-    // boxes into a balanced rectangle and let the grid router draw the edges.
-    result = await elk.layout({
-      id: 'block',
-      layoutOptions: {
-        'elk.algorithm': 'rectpacking',
-        'elk.aspectRatio': String(options.aspectRatio ?? 1.6),
-        'elk.spacing.nodeNode': String(options.dense ? DENSE_NODE_SPACING : 40),
-        'elk.padding': '[top=26,left=10,bottom=10,right=10]',
-      },
-      children: rootChildren,
-    });
+    // boxes into a balanced rectangle, rows in dependency order, and let the
+    // grid router draw the edges.
+    result = orderedShelfPack(
+      rootChildren,
+      flowOrder,
+      (options.aspectRatio ?? 1.6) * (options.dense ? DENSE_SHELF_ASPECT_SCALE : 1),
+      options.dense ? DENSE_NODE_SPACING : SHELF_GAP,
+    );
     repacked = true;
   }
 
@@ -386,6 +393,82 @@ async function layoutBlock(
   return repacked
     ? { key, width, height, nodes, packages: packagesOut, edges: edgeMap, unrouted: relationIndexes }
     : { key, width, height, nodes, packages: packagesOut, edges: edgeMap };
+}
+
+/** Ids of `children` in layer order (top layer first), left to right within a layer. */
+function flowOrderOf(children: ElkNode[]): string[] {
+  const sorted = children
+    .map((c) => ({ id: c.id, cx: (c.x ?? 0) + (c.width ?? 0) / 2, cy: (c.y ?? 0) + (c.height ?? 0) / 2 }))
+    .sort((a, b) => a.cy - b.cy || a.cx - b.cx);
+  const out: string[] = [];
+  let layer: typeof sorted = [];
+  let layerY = -Infinity;
+  const flush = (): void => {
+    layer.sort((a, b) => a.cx - b.cx);
+    for (const n of layer) out.push(n.id);
+    layer = [];
+  };
+  for (const n of sorted) {
+    if (n.cy - layerY > FLOW_LAYER_GAP) {
+      flush();
+      layerY = n.cy;
+    }
+    layer.push(n);
+  }
+  flush();
+  return out;
+}
+
+/**
+ * Shelf-pack `children` row by row in `order`, choosing the row width whose
+ * result is closest to `aspect`. Unlike rect packing the row order follows the
+ * dependency order, so an upstream node never lands below its dependency.
+ */
+function orderedShelfPack(children: ElkNode[], order: string[], aspect: number, gap: number): ElkNode {
+  const rank = new Map(order.map((id, i) => [id, i]));
+  const items = children.slice().sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+  const { top, side, bottom } = SHELF_PADDING;
+  const widest = Math.max(0, ...items.map((c) => c.width ?? 0));
+  const total = items.reduce((sum, c) => sum + (c.width ?? 0) + gap, 0);
+  let best: { rows: ElkNode[][]; rowH: number[]; width: number; height: number } | undefined;
+  let bestMiss = Infinity;
+  for (let inner = widest; inner <= total; inner += Math.max(8, (total - widest) / 40)) {
+    const rows: ElkNode[][] = [[]];
+    const rowH: number[] = [0];
+    let used = 0;
+    let width = 0;
+    for (const c of items) {
+      const w = c.width ?? 0;
+      if (used > 0 && used + gap + w > inner) {
+        rows.push([]);
+        rowH.push(0);
+        used = 0;
+      }
+      rows[rows.length - 1].push(c);
+      rowH[rowH.length - 1] = Math.max(rowH[rowH.length - 1], c.height ?? 0);
+      used += (used > 0 ? gap : 0) + w;
+      width = Math.max(width, used);
+    }
+    const w = width + 2 * side;
+    const h = top + bottom + rowH.reduce((a, b) => a + b, 0) + gap * (rows.length - 1);
+    const miss = Math.abs(Math.log(w / Math.max(1, h) / aspect)) + (w * h) / 1e9;
+    if (miss < bestMiss) {
+      bestMiss = miss;
+      best = { rows, rowH, width: w, height: h };
+    }
+  }
+  if (!best) return { id: 'block', width: 2 * side, height: top + bottom, children: [] };
+  let y = top;
+  best.rows.forEach((row, r) => {
+    let x = side;
+    for (const c of row) {
+      c.x = x;
+      c.y = y + (best!.rowH[r] - (c.height ?? 0)) / 2;
+      x += (c.width ?? 0) + gap;
+    }
+    y += best!.rowH[r] + gap;
+  });
+  return { id: 'block', width: best.width, height: best.height, children: items };
 }
 
 /** Node area ÷ block area of a layered result; low means a sparse, mostly empty block. */

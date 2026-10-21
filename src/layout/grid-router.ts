@@ -113,9 +113,12 @@ class MinHeap {
   lastKey = 0;
 }
 
+/** Lanes one pitch apart must clear the near-parallel proximity (8 px) so they read as distinct lines. */
+const MIN_PITCH = 9;
+
 function choosePitch(width: number, height: number): number {
   const area = Math.max(1, width * height);
-  return Math.min(20, Math.max(8, Math.round(Math.sqrt(area / 250000))));
+  return Math.min(20, Math.max(MIN_PITCH, Math.round(Math.sqrt(area / 250000))));
 }
 
 /**

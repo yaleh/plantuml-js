@@ -48,6 +48,7 @@ import { resolveLayerOrder, assignPartitions } from './layers.js';
 import { buildElkGraph } from './elk-graph.js';
 import { clipPackageEndpoints } from './package-endpoints.js';
 import { mapElkResult } from './elk-result.js';
+import { spreadParallelLanes } from './lane-spread.js';
 
 // elkjs ships a `typeof import(...)` default-export type under NodeNext; pin the
 // real constructor shape so `new` type-checks and the layout result stays typed.
@@ -118,7 +119,7 @@ export class ElkLayoutEngine implements LayoutEngine {
   }
 
   async layout(model: PlantUmlModel): Promise<LayoutResult> {
-    return clipPackageEndpoints(model, alignRows(model, await this.layoutRaw(model)));
+    return spreadParallelLanes(clipPackageEndpoints(model, alignRows(model, await this.layoutRaw(model))));
   }
 
   private async layoutRaw(model: PlantUmlModel): Promise<LayoutResult> {
