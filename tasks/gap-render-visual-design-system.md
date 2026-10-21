@@ -33,14 +33,14 @@ depends_on:
 
 ## AC
 
-- [ ] `src/render/theme.ts` 导出 `Theme` 类型与 `defaultTheme`；`tests/theme.test.ts` 断言：`svg.ts` 输出的 SVG 中不含 `#000000`、`#333333` 作为描边（仅文字允许深灰 token），所有颜色值都来自 theme token（遍历 SVG 的 fill/stroke 属性取集合 ⊆ token 值集合）
-- [ ] 可访问性断言（`tests/theme-contrast.test.ts`）：正文文字与其背景对比度 ≥ 4.5:1，节点描边与画布背景 ≥ 3:1，回边与普通边对比度 ≥ 3:1，且回边含非色彩线索（线型或标记），徽标文字对比度 ≥ 4.5:1
-- [ ] `tests/theme-tokens.test.ts`：自定义 `theme: { ... }` 覆盖部分 token 后渲染成功，未覆盖的 token 回落默认值；同一输入同一主题两次渲染字节一致
-- [ ] 节点宽高均为 8 的倍数；同一 ELK 层内的节点顶边对齐（`tests/grid-alignment.test.ts` 对 fixture 断言同层节点 y 相同或中线相同）
-- [ ] `detail` 选项：`names` 模式不输出成员行，`compact` 模式限制成员行数并显示计数；默认对 660 实体的 `all-classes` 自动选 `names`，对 22 实体 fixture 选 `full`（`tests/detail.test.ts`）
-- [ ] `docs/visual-review-rubric.md` 存在且含 10 个评分项（`grep -c '^| *[0-9]' docs/visual-review-rubric.md` ≥ 10 或等价的结构化断言）；`docs/visual-review-log.md` 存在并含表头与条目模板
+- [x] `src/render/theme.ts` 导出 `Theme` 类型与 `defaultTheme`；`tests/theme.test.ts` 断言：`svg.ts` 输出的 SVG 中不含 `#000000`、`#333333` 作为描边（仅文字允许深灰 token），所有颜色值都来自 theme token（遍历 SVG 的 fill/stroke 属性取集合 ⊆ token 值集合）
+- [x] 可访问性断言（`tests/theme-contrast.test.ts`）：正文文字与其背景对比度 ≥ 4.5:1，节点描边与画布背景 ≥ 3:1，回边与普通边对比度 ≥ 3:1，且回边含非色彩线索（线型或标记），徽标文字对比度 ≥ 4.5:1
+- [x] `tests/theme-tokens.test.ts`：自定义 `theme: { ... }` 覆盖部分 token 后渲染成功，未覆盖的 token 回落默认值；同一输入同一主题两次渲染字节一致
+- [x] 节点宽高均为 8 的倍数；同一 ELK 层内的节点顶边对齐（`tests/grid-alignment.test.ts` 对 fixture 断言同层节点 y 相同或中线相同）
+- [x] `detail` 选项：`names` 模式不输出成员行，`compact` 模式限制成员行数并显示计数；默认对 660 实体的 `all-classes` 自动选 `names`，对 22 实体 fixture 选 `full`（`tests/detail.test.ts`）
+- [x] `docs/visual-review-rubric.md` 存在且含 10 个评分项（`grep -c '^| *[0-9]' docs/visual-review-rubric.md` ≥ 10 或等价的结构化断言）；`docs/visual-review-log.md` 存在并含表头与条目模板
 - [ ] `docs/visual-review-log.md` 含本任务落地后对 S/M/L/XL 各一个样例的评分与理由，该行只能由人或外部评审在落地后目视评分并写入，执行者不得代写（待外部）
-- [ ] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
+- [x] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
 
 ## DoD
 
@@ -51,8 +51,10 @@ depends_on:
 - tasks/gap-render-visual-design-system.md
 - src/render/theme.ts (new)
 - src/render/svg.ts
+- src/render/legend.ts
 - src/layout.ts
 - src/layout/elk.ts
+- src/core.ts
 - src/index.ts
 - docs/visual-review-rubric.md (new)
 - docs/visual-review-log.md (new)
@@ -62,3 +64,4 @@ depends_on:
 - tests/theme-tokens.test.ts (new)
 - tests/grid-alignment.test.ts (new)
 - tests/detail.test.ts (new)
+- tests/layout-foundation.test.ts
