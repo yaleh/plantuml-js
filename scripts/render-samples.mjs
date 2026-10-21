@@ -92,13 +92,9 @@ console.log('building dist/ …');
 execSync('npm run build', { cwd: repoRoot, stdio: 'inherit' });
 
 const distIndex = pathToFileURL(join(repoRoot, 'dist', 'index.js')).href;
-const distMetrics = pathToFileURL(
-  join(repoRoot, 'dist', 'layout-metrics.js'),
-).href;
 
-const { parsePlantUml, ElkLayoutEngine, VizLayoutEngine, renderDetailed } =
+const { parsePlantUml, ElkLayoutEngine, VizLayoutEngine, renderDetailed, computeLayoutMetrics } =
   await import(distIndex);
-const { computeLayoutMetrics } = await import(distMetrics);
 
 const engines = {
   elk: () => new ElkLayoutEngine(),
@@ -252,6 +248,11 @@ async function runSamples() {
   if (failures.length) {
     console.error(`\nthreshold violations (${failures.length}):`);
     for (const f of failures) console.error(`  ✗ ${f}`);
+    if (failures.some((f) => f.includes(': missing'))) {
+      console.error(
+        '度量缺失（可能是 dist 过期）: run a clean build (`npm run build` wipes dist first) and retry.',
+      );
+    }
     return 1;
   }
   console.log('all sample thresholds satisfied');
