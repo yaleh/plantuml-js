@@ -1,7 +1,7 @@
 ---
 id: gap-layout-multiscale-samples
 title: 多规模样例集（S/M/L/XL）+ 分档度量表 + 原尺寸分块截图用于看细节
-status: ready
+status: done
 labels:
   - gap
   - layout
