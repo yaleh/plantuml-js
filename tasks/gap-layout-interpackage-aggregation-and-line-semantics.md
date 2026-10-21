@@ -23,12 +23,12 @@ depends_on:
 
 ## AC
 
-- [ ] `view`/渲染选项 `interPackage: 'aggregate' | 'raw'`，默认对实体数 > 150 的图为 `aggregate`；`tests/interpackage-aggregate.test.ts` 断言：两个包之间的 N 条跨包边渲染为 1 条框到框的边，SVG 属性 `data-weight` 等于 N，带 `×N` 标签，且原始每条边的描述保留在 `<title>` 里
-- [ ] 线型语义测试 `tests/line-semantics.test.ts`：继承/实现/组合/关联在 SVG 中均为实线（无 `stroke-dasharray`），依赖为虚线，回边为点划线；`weight` 大的边 `stroke-width`/`stroke-opacity` 严格大于 `weight = 1` 的边；全部取自 theme token
-- [ ] 对 `xl-all-classes`：聚合后可见的包间边数 ≤ 原跨包边数的 40%，`edgeCrossings` 相对第六轮（4024）降低 ≥ 40%，`overlappingEdgeLength` 不高于第六轮（18332）
-- [ ] 对齐：`tests/frame-alignment.test.ts` 对合成的 6 个包断言，同一行的包框 y 相同、同一列的包框 x 相同（容差 1px）；`s-architecture-manual` 三个包框左边缘 x 相同
-- [ ] 最小对比度：主、次边与其所处最深包填充的对比度 ≥ 3:1，且次边在 1/4 缩略图下（把 SVG 缩放 0.25 栅格化后）仍有 ≥ 1px 的可见线宽（`tests/theme-contrast.test.ts` 扩展）
-- [ ] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
+- [x] `view`/渲染选项 `interPackage: 'aggregate' | 'raw'`，默认对实体数 > 150 的图为 `aggregate`；`tests/interpackage-aggregate.test.ts` 断言：两个包之间的 N 条跨包边渲染为 1 条框到框的边，SVG 属性 `data-weight` 等于 N，带 `×N` 标签，且原始每条边的描述保留在 `<title>` 里
+- [x] 线型语义测试 `tests/line-semantics.test.ts`：继承/实现/组合/关联在 SVG 中均为实线（无 `stroke-dasharray`），依赖为虚线，回边为点划线；`weight` 大的边 `stroke-width`/`stroke-opacity` 严格大于 `weight = 1` 的边；全部取自 theme token
+- [x] 对 `xl-all-classes`：聚合后可见的包间边数 ≤ 原跨包边数的 40%，`edgeCrossings` 相对第六轮（4024）降低 ≥ 40%，`overlappingEdgeLength` 不高于第六轮（18332）
+- [x] 对齐：`tests/frame-alignment.test.ts` 对合成的 6 个包断言，同一行的包框 y 相同、同一列的包框 x 相同（容差 1px）；`s-architecture-manual` 三个包框左边缘 x 相同
+- [x] 最小对比度：主、次边与其所处最深包填充的对比度 ≥ 3:1，且次边在 1/4 缩略图下（把 SVG 缩放 0.25 栅格化后）仍有 ≥ 1px 的可见线宽（`tests/theme-contrast.test.ts` 扩展）
+- [x] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
 
 ## DoD
 
@@ -40,10 +40,13 @@ depends_on:
 - src/transform.ts
 - src/core.ts
 - src/index.ts
+- src/layout.ts
+- src/model.ts
 - src/layout/elk.ts
 - src/render/svg.ts
 - src/render/theme.ts
 - docs/layout-routing-eval.md
+- tests/relations.test.ts
 - tests/interpackage-aggregate.test.ts (new)
 - tests/line-semantics.test.ts (new)
 - tests/frame-alignment.test.ts (new)
