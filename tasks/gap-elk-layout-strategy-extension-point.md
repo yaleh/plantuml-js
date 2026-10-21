@@ -20,12 +20,12 @@ extra:
 
 ## AC
 
-- [ ] 改动前红：先写 `tests/elk-strategy.test.ts`（正对照：注入一个返回固定 `LayoutResult` 的合成策略并断言其被采用；负对照：断言一个抛错的策略不被静默忽略），对当前 HEAD 跑 `npx vitest run tests/elk-strategy.test.ts`，确认因扩展点尚不存在而红，记录输出
-- [ ] 正对照：经 `ElkLayoutEngine` 构造参数或 `createRenderer` 选项注入的合成策略，在**不改 `src/layout/elk.ts`** 的前提下端到端生效（渲染输出来自该合成结果）
-- [ ] 负对照：抛错的策略不被静默忽略，错误经渲染路径可诊断地抛出；`tests/elk-strategy.test.ts` 断言
-- [ ] 无实例草稿状态：`grep -n "stubsOrbited\|this.orbit" src/layout/elk.ts` 无命中（私有可变字段改由 `layoutRaw` 返回值携带，`layout()` 不再靠 `this` 在多次 `layoutRaw` 之间传草稿值）
-- [ ] 无行为回归：`tests/fixtures/archguard-class.puml` 与 `tests/fixtures/archguard-package.puml` 经 `createRenderer({ layout: 'elk' })` 渲染的 SVG 与改动前 sha256 逐一相等；`npm run typecheck` 与 `npx vitest run` 全绿，既有测试不改断言
-- [ ] archguard 重测：重新 `archguard_analyze`（`lang=typescript`、`sources=["src"]`）后，`ElkLayoutEngine` 的 `methodCount` ≤ 15 且 `outDegree` 不高于现状 26；策略代码落在 `src/layout/elk.ts` 之外
+- [x] 改动前红：先写 `tests/elk-strategy.test.ts`（正对照：注入一个返回固定 `LayoutResult` 的合成策略并断言其被采用；负对照：断言一个抛错的策略不被静默忽略），对当前 HEAD 跑 `npx vitest run tests/elk-strategy.test.ts`，确认因扩展点尚不存在而红，记录输出
+- [x] 正对照：经 `ElkLayoutEngine` 构造参数或 `createRenderer` 选项注入的合成策略，在**不改 `src/layout/elk.ts`** 的前提下端到端生效（渲染输出来自该合成结果）
+- [x] 负对照：抛错的策略不被静默忽略，错误经渲染路径可诊断地抛出；`tests/elk-strategy.test.ts` 断言
+- [x] 无实例草稿状态：`grep -n "stubsOrbited\|this.orbit" src/layout/elk.ts` 无命中（私有可变字段改由 `layoutRaw` 返回值携带，`layout()` 不再靠 `this` 在多次 `layoutRaw` 之间传草稿值）
+- [x] 无行为回归：`tests/fixtures/archguard-class.puml` 与 `tests/fixtures/archguard-package.puml` 经 `createRenderer({ layout: 'elk' })` 渲染的 SVG 与改动前 sha256 逐一相等；`npm run typecheck` 与 `npx vitest run` 全绿，既有测试不改断言
+- [x] archguard 重测：重新 `archguard_analyze`（`lang=typescript`、`sources=["src"]`）后，`ElkLayoutEngine` 的 `methodCount` ≤ 15 且 `outDegree` 不高于现状 26；策略代码落在 `src/layout/elk.ts` 之外
 
 ## DoD
 
