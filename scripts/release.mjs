@@ -3,6 +3,8 @@
  * release.mjs — bump, verify, tag and (optionally) push a release.
  *
  *   node scripts/release.mjs <patch|minor|major|X.Y.Z> [--push]
+ *   (via npm: `npm run release -- <bump> --push` — the `--` stops npm from
+ *    swallowing `--push` as its own flag)
  *
  *   - runs `typecheck` + `test`
  *   - bumps package.json + package-lock.json (no git tag, so we craft both)
@@ -53,9 +55,11 @@ if (branch !== 'author') {
 // Quay runtime state churns while the loop runs and is not part of the release
 // build; ignore it when deciding whether the tree is clean enough to release.
 const RUNTIME_PREFIXES = ['.quay/', '.archguard/', 'orchestration/', '.workflow-events/'];
+// Keep each porcelain line raw: the path starts at column 3 (`XY path`). Trimming
+// the line would drop the status column's leading space and shift the path left,
+// breaking the prefix test below.
 const dirty = out('git status --porcelain')
   .split('\n')
-  .map((line) => line.trim())
   .filter((line) => line !== '')
   .filter((line) => !RUNTIME_PREFIXES.some((prefix) => line.slice(3).startsWith(prefix)))
   .join('\n');
