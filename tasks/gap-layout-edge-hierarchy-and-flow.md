@@ -1,7 +1,7 @@
 ---
 id: gap-layout-edge-hierarchy-and-flow
 title: 边的层级与依赖流向：强弱边可区分、并行边真正合并、包内保留依赖方向、XL 轮廓补齐
-status: ready
+status: done
 labels:
   - gap
   - layout
