@@ -9,10 +9,17 @@ comparison behind the default choice.
 
 Each mode was run against the two committed fixtures
 (`tests/fixtures/archguard-class.puml` and
-`tests/fixtures/archguard-package.puml`) with the engine's default options
-(semantic layering on, `INCLUDE_CHILDREN` for cross-package edges, fixed-side
-ports), and measured with `computeLayoutMetrics` (the same numbers
-`scripts/render-samples.mjs` writes to `rendered/metrics.json`).
+`tests/fixtures/archguard-package.puml`), and measured with
+`computeLayoutMetrics` (the same numbers `scripts/render-samples.mjs` writes to
+`rendered/metrics.json`).
+
+The package fixture goes through the default full-graph pipeline
+(`transformFullGraph` in `src/index.ts`): aggregation, hub summarization
+(nodes with more than 6 distinct dependents get a `usageCount` badge instead of
+one edge per dependent) and cycle feedback marking. Layers are stacked by
+dependency topology (`src/layout/elk.ts`), and node placement uses
+`INTERACTIVE`. The engine's default options are unchanged otherwise (semantic
+layering on, `INCLUDE_CHILDREN` for cross-package edges, fixed-side ports).
 
 ## Results
 
@@ -29,18 +36,23 @@ ports), and measured with `computeLayoutMetrics` (the same numbers
 
 No cross-package edges exist here, so the three routers coincide.
 
-### `tests/fixtures/archguard-package.puml`
+### `tests/fixtures/archguard-package.puml` (full graph, default transform)
 
 | mode       | edgeCrossings | edgeNodeIntersections | totalEdgeLength | aspectRatio | areaUtilization | labelOverlap |
 |------------|---------------|-----------------------|-----------------|-------------|-----------------|--------------|
-| ORTHOGONAL | 1446          | 0                     | 394979          | 2.068       | 0.0263          | 0            |
-| POLYLINE   | 1446          | 0                     | 393539          | 1.713       | 0.0218          | 0            |
-| SPLINES    | 1450          | 0                     | 393735          | 1.996       | 0.0254          | 0            |
+| ORTHOGONAL | 138           | 0                     | 73351           | 1.992       | 0.0630          | 0            |
+| POLYLINE   | 138           | 0                     | 73225           | 1.725       | 0.0545          | 0            |
+| SPLINES    | 138           | 0                     | 73319           | 1.931       | 0.0610          | 0            |
 
-All three reach `edgeNodeIntersections === 0` and stay below the previous
-stage's `edgeCrossings` (1868 baseline). `POLYLINE` wins narrowly on
-`totalEdgeLength` and `aspectRatio`; `SPLINES` is a negligible 4 crossings
-worse.
+The previous stage drew all 217 edges and measured `edgeCrossings` 1446 with
+`areaUtilization` 0.0263. Hub summarization drops 72 of those edges (the
+`src/types`, `src/types/extensions`, `src/core/interfaces`, … hubs become
+badges), which cuts crossings to 138 and more than doubles utilization.
+
+The depth-2 overview (`view: { kind: 'overview', depth: 2 }`, path-prefix
+grouping) collapses the same diagram to 17 nodes with `edgeCrossings` 34 —
+`src/cli → src/analysis → src/core → src/types` becomes a readable ladder
+instead of a 64-node hairball.
 
 ## Conclusion: default is `ORTHOGONAL`
 
@@ -57,4 +69,6 @@ preference**:
 
 `POLYLINE` and `SPLINES` are therefore available as an opt-in
 (`{ edgeRouting: 'POLYLINE' }` / `{ edgeRouting: 'SPLINES' }`) for callers who
-prefer marginally shorter edges over the orthogonal guarantee.
+prefer marginally shorter edges over the orthogonal guarantee. On the
+transformed package graph the three routers now agree on crossings (138) and
+differ only in total edge length and aspect ratio.

@@ -48,7 +48,7 @@ const distMetrics = pathToFileURL(
   join(repoRoot, 'dist', 'layout-metrics.js'),
 ).href;
 
-const { parsePlantUml, ElkLayoutEngine, VizLayoutEngine, applyView, transformModel } =
+const { parsePlantUml, ElkLayoutEngine, VizLayoutEngine, applyView, transformModel, transformFullGraph } =
   await import(distIndex);
 const { renderSvg } = await import(distSvg);
 const { computeLayoutMetrics } = await import(distMetrics);
@@ -127,7 +127,11 @@ for (const { group, pumlPath } of inputs) {
     throw new Error(`input puml not found: ${pumlPath}`);
   }
   const puml = readFileSync(pumlPath, 'utf8');
-  const model = parsePlantUml(puml);
+  const parsed = parsePlantUml(puml);
+  // The full graph goes through the same default pipeline the renderer applies:
+  // aggregation + cycle marking, plus hub summarization once the graph is large
+  // enough (see `transformFullGraph` in src/index.ts).
+  const model = transformFullGraph(parsed);
 
   for (const [engineName, makeEngine] of Object.entries(engines)) {
     const layout = await makeEngine().layout(model);
@@ -193,7 +197,7 @@ if (views) {
 
   const overview = await renderView({
     group: 'package-overview',
-    view: { kind: 'overview' },
+    view: { kind: 'overview', depth: 2 },
     png: true,
   });
 

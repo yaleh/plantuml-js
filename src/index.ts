@@ -123,8 +123,11 @@ export function createRenderer(options: RendererOptions = {}): Renderer {
 /**
  * Apply the configured view and transforms. A view collapses/expands first,
  * then the transform pipeline runs with the view's defaults (aggregation +
- * cycle marking) unless the caller overrides them. Without a view the model is
- * untouched unless `transform` is given explicitly.
+ * cycle marking) unless the caller overrides them. Without a view the full
+ * graph runs through [[transformFullGraph]]: aggregation + cycle marking, plus
+ * hub summarization once the graph is large enough that a handful of heavily
+ * referenced nodes (e.g. `src/types`) would otherwise turn the canvas into an
+ * unreadable arrow cluster.
  */
 function transformForRender(model: PlantUmlModel, options: RendererOptions): PlantUmlModel {
   if (options.view) {
@@ -132,7 +135,41 @@ function transformForRender(model: PlantUmlModel, options: RendererOptions): Pla
     return transformModel(viewed, { aggregate: true, cycles: true, ...options.transform });
   }
   if (options.transform) return transformModel(model, options.transform);
-  return model;
+  return transformFullGraph(model);
+}
+
+/**
+ * Entity count at or above which the default full-graph render enables hub
+ * summarization. Smaller models stay untouched so a hand-authored diagram is
+ * drawn exactly as written.
+ */
+export const FULL_GRAPH_HUB_NODE_THRESHOLD = 40;
+
+/**
+ * Distinct-source in-degree above which a node's incoming edges are summarized
+ * into a `usageCount` badge in the default full-graph render. 6 summarizes the
+ * archguard package diagram's shared-infrastructure hubs (`src/types`,
+ * `src/types/extensions`, `src/core/interfaces`, plus the other nodes with 8+
+ * distinct dependents) while leaving ordinary modules drawn edge-by-edge.
+ */
+export const FULL_GRAPH_HUB_IN_DEGREE_THRESHOLD = 6;
+
+/**
+ * The transform pipeline the renderer applies to a full (unviewed) model by
+ * default: aggregate parallel edges, summarize hubs on large graphs, and mark
+ * cycle feedback arcs. `overrides` (a caller-supplied `transform` option) wins
+ * over the defaults, so `{ hubThreshold: undefined }` re-enables per-edge
+ * drawing of the hub's incoming edges.
+ */
+export function transformFullGraph(
+  model: PlantUmlModel,
+  overrides: TransformOptions = {},
+): PlantUmlModel {
+  const options: TransformOptions = { aggregate: true, cycles: true };
+  if (model.entities.length > FULL_GRAPH_HUB_NODE_THRESHOLD) {
+    options.hubThreshold = FULL_GRAPH_HUB_IN_DEGREE_THRESHOLD;
+  }
+  return transformModel(model, { ...options, ...overrides });
 }
 
 const ENTITY_DECL = /^(?:abstract\s+)?(?:class|interface|enum)\s+(.+)$/i;
@@ -337,5 +374,6 @@ export {
   transitiveReduce,
   summarizeHubs,
   markCycles,
+  groupByPathPrefix,
 } from './transform.js';
 export type { ViewSpec, TransformOptions } from './transform.js';

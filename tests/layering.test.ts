@@ -4,12 +4,13 @@ import { parsePlantUml } from '../src/parser.js';
 
 /**
  * Semantic layering — the ELK engine stacks packages that follow the
- * `"X Layer"` name convention into a fixed vertical order (declaration order by
- * default), and reverses inheritance/implementation edges so the parent sits
- * above the subclass while composition keeps the whole above its parts.
+ * `"X Layer"` name convention into a fixed vertical order (dependency topology
+ * by default: a dependent layer sits above the layer it consumes), and reverses
+ * inheritance/implementation edges so the parent sits above the subclass while
+ * composition keeps the whole above its parts.
  */
 describe('gap-layout-semantic-layering: layer order', () => {
-  it('orders layers by declaration order, even against an upward edge', async () => {
+  it('orders layers by dependency topology: the dependent sits above its dependency', async () => {
     const model = parsePlantUml(
       [
         '@startuml',
@@ -21,8 +22,8 @@ describe('gap-layout-semantic-layering: layer order', () => {
         '  class B1',
         '  class B2',
         '}',
-        // Upward dependency: Beta depends on Alpha. Partitioning, not edge
-        // direction, must keep Alpha Layer (declared first) on top.
+        // Beta depends on Alpha, so Beta (the dependent) belongs above Alpha —
+        // not below it just because Alpha was declared first.
         'B1 ..> A1',
         '@enduml',
       ].join('\n'),
@@ -35,9 +36,9 @@ describe('gap-layout-semantic-layering: layer order', () => {
     expect(aNodes).toHaveLength(2);
     expect(bNodes).toHaveLength(2);
 
-    const maxA = Math.max(...aNodes.map((n) => n.y));
-    const minB = Math.min(...bNodes.map((n) => n.y));
-    expect(maxA).toBeLessThan(minB);
+    const maxB = Math.max(...bNodes.map((n) => n.y));
+    const minA = Math.min(...aNodes.map((n) => n.y));
+    expect(maxB).toBeLessThan(minA);
   });
 
   it('honours an explicit layerOrder option over the declaration order', async () => {

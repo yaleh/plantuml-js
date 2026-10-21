@@ -39,9 +39,15 @@ export interface TransformOptions {
 /**
  * A renderer view: collapse packages to nodes, expand one package (external
  * packages become stubs), or expand one entity plus its N-hop neighbourhood.
+ *
+ * `overview` accepts an optional `depth`: when a positive `depth` is given the
+ * collapse is driven by [[groupByPathPrefix]] (group path-form entity names by
+ * their first N directory levels) instead of by package boundaries, so the
+ * overview's node granularity becomes `src/cli`, `src/core`, … rather than the
+ * five declared layers.
  */
 export type ViewSpec =
-  | { kind: 'overview' }
+  | { kind: 'overview'; depth?: number }
   | { kind: 'package'; id: string }
   | { kind: 'neighborhood'; entity: string; hops: number };
 
@@ -203,6 +209,9 @@ export function applyView(model: PlantUmlModel, view?: ViewSpec): PlantUmlModel 
   if (!view) return cloneModel(model);
   switch (view.kind) {
     case 'overview':
+      if (view.depth !== undefined && view.depth >= 1) {
+        return groupByPathPrefix(model, view.depth);
+      }
       return overviewView(model);
     case 'package':
       return packageView(model, view.id);
@@ -246,6 +255,71 @@ function overviewView(model: PlantUmlModel): PlantUmlModel {
 
 function overviewId(key: string): string {
   return key === ROOT ? 'ov::(top)' : `ov::${key}`;
+}
+
+const GROUP_PREFIX = 'grp::';
+
+/**
+ * Collapse entities by the first `depth` directory levels of their path-form
+ * name (`a/b/c`). `src/cli/analyze` and `src/cli/query` both collapse into a
+ * single `src/cli` stub node; `src/core/x` collapses into `src/core`. Entities
+ * whose name is not path-form (no `/`) are kept as-is, and relations are
+ * remapped onto the collapsed nodes then aggregated so each inter-group edge
+ * carries `weight` = the number of original edges it stands for. Intra-group
+ * edges are dropped (they do not cross the collapsed boundary).
+ */
+export function groupByPathPrefix(model: PlantUmlModel, depth: number): PlantUmlModel {
+  const prefixOf = (name: string): string | undefined => {
+    const segments = name.split('/');
+    if (segments.length < 2) return undefined;
+    return segments.slice(0, Math.min(depth, segments.length)).join('/');
+  };
+
+  const entityById = new Map(model.entities.map((e) => [e.id, e]));
+  const groupNode = (prefix: string): PlantUmlEntity => ({
+    id: GROUP_PREFIX + prefix,
+    name: prefix,
+    kind: 'class',
+    members: [],
+    stub: true,
+  });
+
+  const entities: PlantUmlEntity[] = [];
+  const seen = new Set<string>();
+  for (const entity of model.entities) {
+    const prefix = prefixOf(entity.name);
+    if (prefix === undefined) {
+      entities.push({ ...entity });
+      continue;
+    }
+    const node = groupNode(prefix);
+    if (!seen.has(node.id)) {
+      seen.add(node.id);
+      entities.push(node);
+    }
+  }
+
+  const remap = (id: string): string => {
+    const entity = entityById.get(id);
+    if (!entity) return id;
+    const prefix = prefixOf(entity.name);
+    return prefix === undefined ? id : GROUP_PREFIX + prefix;
+  };
+
+  const relations: PlantUmlRelation[] = [];
+  for (const relation of model.relations) {
+    const source = remap(relation.source);
+    const target = remap(relation.target);
+    if (source === target) continue;
+    relations.push({ ...relation, source, target });
+  }
+
+  return aggregateRelations({
+    diagramType: 'class',
+    entities,
+    relations,
+    packages: [],
+  });
 }
 
 /**
