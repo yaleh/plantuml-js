@@ -1,7 +1,7 @@
 ---
 id: gap-elk-layout-engine-split-responsibilities
 title: 拆分 src/layout/elk.ts：分层解析、建图、结果映射移出 ElkLayoutEngine，使文件回到 400 行内
-status: todo
+status: ready
 labels:
   - gap
   - layout
