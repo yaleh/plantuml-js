@@ -21,3 +21,6 @@ meta/*.lock
 node_modules/
 dist/
 *.tsbuildinfo
+
+# local inspection renders (generated on demand, not shipped)
+rendered/
