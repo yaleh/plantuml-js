@@ -93,4 +93,14 @@ describe('fan-out trunks', () => {
     expect(combs).toEqual([]);
     expect(computeLayoutMetrics(model, layout).parallelBundleCount).toBeLessThanOrEqual(1);
   }, 120_000);
+
+  it('leaves no comb at src/cli/commands in the package overview, and renders byte-identically', async () => {
+    const fixture = readFileSync(new URL('./fixtures/archguard-package.puml', import.meta.url), 'utf8');
+    const first = await renderDetailed(parsePlantUml(fixture), { layout: new ElkLayoutEngine() });
+    const combs = findParallelBundles(first.layout.edges);
+    expect(combs.filter((b) => b.node === 'src_cli_commands')).toEqual([]);
+    expect(combs.length).toBeLessThanOrEqual(1);
+    const second = await renderDetailed(parsePlantUml(fixture), { layout: new ElkLayoutEngine() });
+    expect(second.svg).toBe(first.svg);
+  }, 60_000);
 });
