@@ -21,7 +21,9 @@ import {
 
 type Frame = { kind: 'package' | 'entity'; id: string };
 
-const ENTITY_LINE = /^(abstract\s+)?(class|interface|enum)\s+(.+)$/i;
+export const ENTITY_LINE = /^(abstract\s+)?(class|interface|enum)\s+(.+)$/i;
+
+export const ENTITY_KEYWORD = /^(?:abstract\s+)?(?:class|interface|enum)\b/i;
 
 const ARROWS: Record<string, { type: RelationType; swap?: boolean }> = {
   '--|>': { type: 'inheritance' },
@@ -511,8 +513,26 @@ function stripQuotes(token: string): string {
 }
 
 /** Strip PlantUML `'` line comments (a leading `'` or a trailing inline `'`). */
-function stripComment(line: string): string {
+export function stripComment(line: string): string {
   const idx = line.indexOf("'");
   if (idx === -1) return line.trim();
   return line.slice(0, idx).trim();
+}
+
+/**
+ * Extract a declaration name from an entity line's tail, mirroring the parser:
+ * accepts a bare token (`class A`) or a quoted name (`class "User Repo"`), and
+ * tolerates a trailing `as <alias>`. Returns null when the name is missing or
+ * the quoted name is unterminated.
+ */
+export function extractDeclaredName(rest: string): string | null {
+  const asIndex = rest.search(/\s+as\s+\S+\s*$/i);
+  const core = asIndex === -1 ? rest.trim() : rest.slice(0, asIndex).trim();
+  if (core === '') return null;
+  if (core.startsWith('"')) {
+    const close = core.indexOf('"', 1);
+    if (close === -1) return null;
+    return core.slice(1, close);
+  }
+  return core.split(/\s+/)[0] || null;
 }

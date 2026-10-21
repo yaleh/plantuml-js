@@ -8,7 +8,7 @@
  */
 
 import { PlantUmlModel } from './model.js';
-import { parsePlantUml, parseWithDiagnostics } from './parser.js';
+import { parsePlantUml, parseWithDiagnostics, ENTITY_LINE, ENTITY_KEYWORD, extractDeclaredName, stripComment } from './parser.js';
 import { LayoutEngine, LayoutResult, DetailLevel, applyDetail } from './layout.js';
 import { ThemeOverrides } from './render/theme.js';
 import { ElkLayoutEngine, type ElkLayoutOptions } from './layout/elk.js';
@@ -252,8 +252,6 @@ function defaultTransformOptions(model: PlantUmlModel): TransformOptions {
   return options;
 }
 
-const ENTITY_DECL = /^(?:abstract\s+)?(?:class|interface|enum)\s+(.+)$/i;
-const ENTITY_KEYWORD = /^(?:abstract\s+)?(?:class|interface|enum)\b/i;
 
 /**
  * Validate a puml string without throwing. Returns structured diagnostics for
@@ -314,8 +312,8 @@ export function checkSyntax(puml: string): SyntaxCheckResult {
     if (code === '') continue;
 
     if (ENTITY_KEYWORD.test(code)) {
-      const match = ENTITY_DECL.exec(code);
-      const name = match ? extractDeclaredName(match[1]) : null;
+      const match = ENTITY_LINE.exec(code);
+      const name = match ? extractDeclaredName(match[3]) : null;
       if (name === null) {
         errors.push({
           line: lineNo,
@@ -396,8 +394,8 @@ function classifyLine(
   if (code === '') return { kind: 'comment', explanation: 'PlantUML comment' };
 
   if (ENTITY_KEYWORD.test(code)) {
-    const match = ENTITY_DECL.exec(code);
-    const name = match ? extractDeclaredName(match[1]) : null;
+    const match = ENTITY_LINE.exec(code);
+    const name = match ? extractDeclaredName(match[3]) : null;
     if (name === null) {
       return { kind: 'entity', explanation: 'malformed entity declaration' };
     }
@@ -421,31 +419,6 @@ function classifyLine(
     };
 
   return { kind: 'unknown', explanation: 'unrecognised line (ignored)' };
-}
-
-/**
- * Extract a declaration name from an entity line's tail, mirroring the parser:
- * accepts a bare token (`class A`) or a quoted name (`class "User Repo"`), and
- * tolerates a trailing `as <alias>`. Returns null when the name is missing or
- * the quoted name is unterminated.
- */
-function extractDeclaredName(rest: string): string | null {
-  const asIndex = rest.search(/\s+as\s+\S+\s*$/i);
-  const core = asIndex === -1 ? rest.trim() : rest.slice(0, asIndex).trim();
-  if (core === '') return null;
-  if (core.startsWith('"')) {
-    const close = core.indexOf('"', 1);
-    if (close === -1) return null;
-    return core.slice(1, close);
-  }
-  return core.split(/\s+/)[0] || null;
-}
-
-/** Strip PlantUML `'` line comments (a leading `'` or a trailing inline `'`). */
-function stripComment(line: string): string {
-  const idx = line.indexOf("'");
-  if (idx === -1) return line.trim();
-  return line.slice(0, idx).trim();
 }
 
 export { parsePlantUml, ElkLayoutEngine, renderSvg };

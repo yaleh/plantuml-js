@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { computeLayoutMetrics } from '../src/layout-metrics.js';
 import { parsePlantUml, transformFullGraph, ElkLayoutEngine } from '../src/index.js';
-import { LayoutResult } from '../src/layout.js';
+import { LayoutResult, PACKAGE_LABEL } from '../src/layout.js';
 import { PlantUmlModel } from '../src/model.js';
 
 /** A minimal, no-member entity used by most synthetic fixtures below. */
@@ -184,6 +184,25 @@ describe('computeLayoutMetrics', () => {
     const m = computeLayoutMetrics(model, layout);
     expect(m.labelOverlapCount).toBe(1);
     expect(m.textOverflowCount).toBe(0);
+  });
+
+  it('measures the package tab with the same geometry the renderer draws (PACKAGE_LABEL)', () => {
+    const model: PlantUmlModel = {
+      diagramType: 'class',
+      entities: [entity('Inner', 'Inner', 'P')],
+      relations: [],
+      packages: [{ id: 'P', name: 'A' }],
+    };
+    const at = (y: number): LayoutResult => ({
+      nodes: [{ id: 'Inner', x: 0, y, width: 100, height: 40 }],
+      edges: [],
+      packages: [{ id: 'P', x: 0, y: 0, width: 200, height: 200 }],
+      width: 200,
+      height: 200,
+    });
+    // Node starting one pixel inside the drawn tab overlaps; one starting at its bottom edge does not.
+    expect(computeLayoutMetrics(model, at(PACKAGE_LABEL.tabHeight - 1)).labelOverlapCount).toBe(1);
+    expect(computeLayoutMetrics(model, at(PACKAGE_LABEL.tabHeight)).labelOverlapCount).toBe(0);
   });
 
   it('sums collinear overlapping segments from different edges (parallel-wall length)', () => {

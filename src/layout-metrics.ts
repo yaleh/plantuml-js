@@ -10,7 +10,7 @@
  */
 
 import { PlantUmlModel } from './model.js';
-import { LayoutResult, EdgeLayout, METRICS, Point, displayName } from './layout.js';
+import { LayoutResult, EdgeLayout, METRICS, PACKAGE_LABEL, Point, displayName } from './layout.js';
 import { countEdgeBoxIntersections, countNonOrthogonalSegments, nodeRect, Rect } from './edge-router.js';
 import { measureTextWidth } from './text-measure.js';
 import {
@@ -97,11 +97,6 @@ export interface LayoutMetrics {
    */
   edgeFrameCrossings: number;
 }
-
-/** Package label tab geometry, kept in step with [[../render/svg]]. */
-const PACKAGE_TAB_HEIGHT = 18;
-const PACKAGE_LABEL_FONT_SIZE = 12;
-const PACKAGE_TAB_PADDING = 12;
 
 export function computeLayoutMetrics(
   model: PlantUmlModel,
@@ -249,13 +244,13 @@ function countLabelOverlap(model: PlantUmlModel, layout: LayoutResult): number {
     const frame = frames.get(pkg.id);
     if (!frame) continue;
 
-    const textWidth = measureTextWidth(pkg.name, PACKAGE_LABEL_FONT_SIZE);
-    const wanted = textWidth + PACKAGE_TAB_PADDING;
+    const textWidth = measureTextWidth(pkg.name, PACKAGE_LABEL.fontSize);
+    const wanted = textWidth + PACKAGE_LABEL.tabPadding;
     const tab: Rect = {
       x: frame.x,
       y: frame.y,
       width: Math.min(frame.width, Math.max(24, wanted)),
-      height: PACKAGE_TAB_HEIGHT,
+      height: PACKAGE_LABEL.tabHeight,
     };
 
     let bad = textWidth + 6 > tab.width + 0.01;
