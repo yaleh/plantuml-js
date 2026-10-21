@@ -16,3 +16,8 @@ goals/*.lock
 adr/*.lock
 docs-managed/*.lock
 meta/*.lock
+
+# Node.js build/dependency state (project-owned, below the quay-managed block)
+node_modules/
+dist/
+*.tsbuildinfo
