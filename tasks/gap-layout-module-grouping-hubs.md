@@ -20,11 +20,11 @@ extra:
 
 ## AC
 
-- [ ] `tests/grouping.test.ts`：合成路径形模型断言——`src/cli/a`、`src/cli/b`、`src/core/x` 按 depth=2 分成 `src/cli`、`src/core` 两组，组间聚合边 weight 等于原条数；非路径形名字不被分组；`npx vitest run` 通过
-- [ ] `tests/hubs-default.test.ts`：对 `tests/fixtures/archguard-package.puml` 默认渲染，`src/types` 节点不再有逐条入边（入边被汇总为徽标，徽标计数等于原入度），而显式关闭汇总时仍逐条绘制
-- [ ] `tests/layer-order.test.ts`：Tests Layer 与 Examples Layer 的 y 坐标小于 Src Layer（依赖者在上），Templates Layer 不夹在 Src 与 Tests 之间
-- [ ] `node scripts/render-samples.mjs --views` 产出的 `package` 完整图：`edgeCrossings` ≤ 700（上一阶段 1446），`areaUtilization` ≥ 0.06（上一阶段 0.026）；`package-overview`（depth=2）节点数在 8–20 之间
-- [ ] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
+- [x] `tests/grouping.test.ts`：合成路径形模型断言——`src/cli/a`、`src/cli/b`、`src/core/x` 按 depth=2 分成 `src/cli`、`src/core` 两组，组间聚合边 weight 等于原条数；非路径形名字不被分组；`npx vitest run` 通过
+- [x] `tests/hubs-default.test.ts`：对 `tests/fixtures/archguard-package.puml` 默认渲染，`src/types` 节点不再有逐条入边（入边被汇总为徽标，徽标计数等于原入度），而显式关闭汇总时仍逐条绘制
+- [x] `tests/layer-order.test.ts`：Tests Layer 与 Examples Layer 的 y 坐标小于 Src Layer（依赖者在上），Templates Layer 不夹在 Src 与 Tests 之间
+- [x] `node scripts/render-samples.mjs --views` 产出的 `package` 完整图：`edgeCrossings` ≤ 700（上一阶段 1446），`areaUtilization` ≥ 0.06（上一阶段 0.026）；`package-overview`（depth=2）节点数在 8–20 之间
+- [x] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
 
 ## DoD
 
@@ -43,3 +43,4 @@ extra:
 - tests/grouping.test.ts (new)
 - tests/hubs-default.test.ts (new)
 - tests/layer-order.test.ts (new)
+- tests/layering.test.ts (updated)
