@@ -1,7 +1,7 @@
 ---
 id: gap-render-visual-design-system
 title: 视觉设计系统：主题 token、排版层级、克制配色、边与箭头样式、节点对齐，附审美评审量表
-status: todo
+status: needs-human
 labels:
   - gap
   - layout
@@ -61,3 +61,8 @@ depends_on:
 - tests/theme-tokens.test.ts (new)
 - tests/grid-alignment.test.ts (new)
 - tests/detail.test.ts (new)
+## Needs-Human
+
+**执行 2026-10-21T16:40:52.656Z — 连续修满重试上限仍不合格（标 needs-human）**
+
+- 阻碍原因：unsatisfiableUnannotatedAc=[`docs/visual-review-rubric.md` 与 `docs/visual-review-log.md` 存在；log 含本任务落地后对 S/M/L/XL 各一个样例的评分与理由]（连续 3 轮被结构上不可派的拦截挡住 ⇒ 作者/人改写；⛔ 不派 fix worker）
