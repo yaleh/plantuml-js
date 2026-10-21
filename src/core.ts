@@ -11,7 +11,7 @@ import { PlantUmlModel } from './model.js';
 import { parsePlantUml, parseWithDiagnostics } from './parser.js';
 import { LayoutEngine, DetailLevel, applyDetail } from './layout.js';
 import { ThemeOverrides } from './render/theme.js';
-import { ElkLayoutEngine } from './layout/elk.js';
+import { ElkLayoutEngine, type ElkLayoutOptions } from './layout/elk.js';
 import { renderSvg, RenderSvgOptions } from './render/svg.js';
 import { applyView, transformModel, ViewSpec, TransformOptions } from './transform.js';
 
@@ -43,6 +43,8 @@ export interface RendererOptions {
    * fails closed on it.
    */
   layout?: 'elk' | 'viz' | LayoutEngine;
+  /** ELK tuning (e.g. `aspectRatio`); only applies to the `'elk'` engine, ignored by `'viz'` and custom engines. */
+  layoutOptions?: ElkLayoutOptions;
   /** Collapse/expand the diagram before layout (overview, single package, …). */
   view?: ViewSpec;
   /** Extra model transforms applied on top of the view (aggregation, cycles, …). */
@@ -98,8 +100,11 @@ export class RenderError extends Error {
   }
 }
 
-function resolveEngine(layout: RendererOptions['layout']): LayoutEngine {
-  if (layout === undefined || layout === 'elk') return new ElkLayoutEngine();
+function resolveEngine(
+  layout: RendererOptions['layout'],
+  layoutOptions?: ElkLayoutOptions,
+): LayoutEngine {
+  if (layout === undefined || layout === 'elk') return new ElkLayoutEngine(layoutOptions);
   if (typeof layout === 'string') {
     throw new Error(
       `unknown layout engine ${JSON.stringify(layout)} (expected 'elk' or a LayoutEngine instance; ` +
@@ -115,7 +120,7 @@ function resolveEngine(layout: RendererOptions['layout']): LayoutEngine {
 }
 
 export function createRenderer(options: RendererOptions = {}): Renderer {
-  const engine = resolveEngine(options.layout);
+  const engine = resolveEngine(options.layout, options.layoutOptions);
   return {
     async render(puml: string): Promise<RenderResult> {
       // Fail closed on structurally invalid puml: checkSyntax reports instead of

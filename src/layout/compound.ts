@@ -62,6 +62,8 @@ export interface CompoundOptions {
   /** Pack every flat block tightly (very large graphs); edges are grid-routed. */
   dense?: boolean;
   edgeRouting: string;
+  /** Target canvas width/height (ELK `elk.aspectRatio`); default 1.6. */
+  aspectRatio?: number;
   /** Block id → semantic-layer partition index (layered mode only). */
   partitions: Map<string, number>;
 }
@@ -290,7 +292,7 @@ async function layoutBlock(
     'elk.spacing.nodeNode': '40',
     'elk.layered.spacing.nodeNodeBetweenLayers': '60',
     'elk.layered.portConstraints': 'FIXED_SIDE',
-    'elk.aspectRatio': '1.6',
+    'elk.aspectRatio': String(options.aspectRatio ?? 1.6),
     'elk.separateConnectedComponents': 'true',
     'elk.layered.nodePlacement.strategy': 'INTERACTIVE',
     'elk.spacing.edgeNode': String(EDGE_NODE_SPACING),
@@ -326,7 +328,7 @@ async function layoutBlock(
       id: 'block',
       layoutOptions: {
         'elk.algorithm': 'rectpacking',
-        'elk.aspectRatio': '1.6',
+        'elk.aspectRatio': String(options.aspectRatio ?? 1.6),
         'elk.spacing.nodeNode': String(options.dense ? DENSE_NODE_SPACING : 40),
         'elk.padding': '[top=26,left=10,bottom=10,right=10]',
       },
@@ -502,7 +504,7 @@ async function splitNestedBlock(
     layoutOptions: {
       'elk.algorithm': 'layered',
       'elk.direction': 'DOWN',
-      'elk.aspectRatio': '1.6',
+      'elk.aspectRatio': String(options.aspectRatio ?? 1.6),
       'elk.spacing.nodeNode': String(DENSE_NODE_SPACING),
       'elk.layered.spacing.nodeNodeBetweenLayers': String(BLOCK_SPACING),
       'elk.layered.wrapping.strategy': 'MULTI_EDGE',
@@ -609,14 +611,14 @@ async function placeBlocks(
   const layoutOptions: Record<string, string> = pack
     ? {
         'elk.algorithm': 'rectpacking',
-        'elk.aspectRatio': '1.6',
+        'elk.aspectRatio': String(options.aspectRatio ?? 1.6),
         'elk.spacing.nodeNode': String(BLOCK_SPACING),
         'elk.padding': `[top=${CANVAS_MARGIN},left=${CANVAS_MARGIN},bottom=${CANVAS_MARGIN},right=${CANVAS_MARGIN}]`,
       }
     : {
         'elk.algorithm': 'layered',
         'elk.direction': 'DOWN',
-        'elk.aspectRatio': '1.6',
+        'elk.aspectRatio': String(options.aspectRatio ?? 1.6),
         'elk.edgeRouting': 'ORTHOGONAL',
         'elk.spacing.nodeNode': String(BLOCK_SPACING),
         'elk.layered.spacing.nodeNodeBetweenLayers': String(BLOCK_SPACING),

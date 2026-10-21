@@ -138,6 +138,7 @@ export function buildChildren(model: PlantUmlModel, partitions: Map<string, numb
 export interface ElkGraphOptions {
   edgeRouting: string;
   mergeEdges?: boolean;
+  aspectRatio?: number;
 }
 
 /** The root ELK graph for one hierarchical run over the whole nested model. */
@@ -174,7 +175,7 @@ export function buildElkGraph(
     // Soft targets: pack disconnected components into a balanced rectangle
     // instead of a long horizontal strip. (hierarchyHandling stays INHERIT
     // unless cross-package edges exist — see the header comment.)
-    'elk.aspectRatio': '1.6',
+    'elk.aspectRatio': String(options.aspectRatio ?? 1.6),
     'elk.separateConnectedComponents': 'true',
     // INTERACTIVE placement keeps each layer's boxes centred on the widest
     // partition instead of fanning them out sideways, which is what lets a

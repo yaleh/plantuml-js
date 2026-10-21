@@ -101,6 +101,11 @@ export interface ElkLayoutOptions {
    * into a weighted edge; default false.
    */
   mergeEdges?: boolean;
+  /**
+   * Target canvas width/height ratio (`elk.aspectRatio`), e.g. 16/9 for a
+   * desktop panel or 9/16 for a portrait phone. Default 1.6.
+   */
+  aspectRatio?: number;
 }
 
 
@@ -124,6 +129,8 @@ export class ElkLayoutEngine implements LayoutEngine {
     // A package-less graph has no blocks to pack: compound would degenerate into
     // one block per entity, so it always takes the layered run.
     let flat: LayoutResult | undefined;
+    const target = this.options.aspectRatio;
+    if (target !== undefined && target > 0) return this.layoutToward(model, layers, partitions, target);
     if (model.entities.length <= COMPOUND_ENTITY_THRESHOLD || model.packages.length === 0) {
       flat = await this.hierarchicalLayout(model, layers, partitions);
       if (isProportionate(flat) && flat.width <= MAX_WIDTH) return flat;
@@ -139,6 +146,25 @@ export class ElkLayoutEngine implements LayoutEngine {
     return compound;
   }
 
+  /**
+   * Caller-requested canvas ratio: run both strategies and keep whichever lands
+   * closer (in log distance) to the target. The default path never gets here.
+   */
+  private async layoutToward(
+    model: PlantUmlModel,
+    layers: string[],
+    partitions: Map<string, number>,
+    target: number,
+  ): Promise<LayoutResult> {
+    const candidates: LayoutResult[] = [await this.compound(model, layers, partitions)];
+    if (model.entities.length <= COMPOUND_ENTITY_THRESHOLD || model.packages.length === 0) {
+      candidates.push(await this.hierarchicalLayout(model, layers, partitions));
+    }
+    const miss = (l: LayoutResult): number =>
+      l.width > 0 && l.height > 0 ? Math.abs(Math.log(l.width / l.height / target)) : 0;
+    return candidates.reduce((best, c) => (miss(c) < miss(best) ? c : best));
+  }
+
   private compound(
     model: PlantUmlModel,
     layers: string[],
@@ -146,6 +172,7 @@ export class ElkLayoutEngine implements LayoutEngine {
   ): Promise<LayoutResult> {
     return compoundLayout(this.elk, model, {
       edgeRouting: this.options.edgeRouting ?? 'ORTHOGONAL',
+      aspectRatio: this.options.aspectRatio,
       dense: model.entities.length > COMPOUND_ENTITY_THRESHOLD,
       partitions: layers.length > 0 ? partitions : new Map(),
     });
@@ -160,6 +187,7 @@ export class ElkLayoutEngine implements LayoutEngine {
     const graph = buildElkGraph(model, layers, partitions, {
       edgeRouting: this.options.edgeRouting ?? 'ORTHOGONAL',
       mergeEdges: this.options.mergeEdges,
+      aspectRatio: this.options.aspectRatio,
     });
     return mapElkResult(model, await this.elk.layout(graph));
   }
