@@ -1,7 +1,7 @@
 ---
 id: gap-layout-cross-package-routing-large-graph
 title: 跨包边走 ELK 正交路由（不再回落直线）+ 大图根层包装箱 + 包视图宽高比约束
-status: todo
+status: ready
 labels:
   - gap
   - layout
