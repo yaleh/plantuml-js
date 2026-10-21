@@ -1,7 +1,7 @@
 ---
 id: gap-render-external-nodes-labels-cjk
 title: 外部/隐式节点归位与梳状边合并 + 边标签不被节点遮挡 + CJK 字宽（包标签溢出）
-status: ready
+status: done
 labels:
   - gap
   - layout
