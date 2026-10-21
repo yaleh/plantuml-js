@@ -314,10 +314,18 @@ function renderBundle(
     `<g data-edge-source="${escapeXml(first.source)}" data-edge-type="${first.type}"` +
     ` data-bundle-size="${members.length}" data-weight="${totalWeight}" class="uml-edge uml-edge-bundle">` +
     `<path d="${segments.join('')}" fill="none" stroke="${color}" stroke-width="${fmt(strokeWidth)}"` +
+    ` stroke-opacity="${edgeOpacity(totalWeight, false, theme)}"` +
     `${dash ? ` stroke-dasharray="${dash}"` : ''} stroke-linejoin="round"/>` +
     heads.join('') +
     `</g>`
   );
+}
+
+/** Opacity tier of an edge: heavier (more merged relations) edges are more opaque. */
+function edgeOpacity(weight: number, feedback: boolean, theme: Theme): number {
+  const { opacity, heavyWeight } = theme.stroke;
+  if (feedback) return opacity.feedback;
+  return weight >= heavyWeight ? opacity.strong : weight > 1 ? opacity.medium : opacity.light;
 }
 
 function renderEdge(
@@ -329,11 +337,18 @@ function renderEdge(
 ): string {
   if (edge.points.length < 2) return '';
   const points = edge.points;
-  const weak = rel.type === 'implementation' || rel.type === 'dependency';
+  const weak = rel.type === 'dependency';
   const color = rel.feedback ? theme.color.warn : weak ? theme.color.edgeWeak : theme.color.edge;
-  // Feedback edges carry a non-colour cue: a dash-dot pattern distinct from the
-  // plain dashes of weak relations.
-  const dash = rel.feedback ? theme.dash.feedback : weak ? theme.dash.weak : undefined;
+  // Three tiers of line type, each with a non-colour cue: strong relations are
+  // solid, a realisation is dashed, a weak dependency is dotted, and a cycle
+  // feedback edge is dash-dot.
+  const dash = rel.feedback
+    ? theme.dash.feedback
+    : weak
+      ? theme.dash.weak
+      : rel.type === 'implementation'
+        ? theme.dash.implementation
+        : undefined;
   const { arrow } = theme;
 
   const sourceTrim =
@@ -352,8 +367,9 @@ function renderEdge(
   // semi-transparent line, plus a `×N` label when more than one relation
   // collapsed into this edge.
   const weight = rel.weight && rel.weight > 1 ? rel.weight : 1;
-  const strokeWidth = Math.min(theme.stroke.edge + (weight - 1) * theme.stroke.weightStep, theme.stroke.weightMax);
-  const opacity = weight > 1 ? ` stroke-opacity="${theme.stroke.weightOpacity}"` : '';
+  const weightWidth = Math.min(theme.stroke.edge + (weight - 1) * theme.stroke.weightStep, theme.stroke.weightMax);
+  const strokeWidth = rel.feedback ? Math.max(theme.stroke.feedback, weightWidth) : weightWidth;
+  const opacity = ` stroke-opacity="${edgeOpacity(weight, !!rel.feedback, theme)}"`;
   const feedbackClass = rel.feedback ? ' class="uml-feedback"' : '';
 
   parts.push(

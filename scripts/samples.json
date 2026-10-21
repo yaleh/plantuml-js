@@ -44,6 +44,7 @@
       "tier": "M",
       "source": "archguard-architecture.puml",
       "thresholds": {
+        "maxEmptyBlockRatio": { "max": 0.2 },
         "edgeFlushCount": { "max": 0 },
         "aspectRatio": { "min": 0.5, "max": 2.5 },
         "areaUtilization": { "min": 0.12 }
@@ -54,6 +55,8 @@
       "tier": "M",
       "source": "archguard-package.puml",
       "thresholds": {
+        "overlappingEdgeLength": { "max": 9974 },
+        "maxEmptyBlockRatio": { "max": 0.14 },
         "aspectRatio": { "min": 0.5, "max": 2.5 },
         "areaUtilization": { "min": 0.12 }
       }
@@ -64,6 +67,7 @@
       "source": "all-classes.puml",
       "view": { "kind": "package", "id": "Src_Mermaid_Layer" },
       "thresholds": {
+        "maxEmptyBlockRatio": { "max": 0.1 },
         "edgeFlushCount": { "max": 0 },
         "aspectRatio": { "min": 0.5, "max": 2.5 },
         "areaUtilization": { "min": 0.12 }
@@ -75,6 +79,7 @@
       "source": "all-classes.puml",
       "view": { "kind": "package", "id": "Src_Types_Layer" },
       "thresholds": {
+        "maxEmptyBlockRatio": { "max": 0.1 },
         "aspectRatio": { "min": 0.5, "max": 2.5 },
         "areaUtilization": { "min": 0.12 }
       }
@@ -96,8 +101,9 @@
       "tier": "XL",
       "source": "all-classes.puml",
       "thresholds": {
+        "overlappingEdgeLength": { "max": 47687 },
         "edgeFlushCount": { "max": 24 },
-        "maxEmptyBlockRatio": { "max": 0.2 },
+        "maxEmptyBlockRatio": { "max": 0.08 },
         "aspectRatio": { "min": 0.5, "max": 2.5 },
         "nonOrthogonalEdgeCount": { "max": 0 },
         "textOverflowCount": { "max": 0 }

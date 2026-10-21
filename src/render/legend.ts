@@ -40,7 +40,7 @@ export function renderLegend(x: number, y: number, theme: Theme): Legend {
     `<line x1="${sx}" y1="${rowY(0)}" x2="${sx + SWATCH_WIDTH}" y2="${rowY(0)}" stroke="${color.warn}" stroke-width="${theme.stroke.edge}" stroke-dasharray="${theme.dash.feedback}"/>`,
     `<circle cx="${sx + SWATCH_WIDTH / 2}" cy="${rowY(1)}" r="8" fill="${color.accent}"/>` +
       `<text x="${sx + SWATCH_WIDTH / 2}" y="${rowY(1) + 3.5}" text-anchor="middle" font-family="${theme.font.family}" font-size="10" fill="${color.accentText}">N</text>`,
-    `<line x1="${sx}" y1="${rowY(2)}" x2="${sx + SWATCH_WIDTH}" y2="${rowY(2)}" stroke="${color.edge}" stroke-width="2.5" stroke-opacity="${theme.stroke.weightOpacity}"/>`,
+    `<line x1="${sx}" y1="${rowY(2)}" x2="${sx + SWATCH_WIDTH}" y2="${rowY(2)}" stroke="${color.edge}" stroke-width="2.5" stroke-opacity="${theme.stroke.opacity.strong}"/>`,
     `<rect x="${sx}" y="${rowY(3) - 7}" width="${SWATCH_WIDTH}" height="14" rx="3" fill="${color.stubFill}" stroke="${color.strokeStub}" stroke-width="${theme.stroke.node}" stroke-dasharray="${theme.dash.stub}"/>`,
     `<rect x="${sx}" y="${rowY(4) - 7}" width="${SWATCH_WIDTH}" height="14" rx="3" fill="${color.nodeFill}" stroke="${color.stroke}" stroke-width="${theme.stroke.node}"/>`,
   ];

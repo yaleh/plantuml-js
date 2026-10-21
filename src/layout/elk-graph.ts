@@ -164,8 +164,8 @@ export function buildElkGraph(
     'elk.algorithm': 'layered',
     'elk.direction': 'DOWN',
     'elk.edgeRouting': options.edgeRouting,
-    'elk.spacing.nodeNode': compact ? '12' : '40',
-    'elk.layered.spacing.nodeNodeBetweenLayers': compact ? '24' : '60',
+    'elk.spacing.nodeNode': compact ? '12' : '20',
+    'elk.layered.spacing.nodeNodeBetweenLayers': compact ? '24' : '24',
     // Ports keep a fixed side per edge, so same-direction edges fan out across
     // one node edge instead of scattering onto every side (or one point).
     'elk.layered.portConstraints': 'FIXED_SIDE',

@@ -68,6 +68,8 @@ const MIN_ASPECT = 0.2;
 /** Narrowest aspect a width-driven switch to the compound layout may produce. */
 const PREFERRED_MIN_ASPECT = 0.6;
 const MAX_PIXELS = 40e6;
+/** Canvas area (px²) a dense compound layout with dependency-ordered rows may use. */
+const COMPOUND_AREA_BUDGET = 90e6;
 /** Canvas width beyond which a single hierarchical run is too wide to read. */
 const MAX_WIDTH = 2400;
 
@@ -166,17 +168,25 @@ export class ElkLayoutEngine implements LayoutEngine {
     return candidates.reduce((best, c) => (miss(c) < miss(best) ? c : best));
   }
 
-  private compound(
+  private async compound(
     model: PlantUmlModel,
     layers: string[],
     partitions: Map<string, number>,
   ): Promise<LayoutResult> {
-    return compoundLayout(this.elk, model, {
-      edgeRouting: this.options.edgeRouting ?? 'ORTHOGONAL',
-      aspectRatio: this.options.aspectRatio,
-      dense: model.entities.length > COMPOUND_ENTITY_THRESHOLD,
-      partitions: layers.length > 0 ? partitions : new Map(),
-    });
+    const dense = model.entities.length > COMPOUND_ENTITY_THRESHOLD;
+    const run = (rectPackDense: boolean): Promise<LayoutResult> =>
+      compoundLayout(this.elk, model, {
+        edgeRouting: this.options.edgeRouting ?? 'ORTHOGONAL',
+        aspectRatio: this.options.aspectRatio,
+        dense,
+        rectPackDense,
+        partitions: layers.length > 0 ? partitions : new Map(),
+      });
+    const ordered = await run(false);
+    // Dependency-ordered rows cost canvas on very large graphs; past the budget
+    // fall back to the tighter (order-blind) rect packing.
+    if (dense && ordered.width * ordered.height > COMPOUND_AREA_BUDGET) return run(true);
+    return ordered;
   }
 
   /** One ELK run over the whole nested graph (`INCLUDE_CHILDREN`). */

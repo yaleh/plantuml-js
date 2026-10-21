@@ -38,9 +38,9 @@ interface Seg {
 }
 
 export function spreadParallelLanes(layout: LayoutResult): LayoutResult {
-  const polylines = layout.edges.map((e) => e.points.map((p) => ({ ...p })));
+  const polylines = layout.edges.map((e) => dropRepeats(e.points));
   const owners = layout.edges.map((e) => new Set([e.source, e.target]));
-  let changed = false;
+  let changed = layout.edges.some((e, i) => e.points.length !== polylines[i].length);
   for (let pass = 0; pass < PASSES; pass++) {
     let moved = false;
     for (const horizontal of [true, false]) {
@@ -54,6 +54,16 @@ export function spreadParallelLanes(layout: LayoutResult): LayoutResult {
   }
   if (!changed) return layout;
   return { ...layout, edges: layout.edges.map((e, i) => ({ ...e, points: polylines[i] })) };
+}
+
+/** Copy of `points` without consecutive duplicates (zero-length segments). */
+function dropRepeats(points: Point[]): Point[] {
+  const out: Point[] = [];
+  for (const p of points) {
+    const last = out[out.length - 1];
+    if (!last || Math.abs(last.x - p.x) > 1e-6 || Math.abs(last.y - p.y) > 1e-6) out.push({ ...p });
+  }
+  return out.length >= 2 || points.length < 2 ? out : points.map((p) => ({ ...p }));
 }
 
 function collectSegments(polylines: Point[][], horizontal: boolean): Seg[] {

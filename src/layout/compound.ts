@@ -50,6 +50,8 @@ const SPARSE_MIN_NODES = 30;
 const FLOW_LAYER_GAP = 24;
 /** Dense graphs pack their blocks taller so the placed blocks do not stretch the canvas. */
 const DENSE_SHELF_ASPECT_SCALE = 0.6;
+/** Rows read better a little wider than the canvas target; the layers above add height. */
+const SHELF_ASPECT_SCALE = 1.25;
 /** Node gap of a repacked block: wide enough channels for several edge lanes. */
 const SHELF_GAP = 72;
 const SHELF_PADDING = { top: 26, side: 10, bottom: 10 };
@@ -68,6 +70,11 @@ const DENSE_NODE_SPACING = 36;
 export interface CompoundOptions {
   /** Pack every flat block tightly (very large graphs); edges are grid-routed. */
   dense?: boolean;
+  /**
+   * Dense blocks use rect packing instead of dependency-ordered rows: tighter
+   * but order-blind, so only used when the rows exceed the canvas budget.
+   */
+  rectPackDense?: boolean;
   edgeRouting: string;
   /** Target canvas width/height (ELK `elk.aspectRatio`); default 1.6. */
   aspectRatio?: number;
@@ -335,12 +342,24 @@ async function layoutBlock(
     // A single wide layer cannot be wrapped by the layered algorithm; pack the
     // boxes into a balanced rectangle, rows in dependency order, and let the
     // grid router draw the edges.
-    result = orderedShelfPack(
-      rootChildren,
-      flowOrder,
-      (options.aspectRatio ?? 1.6) * (options.dense ? DENSE_SHELF_ASPECT_SCALE : 1),
-      options.dense ? DENSE_NODE_SPACING : SHELF_GAP,
-    );
+    result =
+      options.dense && options.rectPackDense
+        ? await elk.layout({
+            id: 'block',
+            layoutOptions: {
+              'elk.algorithm': 'rectpacking',
+              'elk.aspectRatio': String(options.aspectRatio ?? 1.6),
+              'elk.spacing.nodeNode': String(DENSE_NODE_SPACING),
+              'elk.padding': '[top=26,left=10,bottom=10,right=10]',
+            },
+            children: rootChildren,
+          })
+        : orderedShelfPack(
+            rootChildren,
+            flowOrder,
+            (options.aspectRatio ?? 1.6) * (options.dense ? DENSE_SHELF_ASPECT_SCALE : SHELF_ASPECT_SCALE),
+            options.dense ? DENSE_NODE_SPACING : SHELF_GAP,
+          );
     repacked = true;
   }
 

@@ -46,11 +46,17 @@ export interface Theme {
     /** Extra width per merged relation and the cap. */
     weightStep: number;
     weightMax: number;
-    weightOpacity: number;
+    /** Width of a cycle feedback edge (weight can only widen it). */
+    feedback: number;
+    /** Weight (merged relations) from which an edge counts as heavy. */
+    heavyWeight: number;
+    /** Edge opacity tiers: light = weight 1, medium = weight 2, strong = heavy, feedback = cycle back edge. */
+    opacity: { light: number; medium: number; strong: number; feedback: number };
     /** Width of the label halo stroke. */
     labelHalo: number;
   };
-  dash: { weak: string; stub: string; feedback: string };
+  /** Line types: weak = dependency, implementation = realisation, feedback = cycle back edge. */
+  dash: { weak: string; implementation: string; stub: string; feedback: string };
   arrow: { triangle: number; chevron: number; diamond: number };
   /** Spacing grid (px); node sizes snap to it. */
   grid: number;
@@ -82,8 +88,19 @@ export const defaultTheme: Theme = {
     legendStroke: '#94a3b8',
   },
   shape: { nodeRadius: 6, packageRadius: 8, edgeCornerRadius: 6 },
-  stroke: { node: 1, package: 1, edge: 1, arrow: 1, weightStep: 0.5, weightMax: 6, weightOpacity: 0.55, labelHalo: 3 },
-  dash: { weak: '3,3', stub: '5,3', feedback: '10,3,2,3' },
+  stroke: {
+    node: 1,
+    package: 1,
+    edge: 1,
+    arrow: 1,
+    weightStep: 0.5,
+    weightMax: 6,
+    feedback: 1.5,
+    heavyWeight: 3,
+    opacity: { light: 0.75, medium: 0.9, strong: 1, feedback: 0.95 },
+    labelHalo: 3,
+  },
+  dash: { weak: '2,4', implementation: '6,3', stub: '5,3', feedback: '10,3,2,3' },
   arrow: { triangle: 12, chevron: 10, diamond: 14 },
   grid: 8,
 };
@@ -124,6 +141,15 @@ export function themeColors(theme: Theme): Set<string> {
     else out.add(v);
   }
   return out;
+}
+
+/** `fg` at `alpha` composited over `bg` (both `#rrggbb`), as a `#rrggbb` colour. */
+export function blendOver(fg: string, bg: string, alpha: number): string {
+  const f = parseInt(fg.slice(1), 16);
+  const b = parseInt(bg.slice(1), 16);
+  const mix = (shift: number): number =>
+    Math.round(alpha * ((f >> shift) & 255) + (1 - alpha) * ((b >> shift) & 255));
+  return `#${((mix(16) << 16) | (mix(8) << 8) | mix(0)).toString(16).padStart(6, '0')}`;
 }
 
 /** WCAG relative luminance contrast ratio between two `#rrggbb` colours. */
