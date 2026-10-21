@@ -30,6 +30,12 @@ const PACKAGE_PREFIX = 'pkg::';
 const BLOCK_MAX_ASPECT = 2.2;
 const REVERSED_RELATION_TYPES = new Set(['inheritance', 'implementation']);
 
+/**
+ * Width beyond which a lopsided nested block is split into child blocks and
+ * rect-packed; narrower strips keep their (low-crossing) layered routing.
+ */
+const NESTED_SPLIT_WIDTH = 3500;
+
 /** Block count above which blocks are packed instead of layered. */
 const PACK_BLOCK_THRESHOLD = 12;
 /** Gap between blocks: wide enough for several routing lanes. */
@@ -267,6 +273,10 @@ async function layoutBlock(
   let result = await elk.layout(graph);
   let repacked = false;
   const aspect = (result.width ?? 0) / Math.max(1, result.height ?? 1);
+  const wide = (result.width ?? 0) > NESTED_SPLIT_WIDTH;
+  if (hasNested && wide && (aspect > BLOCK_MAX_ASPECT || aspect < 1 / BLOCK_MAX_ASPECT)) {
+    return splitNestedBlock(elk, model, key, entities, packages, relationIndexes, options);
+  }
   if (!hasNested && (options.dense || aspect > BLOCK_MAX_ASPECT || aspect < 1 / BLOCK_MAX_ASPECT)) {
     // A single wide layer cannot be wrapped by the layered algorithm; pack the
     // boxes into a balanced rectangle and let the grid router draw the edges.
@@ -317,6 +327,116 @@ async function layoutBlock(
   }
 
   return { key, width, height, nodes, packages: packagesOut, edges: edgeMap };
+}
+
+/**
+ * Pack a lopsided nested block proportionally: every child package becomes a
+ * block of its own (recursively split when it is lopsided too), and the child
+ * blocks plus the package's own entities are rect-packed into a balanced
+ * rectangle. Edges inside a child keep their ELK routes; edges between
+ * children are left for the grid router.
+ */
+async function splitNestedBlock(
+  elk: ElkInstance,
+  model: PlantUmlModel,
+  key: string,
+  entities: PlantUmlEntity[],
+  packages: PlantUmlPackage[],
+  relationIndexes: number[],
+  options: CompoundOptions,
+): Promise<Block> {
+  const topId = key.slice(PACKAGE_PREFIX.length);
+  const top = packages.find((p) => p.id === topId)!;
+  const pkgById = new Map(packages.map((p) => [p.id, p]));
+  const childOf = new Map<string, string>(); // package id → direct child of top
+  for (const pkg of packages) {
+    if (pkg.id === topId) continue;
+    let cur = pkg;
+    while (cur.parentId !== undefined && cur.parentId !== topId && pkgById.has(cur.parentId)) {
+      cur = pkgById.get(cur.parentId)!;
+    }
+    childOf.set(pkg.id, cur.id);
+  }
+  const children = packages.filter((p) => p.parentId === topId);
+  const entityChild = (e: PlantUmlEntity): string | undefined =>
+    e.packageId !== undefined ? childOf.get(e.packageId) : undefined;
+  const entityIds = new Map(entities.map((e) => [e.id, e]));
+  const subBlocks: Block[] = [];
+  const claimed = new Set<number>();
+  for (const child of children) {
+    const subKey = PACKAGE_PREFIX + child.id;
+    const subPackages = packages.filter((p) => p.id === child.id || childOf.get(p.id) === child.id);
+    const subEntities = entities.filter((e) => entityChild(e) === child.id);
+    const subRelations = relationIndexes.filter((i) => {
+      const r = model.relations[i];
+      const a = entityIds.get(r.source);
+      const b = entityIds.get(r.target);
+      return a !== undefined && b !== undefined && entityChild(a) === child.id && entityChild(b) === child.id;
+    });
+    for (const i of subRelations) claimed.add(i);
+    subBlocks.push(await layoutBlock(elk, model, subKey, subEntities, subPackages, subRelations, { ...options, dense: false }));
+  }
+
+  const unrouted: number[] = relationIndexes.filter((i) => !claimed.has(i));
+  const own = entities.filter((e) => entityChild(e) === undefined);
+  const elkChildren: ElkNode[] = [
+    ...subBlocks.map((b) => ({ id: b.key, width: b.width, height: b.height })),
+    ...own.map((e) => {
+      const size = estimateEntitySize(e);
+      return { id: e.id, width: size.width, height: size.height };
+    }),
+  ];
+  // Layered placement over the child boxes keeps linked packages adjacent (few
+  // crossings between them); wrapping bounds the aspect ratio.
+  const itemOf = (id: string): string => {
+    const e = entityIds.get(id);
+    const c = e === undefined ? undefined : entityChild(e);
+    return c === undefined ? id : PACKAGE_PREFIX + c;
+  };
+  const seen = new Set<string>();
+  const linkEdges: ElkExtendedEdge[] = [];
+  for (const i of unrouted) {
+    const a = itemOf(model.relations[i].source);
+    const b = itemOf(model.relations[i].target);
+    if (a === b || seen.has(`${a}\u0000${b}`)) continue;
+    seen.add(`${a}\u0000${b}`);
+    linkEdges.push({ id: `lnk-${linkEdges.length}`, sources: [a], targets: [b] });
+  }
+  const packed: ElkNode = await elk.layout({
+    id: 'block',
+    layoutOptions: {
+      'elk.algorithm': 'layered',
+      'elk.direction': 'DOWN',
+      'elk.aspectRatio': '1.6',
+      'elk.spacing.nodeNode': String(DENSE_NODE_SPACING),
+      'elk.layered.spacing.nodeNodeBetweenLayers': String(BLOCK_SPACING),
+      'elk.layered.wrapping.strategy': 'MULTI_EDGE',
+      'elk.separateConnectedComponents': 'true',
+      'elk.padding': '[top=26,left=10,bottom=10,right=10]',
+    },
+    children: elkChildren,
+    edges: linkEdges,
+  });
+
+  const nodes: NodeLayout[] = [];
+  const packagesOut: PackageLayout[] = [];
+  const edges = new Map<number, Point[]>();
+  for (const c of packed.children ?? []) {
+    const at = { x: c.x ?? 0, y: c.y ?? 0 };
+    const sub = subBlocks.find((b) => b.key === c.id);
+    if (!sub) {
+      nodes.push({ id: c.id, x: at.x, y: at.y, width: c.width ?? 0, height: c.height ?? 0 });
+      continue;
+    }
+    for (const n of sub.nodes) nodes.push({ ...n, x: n.x + at.x, y: n.y + at.y });
+    for (const p of sub.packages) packagesOut.push({ ...p, x: p.x + at.x, y: p.y + at.y });
+    for (const i of sub.unrouted ?? []) unrouted.push(i);
+    for (const [i, pts] of sub.edges) edges.set(i, pts.map((q) => ({ x: q.x + at.x, y: q.y + at.y })));
+  }
+  const width = Math.max(packed.width ?? 0, packageMinWidth(top.name));
+  const height = Math.max(packed.height ?? 0, PACKAGE_LABEL.tabHeight + 36);
+  packagesOut.push({ id: topId, x: 0, y: 0, width, height });
+  return { key, width, height, nodes, packages: packagesOut, edges, unrouted };
 }
 
 function elkEdgePoints(

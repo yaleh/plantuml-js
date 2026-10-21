@@ -120,21 +120,34 @@ export class ElkLayoutEngine implements LayoutEngine {
     const partitions = assignPartitions(model, layers);
     // Very large graphs skip the single hierarchical run: it cannot keep the
     // canvas proportioned, so it would only be thrown away.
+    // A package-less graph has no blocks to pack: compound would degenerate into
+    // one block per entity, so it always takes the layered run.
     let flat: LayoutResult | undefined;
-    if (model.entities.length <= COMPOUND_ENTITY_THRESHOLD) {
+    if (model.entities.length <= COMPOUND_ENTITY_THRESHOLD || model.packages.length === 0) {
       flat = await this.hierarchicalLayout(model, layers, partitions);
       if (isProportionate(flat) && flat.width <= MAX_WIDTH) return flat;
+      if (model.packages.length === 0 && model.entities.length > COMPOUND_ENTITY_THRESHOLD) {
+        return isProportionate(flat) ? flat : (await this.compound(model, layers, partitions));
+      }
     }
-    const compound = await compoundLayout(this.elk, model, {
-      edgeRouting: this.options.edgeRouting ?? 'ORTHOGONAL',
-      dense: model.entities.length > COMPOUND_ENTITY_THRESHOLD,
-      partitions: layers.length > 0 ? partitions : new Map(),
-    });
+    const compound = await this.compound(model, layers, partitions);
     // A flat run kept only for being too wide gives way to the compound layout
     // when that one fits the width budget without degenerating into a tall
     // sliver; otherwise the wide-but-balanced flat run is the better picture.
     if (flat !== undefined && isProportionate(flat) && !isNarrowEnough(compound)) return flat;
     return compound;
+  }
+
+  private compound(
+    model: PlantUmlModel,
+    layers: string[],
+    partitions: Map<string, number>,
+  ): Promise<LayoutResult> {
+    return compoundLayout(this.elk, model, {
+      edgeRouting: this.options.edgeRouting ?? 'ORTHOGONAL',
+      dense: model.entities.length > COMPOUND_ENTITY_THRESHOLD,
+      partitions: layers.length > 0 ? partitions : new Map(),
+    });
   }
 
   /** One ELK run over the whole nested graph (`INCLUDE_CHILDREN`). */
