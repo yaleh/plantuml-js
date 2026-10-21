@@ -1,7 +1,7 @@
 ---
 id: gap-layout-balance-clearance-bundling
 title: 版面均衡与边净距：根层空白象限、窄长堆叠小包、边贴节点/包框、枢纽脱节、梳状并行线
-status: todo
+status: ready
 labels:
   - gap
   - layout
