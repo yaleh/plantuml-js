@@ -306,4 +306,6 @@ function stripComment(line: string): string {
   return line.slice(0, idx).trim();
 }
 
-export { parsePlantUml, ElkLayoutEngine, VizLayoutEngine };
+export { parsePlantUml, ElkLayoutEngine, VizLayoutEngine, renderSvg };
+export { computeLayoutMetrics } from './layout-metrics.js';
+export type { LayoutMetrics } from './layout-metrics.js';
