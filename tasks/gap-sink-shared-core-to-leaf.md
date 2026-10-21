@@ -20,13 +20,15 @@ archguard `detect_cycles(outputScope="package")` 报 1 个 3 成员目录 SCC `{
 
 纯文件移动 + import 路径更新，不改任何布局/渲染行为。注意：`src/core.ts`（门面文件）与新的 `src/foundation/` 叶子目录必须避免 `import './core'` 二义，实现时若撞名则改门面文件名或叶子目录名，以 `npm run typecheck` 通过为准。
 
+实现落点：foundation 收 model/layout/text-measure/edge-router/render-dot/layers；`layout-metrics.ts` 移入 `src/layout/`（根包 layout-metrics 被 layout 依赖，同属环成员）；`layers.ts` 沉入 foundation 以断 render→layout 边。最终依赖方向：根包 → layout → render → foundation。
+
 ## AC
 
-- [ ] 环消失：重新 `archguard_analyze` 后 `archguard_detect_cycles(outputScope="package")` 的目录级环从现状 1 个 3 成员 SCC 降为 0（或 SCC 成员不再包含根包）；用 bridges 读数标注每个被消除桥边的 maxSccBefore/After
-- [ ] 叶子零回指：`grep -rn "from '\.\./layout\|from '\.\./render" src/foundation/*.ts` 无命中；且 `grep -rn "from '\.\./model\.js\|from '\.\./layout\.js\|from '\.\./text-measure\.js\|from '\.\./edge-router\.js" src/layout src/render` 无命中（共享核心依赖全部改指向 foundation）
-- [ ] 跨层边消除：`src/layout/viz.ts` 不再 `from '../render-dot.js'`；`src/render/labels.ts` 不再 `from '../edge-router.js'`（各自落到不反向依赖根包的位置）
-- [ ] 无行为回归：`npm run typecheck` 与 `npx vitest run` 全绿，所有既有测试不改断言即通过；两个 fixture 渲染 SVG sha256 与改动前相等
-- [ ] 公开面不变：`src/index.ts`、`src/elk.ts`、`src/archguard.ts`、`src/core.ts` 的导出名不变；`npm run build` 退出码 0
+- [x] 环消失：重新 `archguard_analyze` 后 `archguard_detect_cycles(outputScope="package")` 的目录级环从现状 1 个 3 成员 SCC 降为 0（或 SCC 成员不再包含根包）；用 bridges 读数标注每个被消除桥边的 maxSccBefore/After
+- [x] 叶子零回指：`grep -rn "from '\.\./layout\|from '\.\./render" src/foundation/*.ts` 无命中；且 `grep -rn "from '\.\./model\.js\|from '\.\./layout\.js\|from '\.\./text-measure\.js\|from '\.\./edge-router\.js" src/layout src/render` 无命中（共享核心依赖全部改指向 foundation）
+- [x] 跨层边消除：`src/layout/viz.ts` 不再 `from '../render-dot.js'`；`src/render/labels.ts` 不再 `from '../edge-router.js'`（各自落到不反向依赖根包的位置）
+- [x] 无行为回归：`npm run typecheck` 与 `npx vitest run` 全绿，所有既有测试不改断言即通过；两个 fixture 渲染 SVG sha256 与改动前相等
+- [x] 公开面不变：`src/index.ts`、`src/elk.ts`、`src/archguard.ts`、`src/core.ts` 的导出名不变；`npm run build` 退出码 0
 
 ## DoD
 
@@ -39,6 +41,9 @@ archguard `detect_cycles(outputScope="package")` 报 1 个 3 成员目录 SCC `{
 - src/foundation/layout.ts (new)
 - src/foundation/text-measure.ts (new)
 - src/foundation/edge-router.ts (new)
+- src/foundation/render-dot.ts (new)
+- src/foundation/layers.ts (new)
+- src/layout/layout-metrics.ts (new)
 - src/render-dot.ts
 - src/core.ts
 - src/index.ts
@@ -50,6 +55,8 @@ archguard `detect_cycles(outputScope="package")` 报 1 个 3 成员目录 SCC `{
 - src/layout/elk.ts
 - src/layout/elk-graph.ts
 - src/layout/elk-result.ts
+- src/layout/fanout-trunk.ts
+- src/layout/strategy.ts
 - src/layout/grid-router.ts
 - src/layout/lane-spread.ts
 - src/layout/layers.ts
@@ -62,20 +69,29 @@ archguard `detect_cycles(outputScope="package")` 报 1 个 3 成员目录 SCC `{
 - tests/detail.test.ts
 - tests/edge-hierarchy.test.ts
 - tests/elk-modules.test.ts
+- tests/elk-strategy.test.ts
+- tests/fanout-trunk.test.ts
 - tests/grid-alignment.test.ts
 - tests/grouping.test.ts
+- tests/gutter-routing.test.ts
 - tests/hub-badge.test.ts
 - tests/hub-rail.test.ts
+- tests/label-dedupe.test.ts
 - tests/layout-compound-proportion.test.ts
 - tests/layout-foundation.test.ts
 - tests/layout-metrics.test.ts
 - tests/legend.test.ts
 - tests/line-semantics.test.ts
 - tests/members.test.ts
+- tests/overview-labels.test.ts
 - tests/packing.test.ts
 - tests/ports.test.ts
 - tests/relations.test.ts
 - tests/render.test.ts
+- tests/root-packing.test.ts
+- tests/stub-placement.test.ts
+- tests/stub-rail.test.ts
 - tests/text-measure.test.ts
 - tests/transform.test.ts
+- tests/undeclared-endpoints.test.ts
 - tests/viz.test.ts
