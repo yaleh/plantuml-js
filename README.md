@@ -15,12 +15,23 @@ npm install @yalehwang/plantuml-js
 ```ts
 import { createRenderer } from '@yalehwang/plantuml-js';
 
-const renderer = createRenderer({ layout: 'elk' });
+const renderer = createRenderer({ layout: 'elk' }); // or 'viz'
 const { svg, diagramType, warnings } = await renderer.render(`
 @startuml
 class A
 @enduml
 `);
+```
+
+A minimal runnable example (works in Node 18+ and browsers with a bundler):
+
+```js
+import { createRenderer } from '@yalehwang/plantuml-js';
+
+const renderer = createRenderer({ layout: 'viz' });
+const { svg } = await renderer.render('@startuml\nclass A\nclass B\n@enduml');
+console.log(svg);
+// <svg xmlns="http://www.w3.org/2000/svg" ...><rect .../></svg>
 ```
 
 ## Status
@@ -36,8 +47,19 @@ class A
 | Function | Description |
 |---|---|
 | `createRenderer({ layout })` | Build a renderer. `layout` is `'elk'` (default), `'viz'`, or a custom `LayoutEngine`. |
-| `renderer.render(puml)` | Parse + layout + emit SVG. Returns `{ svg, diagramType, warnings }`. |
+| `renderer.render(puml)` | Parse + layout + emit SVG. Returns `{ svg, diagramType, warnings }`. Throws `RenderError` on structurally invalid puml. |
 | `parsePlantUml(puml)` | Parse a puml string into a `PlantUmlModel`. |
+| `checkSyntax(puml)` | Validate without throwing. Returns `{ ok, errors, warnings }` of line-accurate `SyntaxDiagnostic`s. |
+| `explain(puml)` | Explain each line. Returns `LineExplanation[]` (line, kind, explanation). |
+| `renderDot(dot, engine)` | Render a raw DOT string to SVG via `@viz-js/viz`. `engine` is `'dot'` (default), `'neato'`, `'fdp'`, `'sfdp'`, `'circo'`, `'twopi'`, `'osage'`, or `'patchwork'`. |
+| `ElkLayoutEngine` / `VizLayoutEngine` | The two built-in `LayoutEngine` implementations, exported for direct use. |
+
+### Error semantics
+
+`createRenderer` fails closed on an unknown layout name (`'elk'`, `'viz'`, or a
+`LayoutEngine` instance only), and `render` throws a `RenderError` whose
+`diagnostics` carry the offending line numbers. `checkSyntax` reports the same
+problems as structured data instead of throwing.
 
 ## License
 
