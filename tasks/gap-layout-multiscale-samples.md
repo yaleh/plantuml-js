@@ -43,3 +43,11 @@ depends_on:
 - scripts/tile-png.mjs (new)
 - docs/layout-routing-eval.md
 - tests/samples-manifest.test.ts (new)
+
+## Blocker
+
+**2026-10-21T16:52:55.975Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 5/6，剩余未勾 1）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：ed32d143-3019-4767-8295-0a24215c924b
