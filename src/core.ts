@@ -9,7 +9,8 @@
 
 import { PlantUmlModel } from './model.js';
 import { parsePlantUml, parseWithDiagnostics } from './parser.js';
-import { LayoutEngine } from './layout.js';
+import { LayoutEngine, DetailLevel, applyDetail } from './layout.js';
+import { ThemeOverrides } from './render/theme.js';
 import { ElkLayoutEngine } from './layout/elk.js';
 import { renderSvg, RenderSvgOptions } from './render/svg.js';
 import { applyView, transformModel, ViewSpec, TransformOptions } from './transform.js';
@@ -24,6 +25,9 @@ export type {
   RelationType,
 } from './model.js';
 
+export { defaultTheme, resolveTheme } from './render/theme.js';
+export type { Theme, ThemeOverrides } from './render/theme.js';
+export type { DetailLevel } from './layout.js';
 export type {
   LayoutEngine,
   LayoutResult,
@@ -45,6 +49,13 @@ export interface RendererOptions {
   transform?: TransformOptions;
   /** Draw a legend of the visual encodings. Default: on for diagrams with more than 30 entities. */
   legend?: boolean;
+  /** Visual theme tokens; unspecified tokens fall back to `defaultTheme`. */
+  theme?: ThemeOverrides;
+  /**
+   * Member detail: `'full'`, `'compact'` (first rows + count) or `'names'`.
+   * Default: chosen by entity count (≤40 full, ≤150 compact, else names).
+   */
+  detail?: DetailLevel;
 }
 
 export interface RenderResult {
@@ -113,9 +124,9 @@ export function createRenderer(options: RendererOptions = {}): Renderer {
       if (!syntax.ok) throw new RenderError(syntax.errors);
 
       const { model: parsed, diagnostics } = parseWithDiagnostics(puml);
-      const model = transformForRender(parsed, options);
+      const model = applyDetail(transformForRender(parsed, options), options.detail);
       const layout = await engine.layout(model);
-      const svg = renderSvg(model, layout, { legend: options.legend });
+      const svg = renderSvg(model, layout, { legend: options.legend, theme: options.theme });
       return { svg, diagramType: model.diagramType, warnings: diagnostics.map((d) => `line ${d.line}: ${d.message}`) };
     },
   };

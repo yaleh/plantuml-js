@@ -23,12 +23,8 @@ import {
 import { measureTextWidth } from '../text-measure.js';
 import { hubBadgeCircle, placeEdgeLabels, EdgeLabelPlacement, EDGE_LABEL_FONT_SIZE } from './labels.js';
 import { renderLegend, LEGEND_DEFAULT_NODE_THRESHOLD } from './legend.js';
-
-const STROKE = '#333333';
-
-const TRIANGLE_SIZE = 10;
-const CHEVRON_SIZE = 9;
-const DIAMOND_SIZE = 13;
+import { Theme, ThemeOverrides, resolveTheme } from './theme.js';
+import { packageLayer } from '../layout/layers.js';
 
 export function escapeXml(text: string): string {
   return text
@@ -47,6 +43,8 @@ function fmt(n: number): string {
 export interface RenderSvgOptions {
   /** Draw a legend of the visual encodings. Default: on for models with more than 30 entities. */
   legend?: boolean;
+  /** Theme token overrides over `defaultTheme`. */
+  theme?: ThemeOverrides;
 }
 
 export function renderSvg(
@@ -54,15 +52,27 @@ export function renderSvg(
   layout: LayoutResult,
   options: RenderSvgOptions = {},
 ): string {
+  const theme = resolveTheme(options.theme);
   const nodesById = new Map(layout.nodes.map((n) => [n.id, n]));
   const packagesById = new Map((layout.packages ?? []).map((p) => [p.id, p]));
   const edgesById = new Map((layout.edges ?? []).map((e) => [e.id, e]));
 
   const body: string[] = [];
 
+  const pkgById = new Map(model.packages.map((p) => [p.id, p]));
+  const layerNames: string[] = [];
+  for (const pkg of model.packages) {
+    const layer = packageLayer(pkg);
+    if (layer !== undefined && !layerNames.includes(layer)) layerNames.push(layer);
+  }
   for (const pkg of model.packages) {
     const box = packagesById.get(pkg.id);
-    if (box) body.push(renderPackage(pkg, box));
+    if (!box) continue;
+    let depth = 0;
+    for (let p = pkg.parentId ? pkgById.get(pkg.parentId) : undefined; p; p = p.parentId ? pkgById.get(p.parentId) : undefined) depth++;
+    const layer = packageLayer(pkg);
+    const tone = (layer !== undefined ? layerNames.indexOf(layer) : 0) + depth;
+    body.push(renderPackage(pkg, box, theme, tone));
   }
 
   const weightLabels = new Map<number, EdgeLabelPlacement>();
@@ -71,67 +81,90 @@ export function renderSvg(
   }
   for (let i = 0; i < model.relations.length; i++) {
     const edge = edgesById.get(`rel-${i}`);
-    if (edge) body.push(renderEdge(model.relations[i], edge, weightLabels.get(i)));
+    if (edge) body.push(renderEdge(model.relations[i], edge, theme, weightLabels.get(i)));
   }
 
   for (const entity of model.entities) {
     const node = nodesById.get(entity.id);
-    if (node) body.push(renderEntity(entity, node));
+    if (node) body.push(renderEntity(entity, node, theme));
   }
 
   let width = layout.width;
   let height = layout.height;
   const showLegend = options.legend ?? model.entities.length > LEGEND_DEFAULT_NODE_THRESHOLD;
   if (showLegend) {
-    const legend = renderLegend(12, layout.height + 8);
+    const legend = renderLegend(12, layout.height + 8, theme);
     body.push(legend.svg);
     width = Math.max(width, legend.width + 24);
     height = layout.height + 8 + legend.height + 12;
   }
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${fmt(width)}" height="${fmt(height)}"` +
-    ` viewBox="0 0 ${fmt(width)} ${fmt(height)}">${body.join('')}</svg>`
+    ` viewBox="0 0 ${fmt(width)} ${fmt(height)}">` +
+    `<rect class="uml-canvas" x="0" y="0" width="${fmt(width)}" height="${fmt(height)}" fill="${theme.color.canvas}"/>` +
+    `${body.join('')}</svg>`
   );
 }
 
-function renderEntity(entity: PlantUmlEntity, node: NodeLayout): string {
+function textEl(
+  text: string,
+  x: number,
+  y: number,
+  anchor: 'start' | 'middle',
+  size: number,
+  weight: string,
+  fill: string,
+  theme: Theme,
+  extra = '',
+): string {
+  const w = weight === 'normal' ? '' : ` font-weight="${weight}"`;
+  return (
+    `<text x="${fmt(x)}" y="${fmt(y)}" text-anchor="${anchor}"` +
+    ` font-family="${theme.font.family}" font-size="${size}"${w}${extra}` +
+    ` fill="${fill}">${escapeXml(text)}</text>`
+  );
+}
+
+function renderEntity(entity: PlantUmlEntity, node: NodeLayout, theme: Theme): string {
   const italic = entity.kind === 'interface' || entity.kind === 'abstract';
   const fontStyle = italic ? ' font-style="italic"' : '';
   const stub = entity.stub === true;
+  const { color, font } = theme;
 
   const parts: string[] = [];
-  const fill = stub ? '#f6f8fa' : '#ffffff';
-  const stubAttrs = stub ? ` class="uml-stub" stroke-dasharray="5,3"` : '';
+  const stubAttrs = stub ? ` class="uml-stub" stroke-dasharray="${theme.dash.stub}"` : '';
   parts.push(
     `<rect x="${fmt(node.x)}" y="${fmt(node.y)}" width="${fmt(node.width)}"` +
-      ` height="${fmt(node.height)}" rx="2" ry="2" fill="${fill}"` +
-      `${stubAttrs} stroke="${STROKE}" stroke-width="1.5"/>`,
+      ` height="${fmt(node.height)}" rx="${theme.shape.nodeRadius}" ry="${theme.shape.nodeRadius}"` +
+      ` fill="${stub ? color.stubFill : color.nodeFill}"` +
+      `${stubAttrs} stroke="${stub ? color.strokeStub : color.stroke}" stroke-width="${theme.stroke.node}"/>`,
   );
 
-  const titleBaseline = node.y + METRICS.paddingY + METRICS.fontSize - 2;
+  const headerBottom = node.y + METRICS.paddingY + METRICS.lineHeight;
+  const titleBaseline = node.y + METRICS.paddingY + METRICS.fontSize + 1;
+  if (entity.members.length > 0) {
+    parts.push(
+      `<line x1="${fmt(node.x)}" y1="${fmt(headerBottom)}"` +
+        ` x2="${fmt(node.x + node.width)}" y2="${fmt(headerBottom)}"` +
+        ` stroke="${color.stroke}" stroke-width="${theme.stroke.node}"/>`,
+    );
+  }
   parts.push(
-    `<line x1="${fmt(node.x)}" y1="${fmt(node.y + METRICS.paddingY + METRICS.lineHeight)}"` +
-      ` x2="${fmt(node.x + node.width)}" y2="${fmt(node.y + METRICS.paddingY + METRICS.lineHeight)}"` +
-      ` stroke="${STROKE}" stroke-width="1"/>`,
-  );
-  parts.push(
-    `<text x="${fmt(node.x + node.width / 2)}" y="${fmt(titleBaseline)}"` +
-      ` text-anchor="middle" font-family="${METRICS.fontFamily}" font-size="${METRICS.fontSize}"` +
-      `${fontStyle} fill="#000000">${escapeXml(displayName(entity))}</text>`,
+    textEl(displayName(entity), node.x + node.width / 2, titleBaseline, 'middle',
+      font.size.title, font.weight.title, color.textTitle, theme, fontStyle),
   );
 
   entity.members.forEach((member, i) => {
     const baseline =
-      node.y + METRICS.paddingY + METRICS.lineHeight * (i + 1) + METRICS.fontSize - 2;
+      node.y + METRICS.paddingY + METRICS.lineHeight * (i + 1) + METRICS.fontSize + 1;
     parts.push(
-      `<text x="${fmt(node.x + METRICS.paddingX)}" y="${fmt(baseline)}"` +
-        ` text-anchor="start" font-family="${METRICS.fontFamily}" font-size="${METRICS.fontSize}"` +
-        ` fill="#000000">${escapeXml(member.raw)}</text>`,
+      textEl(member.raw, node.x + METRICS.paddingX, baseline, 'start',
+        font.size.member, font.weight.member, color.textMember, theme),
     );
   });
 
   if (entity.usageCount && entity.usageCount > 0) {
-    parts.push(renderHubBadge(node, entity.usageCount));
+    parts.push(renderHubBadge(node, entity.usageCount, theme));
   }
 
   // Each entity is a single DOM group carrying its stable id and its innermost
@@ -152,20 +185,23 @@ function renderEntity(entity: PlantUmlEntity, node: NodeLayout): string {
  * Hub badge — the "used by N packages" marker drawn on the top-right corner of
  * a node whose incoming edges were summarized away (see [[../transform]]). It
  * is centred on the corner, so half of it sits outside the box and never covers
- * the node's name.
+ * the node's name. Neutral accent colour: red is reserved for feedback edges.
  */
-function renderHubBadge(node: NodeLayout, count: number): string {
+function renderHubBadge(node: NodeLayout, count: number, theme: Theme): string {
   const { cx, cy, r } = hubBadgeCircle(node);
   return (
     `<g class="uml-hub-badge">` +
-    `<circle cx="${fmt(cx)}" cy="${fmt(cy)}" r="${r}" fill="#c0392b" stroke="#ffffff" stroke-width="1"/>` +
-    `<text x="${fmt(cx)}" y="${fmt(cy + 3.5)}" text-anchor="middle"` +
-    ` font-family="${METRICS.fontFamily}" font-size="11" fill="#ffffff">${count}</text>` +
+    `<circle cx="${fmt(cx)}" cy="${fmt(cy)}" r="${r}" fill="${theme.color.accent}"` +
+    ` stroke="${theme.color.canvas}" stroke-width="1"/>` +
+    textEl(String(count), cx, cy + 3.5, 'middle', theme.font.size.badge, 'normal', theme.color.accentText, theme) +
     `</g>`
   );
 }
 
-function renderPackage(pkg: PlantUmlPackage, box: PackageLayout): string {
+function renderPackage(pkg: PlantUmlPackage, box: PackageLayout, theme: Theme, tone: number): string {
+  const { color } = theme;
+  const fills = color.packageFills;
+  const fill = fills[((tone % fills.length) + fills.length) % fills.length];
   const tabWidth = Math.min(
     box.width,
     Math.max(
@@ -176,15 +212,17 @@ function renderPackage(pkg: PlantUmlPackage, box: PackageLayout): string {
   const parts: string[] = [];
   parts.push(
     `<rect x="${fmt(box.x)}" y="${fmt(box.y)}" width="${fmt(box.width)}"` +
-      ` height="${fmt(box.height)}" fill="none" stroke="${STROKE}" stroke-width="1.5"/>`,
+      ` height="${fmt(box.height)}" rx="${theme.shape.packageRadius}" ry="${theme.shape.packageRadius}"` +
+      ` fill="${fill}" stroke="${color.packageStroke}" stroke-width="${theme.stroke.package}"/>`,
   );
   parts.push(
-    `<rect x="${fmt(box.x)}" y="${fmt(box.y)}" width="${fmt(tabWidth)}"` +
-      ` height="${PACKAGE_LABEL.tabHeight}" fill="#ffffff" stroke="${STROKE}" stroke-width="1.5"/>`,
+    `<line class="uml-package-tab" x1="${fmt(box.x)}" y1="${fmt(box.y + PACKAGE_LABEL.tabHeight)}"` +
+      ` x2="${fmt(box.x + tabWidth)}" y2="${fmt(box.y + PACKAGE_LABEL.tabHeight)}"` +
+      ` stroke="${color.packageStroke}" stroke-width="${theme.stroke.package}"/>`,
   );
   parts.push(
-    `<text x="${fmt(box.x + 6)}" y="${fmt(box.y + 13)}" text-anchor="start"` +
-      ` font-family="${METRICS.fontFamily}" font-size="${PACKAGE_LABEL.fontSize}" fill="#000000">${escapeXml(pkg.name)}</text>`,
+    textEl(pkg.name, box.x + 8, box.y + PACKAGE_LABEL.tabHeight - 8, 'start',
+      theme.font.size.packageLabel, theme.font.weight.packageLabel, color.textPackage, theme),
   );
   return (
     `<g data-package-id="${escapeXml(pkg.id)}" class="uml-package">` +
@@ -196,56 +234,65 @@ function renderPackage(pkg: PlantUmlPackage, box: PackageLayout): string {
 function renderEdge(
   rel: PlantUmlRelation,
   edge: EdgeLayout,
+  theme: Theme,
   weightLabel?: EdgeLabelPlacement,
 ): string {
   if (edge.points.length < 2) return '';
   const points = edge.points;
-  const dashed = rel.type === 'implementation' || rel.type === 'dependency';
-  const color = rel.feedback ? '#c0392b' : STROKE;
+  const weak = rel.type === 'implementation' || rel.type === 'dependency';
+  const color = rel.feedback ? theme.color.warn : weak ? theme.color.edgeWeak : theme.color.edge;
+  // Feedback edges carry a non-colour cue: a dash-dot pattern distinct from the
+  // plain dashes of weak relations.
+  const dash = rel.feedback ? theme.dash.feedback : weak ? theme.dash.weak : undefined;
+  const { arrow } = theme;
 
   const sourceTrim =
-    rel.type === 'aggregation' || rel.type === 'composition' ? DIAMOND_SIZE : 0;
+    rel.type === 'aggregation' || rel.type === 'composition' ? arrow.diamond : 0;
   const targetTrim =
     rel.type === 'inheritance' || rel.type === 'implementation'
-      ? TRIANGLE_SIZE
+      ? arrow.triangle
       : rel.type === 'dependency' || rel.type === 'association'
-        ? CHEVRON_SIZE
+        ? arrow.chevron
         : 0;
 
   const linePoints = trimPolyline(points, sourceTrim, targetTrim);
   const parts: string[] = [];
 
-  // Weight encodes the number of aggregated original edges: a thicker line,
-  // plus a `×N` label when more than one relation collapsed into this edge.
+  // Weight encodes the number of aggregated original edges: a thicker,
+  // semi-transparent line, plus a `×N` label when more than one relation
+  // collapsed into this edge.
   const weight = rel.weight && rel.weight > 1 ? rel.weight : 1;
-  const strokeWidth = Math.min(1.2 + (weight - 1) * 0.4, 6);
+  const strokeWidth = Math.min(theme.stroke.edge + (weight - 1) * theme.stroke.weightStep, theme.stroke.weightMax);
+  const opacity = weight > 1 ? ` stroke-opacity="${theme.stroke.weightOpacity}"` : '';
   const feedbackClass = rel.feedback ? ' class="uml-feedback"' : '';
 
   parts.push(
-    `<polyline points="${pointsAttr(linePoints)}" fill="none" stroke="${color}"` +
-      ` stroke-width="${fmt(strokeWidth)}"${dashed ? ' stroke-dasharray="6,4"' : ''}${feedbackClass}/>`,
+    `<path d="${roundedPath(linePoints, theme.shape.edgeCornerRadius)}" fill="none" stroke="${color}"` +
+      ` stroke-width="${fmt(strokeWidth)}"${opacity}${dash ? ` stroke-dasharray="${dash}"` : ''}` +
+      ` stroke-linejoin="round"${feedbackClass}/>`,
   );
 
   if (rel.type === 'aggregation' || rel.type === 'composition') {
-    parts.push(renderDiamond(points, rel.type === 'composition', color));
+    parts.push(renderDiamond(points, rel.type === 'composition', color, theme));
   }
   if (rel.type === 'inheritance' || rel.type === 'implementation') {
-    parts.push(renderTriangle(points, rel.type, color));
+    parts.push(renderTriangle(points, rel.type, color, theme));
   }
   if (rel.type === 'dependency' || rel.type === 'association') {
-    parts.push(renderChevron(points, rel.type, color));
+    parts.push(renderChevron(points, rel.type, color, theme));
   }
 
-  parts.push(...renderEdgeTexts(rel, points, color));
+  parts.push(...renderEdgeTexts(rel, points, theme));
   if (weightLabel) {
-    // White backing box so the label stays legible over the line it annotates.
+    // Canvas-coloured backing box so the label stays legible over its line.
     const r = weightLabel.rect;
     parts.push(
       `<rect class="uml-edge-label-bg" x="${fmt(r.x)}" y="${fmt(r.y)}" width="${fmt(r.width)}"` +
-        ` height="${fmt(r.height)}" fill="#ffffff" fill-opacity="0.92"/>`,
+        ` height="${fmt(r.height)}" fill="${theme.color.canvas}" fill-opacity="0.92"/>`,
     );
     parts.push(
-      textAt(weightLabel.text, r.x + r.width / 2, r.y + r.height / 2 + 4, EDGE_LABEL_FONT_SIZE, color),
+      textEl(weightLabel.text, r.x + r.width / 2, r.y + r.height / 2 + 4, 'middle',
+        EDGE_LABEL_FONT_SIZE, 'normal', theme.color.textMember, theme),
     );
   }
   // Each edge is one DOM group tagged with its endpoints + type so hosts can
@@ -258,12 +305,13 @@ function renderEdge(
   );
 }
 
-function renderTriangle(points: Point[], type: PlantUmlRelation['type'], color = STROKE): string {
+function renderTriangle(points: Point[], type: PlantUmlRelation['type'], color: string, theme: Theme): string {
+  const size = theme.arrow.triangle;
   const { u, tip } = targetDir(points);
-  const base = { x: tip.x - u.x * TRIANGLE_SIZE, y: tip.y - u.y * TRIANGLE_SIZE };
+  const base = { x: tip.x - u.x * size, y: tip.y - u.y * size };
   const px = -u.y;
   const py = u.x;
-  const half = TRIANGLE_SIZE / 2;
+  const half = size / 2;
   const pts: Point[] = [
     tip,
     { x: base.x + px * half, y: base.y + py * half },
@@ -271,67 +319,92 @@ function renderTriangle(points: Point[], type: PlantUmlRelation['type'], color =
   ];
   return (
     `<polygon class="uml-arrow uml-arrow-${type}" points="${pointsAttr(pts)}"` +
-    ` fill="none" stroke="${color}" stroke-width="1.2"/>`
+    ` fill="${theme.color.canvas}" stroke="${color}" stroke-width="${theme.stroke.arrow}" stroke-linejoin="round"/>`
   );
 }
 
-function renderChevron(points: Point[], type: PlantUmlRelation['type'], color = STROKE): string {
+/** Solid arrowhead for dependency / association (readable beside small text). */
+function renderChevron(points: Point[], type: PlantUmlRelation['type'], color: string, theme: Theme): string {
+  const size = theme.arrow.chevron;
   const { u, tip } = targetDir(points);
-  const back = { x: tip.x - u.x * CHEVRON_SIZE, y: tip.y - u.y * CHEVRON_SIZE };
+  const back = { x: tip.x - u.x * size, y: tip.y - u.y * size };
   const px = -u.y;
   const py = u.x;
-  const half = CHEVRON_SIZE / 2;
+  const half = size * 0.4;
   const pts: Point[] = [
-    { x: back.x + px * half, y: back.y + py * half },
     tip,
+    { x: back.x + px * half, y: back.y + py * half },
     { x: back.x - px * half, y: back.y - py * half },
   ];
   return (
-    `<polyline class="uml-arrow uml-arrow-${type}" points="${pointsAttr(pts)}"` +
-    ` fill="none" stroke="${color}" stroke-width="1.2"/>`
+    `<polygon class="uml-arrow uml-arrow-${type}" points="${pointsAttr(pts)}"` +
+    ` fill="${color}" stroke="${color}" stroke-width="${theme.stroke.arrow}" stroke-linejoin="round"/>`
   );
 }
 
-function renderDiamond(points: Point[], filled: boolean, color = STROKE): string {
+function renderDiamond(points: Point[], filled: boolean, color: string, theme: Theme): string {
+  const size = theme.arrow.diamond;
   const { u, tip } = sourceDir(points);
   const px = -u.y;
   const py = u.x;
-  const half = DIAMOND_SIZE / 2;
+  const half = size / 2;
   const mid = { x: tip.x + u.x * half, y: tip.y + u.y * half };
   const pts: Point[] = [
     tip,
     { x: mid.x + px * half, y: mid.y + py * half },
-    { x: tip.x + u.x * DIAMOND_SIZE, y: tip.y + u.y * DIAMOND_SIZE },
+    { x: tip.x + u.x * size, y: tip.y + u.y * size },
     { x: mid.x - px * half, y: mid.y - py * half },
   ];
   return (
     `<polygon class="uml-arrow uml-arrow-${filled ? 'composition' : 'aggregation'}"` +
-    ` points="${pointsAttr(pts)}" fill="${filled ? color : 'none'}"` +
-    ` stroke="${color}" stroke-width="1.2"/>`
+    ` points="${pointsAttr(pts)}" fill="${filled ? color : theme.color.canvas}"` +
+    ` stroke="${color}" stroke-width="${theme.stroke.arrow}" stroke-linejoin="round"/>`
   );
 }
 
-function renderEdgeTexts(rel: PlantUmlRelation, points: Point[], color = '#000000'): string[] {
+function renderEdgeTexts(rel: PlantUmlRelation, points: Point[], theme: Theme): string[] {
   const parts: string[] = [];
+  const t = (text: string, x: number, y: number, size: number): string =>
+    textEl(text, x, y, 'middle', size, 'normal', theme.color.textMember, theme);
   if (rel.sourceCardinality) {
-    parts.push(textAt(rel.sourceCardinality, points[0].x, points[0].y - 7, 11, color));
+    parts.push(t(rel.sourceCardinality, points[0].x, points[0].y - 7, 11));
   }
   if (rel.targetCardinality) {
     const last = points[points.length - 1];
-    parts.push(textAt(rel.targetCardinality, last.x, last.y - 7, 11, color));
+    parts.push(t(rel.targetCardinality, last.x, last.y - 7, 11));
   }
   if (rel.label) {
     const mid = points[Math.floor(points.length / 2)];
-    parts.push(textAt(rel.label, mid.x, mid.y - 10, 12, color));
+    parts.push(t(rel.label, mid.x, mid.y - 10, 12));
   }
   return parts;
 }
 
-function textAt(text: string, x: number, y: number, size: number, color = '#000000'): string {
-  return (
-    `<text x="${fmt(x)}" y="${fmt(y)}" text-anchor="middle"` +
-    ` font-family="${METRICS.fontFamily}" font-size="${size}" fill="${color}">${escapeXml(text)}</text>`
-  );
+/**
+ * Polyline as an SVG path whose interior corners are rounded with quadratic
+ * curves of radius ≤ `radius` (clamped to half of each adjoining segment). The
+ * routing — the vertices — is unchanged.
+ */
+export function roundedPath(points: Point[], radius: number): string {
+  if (points.length < 3 || radius <= 0) return 'M' + pointsAttr(points).replace(/ /g, ' L');
+  let d = `M${fmt(points[0].x)},${fmt(points[0].y)}`;
+  for (let i = 1; i < points.length - 1; i++) {
+    const prev = points[i - 1];
+    const cur = points[i];
+    const next = points[i + 1];
+    const l1 = Math.hypot(cur.x - prev.x, cur.y - prev.y);
+    const l2 = Math.hypot(next.x - cur.x, next.y - cur.y);
+    const r = Math.min(radius, l1 / 2, l2 / 2);
+    if (r <= 0) {
+      d += ` L${fmt(cur.x)},${fmt(cur.y)}`;
+      continue;
+    }
+    const a = { x: cur.x + ((prev.x - cur.x) / l1) * r, y: cur.y + ((prev.y - cur.y) / l1) * r };
+    const b = { x: cur.x + ((next.x - cur.x) / l2) * r, y: cur.y + ((next.y - cur.y) / l2) * r };
+    d += ` L${fmt(a.x)},${fmt(a.y)} Q${fmt(cur.x)},${fmt(cur.y)} ${fmt(b.x)},${fmt(b.y)}`;
+  }
+  const last = points[points.length - 1];
+  return d + ` L${fmt(last.x)},${fmt(last.y)}`;
 }
 
 function pointsAttr(points: Point[]): string {

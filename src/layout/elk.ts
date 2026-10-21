@@ -42,7 +42,7 @@ import type {
   ELKConstructorArguments,
 } from 'elkjs';
 import { PlantUmlModel } from '../model.js';
-import { LayoutEngine, LayoutResult } from '../layout.js';
+import { LayoutEngine, LayoutResult, alignRows } from '../layout.js';
 import { compoundLayout } from './compound.js';
 import { resolveLayerOrder, assignPartitions } from './layers.js';
 import { buildElkGraph } from './elk-graph.js';
@@ -112,6 +112,10 @@ export class ElkLayoutEngine implements LayoutEngine {
   }
 
   async layout(model: PlantUmlModel): Promise<LayoutResult> {
+    return alignRows(model, await this.layoutRaw(model));
+  }
+
+  private async layoutRaw(model: PlantUmlModel): Promise<LayoutResult> {
     const layers = resolveLayerOrder(model, this.options.layerOrder);
     const partitions = assignPartitions(model, layers);
     // Very large graphs skip the single hierarchical run: it cannot keep the

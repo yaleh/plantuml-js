@@ -5,7 +5,7 @@
  * engines (elkjs, @viz-js/viz, a custom tuner) is an injection, not a rewrite.
  */
 
-import { PlantUmlModel, PlantUmlEntity } from './model.js';
+import { PlantUmlModel, PlantUmlEntity, PlantUmlMember } from './model.js';
 import { measureTextWidth, MONOSPACE_FONT_SIZE } from './text-measure.js';
 
 export interface Point {
@@ -68,10 +68,17 @@ export const METRICS = {
  * overlap counter so a drawn tab and a measured tab are the same rectangle.
  */
 export const PACKAGE_LABEL = {
-  tabHeight: 18,
+  tabHeight: 20,
   fontSize: 12,
-  tabPadding: 12,
+  tabPadding: 8,
 } as const;
+
+/** Spacing grid (px). Entity box sizes snap up to a multiple of it. */
+export const GRID = 8;
+
+export function snapUp(n: number, grid: number = GRID): number {
+  return Math.ceil(n / grid) * grid;
+}
 
 /** Reconstruct the name drawn in the title compartment, generics expanded. */
 export function displayName(entity: PlantUmlEntity): string {
@@ -96,7 +103,195 @@ export function estimateEntitySize(
     (max, line) => Math.max(max, measureTextWidth(line, METRICS.fontSize)),
     0,
   );
-  const width = Math.max(METRICS.minWidth, longest + METRICS.paddingX * 2);
-  const height = lines.length * METRICS.lineHeight + METRICS.paddingY * 2;
+  const width = snapUp(Math.max(METRICS.minWidth, longest + METRICS.paddingX * 2));
+  const height = snapUp(lines.length * METRICS.lineHeight + METRICS.paddingY * 2);
   return { width, height };
+}
+
+/**
+ * Level of member detail drawn per entity: every member (`full`), the first
+ * few plus a count (`compact`), or just the class name (`names`).
+ */
+export type DetailLevel = 'full' | 'compact' | 'names';
+
+/** Entity count up to which `full` is chosen automatically. */
+export const DETAIL_FULL_MAX_ENTITIES = 40;
+/** Entity count up to which `compact` is chosen automatically (beyond: `names`). */
+export const DETAIL_COMPACT_MAX_ENTITIES = 150;
+/** Member rows kept per entity in `compact` mode. */
+export const COMPACT_MEMBER_ROWS = 4;
+
+export function autoDetail(entityCount: number): DetailLevel {
+  if (entityCount <= DETAIL_FULL_MAX_ENTITIES) return 'full';
+  if (entityCount <= DETAIL_COMPACT_MAX_ENTITIES) return 'compact';
+  return 'names';
+}
+
+/**
+ * Reduce member rows to the requested detail level *before* layout, so boxes
+ * are sized for what is actually drawn. `undefined` picks by entity count.
+ */
+export function applyDetail(model: PlantUmlModel, detail?: DetailLevel): PlantUmlModel {
+  const level = detail ?? autoDetail(model.entities.length);
+  if (level === 'full') return model;
+  return {
+    ...model,
+    entities: model.entities.map((entity) => {
+      const total = entity.members.length;
+      if (level === 'names') return total === 0 ? entity : { ...entity, members: [] };
+      if (total <= COMPACT_MEMBER_ROWS) return entity;
+      const kept = entity.members.slice(0, COMPACT_MEMBER_ROWS);
+      const more: PlantUmlMember = {
+        visibility: 'public',
+        name: '…',
+        kind: 'field',
+        modifiers: [],
+        raw: `… +${total - COMPACT_MEMBER_ROWS} more (${total} members)`,
+      };
+      return { ...entity, members: [...kept, more] };
+    }),
+  };
+}
+
+/**
+ * Group nodes into rows: within one package (or the top level), nodes whose
+ * vertical extents overlap belong to the same layered-layout rank. Returns
+ * arrays of node ids, each sorted top-to-bottom.
+ */
+export function layoutRows(model: PlantUmlModel, layout: LayoutResult): NodeLayout[][] {
+  const pkgOf = new Map(model.entities.map((e) => [e.id, e.packageId ?? '']));
+  const groups = new Map<string, NodeLayout[]>();
+  for (const node of layout.nodes) {
+    const key = pkgOf.get(node.id) ?? '';
+    const list = groups.get(key);
+    if (list) list.push(node);
+    else groups.set(key, [node]);
+  }
+  const rows: NodeLayout[][] = [];
+  for (const list of groups.values()) {
+    const sorted = list.slice().sort((a, b) => a.y - b.y || a.x - b.x);
+    let row: NodeLayout[] = [];
+    let bottom = -Infinity;
+    for (const node of sorted) {
+      if (row.length > 0 && node.y >= bottom) {
+        rows.push(row);
+        row = [];
+        bottom = -Infinity;
+      }
+      row.push(node);
+      bottom = Math.max(bottom, node.y + node.height);
+    }
+    if (row.length > 0) rows.push(row);
+  }
+  return rows;
+}
+
+/**
+ * Top-align the nodes of every row (never moving a node down or out of its
+ * package) and keep edges attached: an endpoint on a moved node shifts with it,
+ * dragging along the next bend when the first segment is horizontal, so
+ * orthogonal routes stay orthogonal. Mutates and returns `layout`.
+ */
+export function alignRows(model: PlantUmlModel, layout: LayoutResult): LayoutResult {
+  if (model.entities.length > ALIGN_MAX_ENTITIES) return layout;
+  const edges = layout.edges ?? [];
+  for (const row of layoutRows(model, layout)) {
+    if (row.length < 2) continue;
+    const top = Math.min(...row.map((n) => n.y));
+    for (const node of row) {
+      const dy = top - node.y;
+      if (dy === 0) continue;
+      // Moving up must not run the box into another node or a foreign edge.
+      const next = { x: node.x, y: top, width: node.width, height: node.height };
+      if (layout.nodes.some((o) => o !== node && boxesOverlap(next, o))) continue;
+      if (
+        edges.some(
+          (e) => e.source !== node.id && e.target !== node.id && polylineHitsBox(e.points, next),
+        )
+      ) {
+        continue;
+      }
+      // Re-attach the node's own edges; refuse the move if any orthogonal
+      // edge would turn diagonal.
+      const patched = new Map<EdgeLayout, Point[]>();
+      let ok = true;
+      for (const edge of edges) {
+        if (edge.source !== node.id && edge.target !== node.id) continue;
+        const pts = edge.points.map((p) => ({ ...p }));
+        if (pts.length < 2) continue;
+        const wasOrthogonal = isOrthogonal(edge.points);
+        const ends: [string, number, number][] = [
+          [edge.source, 0, 1],
+          [edge.target, pts.length - 1, pts.length - 2],
+        ];
+        for (const [id, i, nxt] of ends) {
+          if (id !== node.id) continue;
+          const horizontal = Math.abs(pts[i].y - pts[nxt].y) < 0.01;
+          if (horizontal) {
+            // A side port still inside the moved box's span needs no change.
+            if (pts[i].y > top && pts[i].y < top + node.height) continue;
+            pts[i].y += dy;
+            if (pts.length > 2) pts[nxt].y += dy;
+          } else {
+            pts[i].y += dy;
+          }
+        }
+        if (wasOrthogonal && !isOrthogonal(pts)) {
+          ok = false;
+          break;
+        }
+        patched.set(edge, pts);
+      }
+      if (!ok) continue;
+      node.y = top;
+      for (const [edge, pts] of patched) edge.points = pts;
+    }
+  }
+  return layout;
+}
+
+function isOrthogonal(points: Point[]): boolean {
+  for (let i = 0; i + 1 < points.length; i++) {
+    if (Math.abs(points[i].x - points[i + 1].x) > 0.01 && Math.abs(points[i].y - points[i + 1].y) > 0.01) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Row alignment is skipped above this size (its blocking checks are O(n·m)). */
+const ALIGN_MAX_ENTITIES = 150;
+
+interface Box {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+function boxesOverlap(a: Box, b: Box): boolean {
+  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+}
+
+/** True when any segment's bounding box crosses the box interior. */
+function polylineHitsBox(points: Point[], box: Box): boolean {
+  for (let i = 0; i + 1 < points.length; i++) {
+    const a = points[i];
+    const b = points[i + 1];
+    const seg = {
+      x: Math.min(a.x, b.x),
+      y: Math.min(a.y, b.y),
+      width: Math.abs(a.x - b.x),
+      height: Math.abs(a.y - b.y),
+    };
+    if (
+      seg.x < box.x + box.width && box.x < seg.x + seg.width &&
+      seg.y <= box.y + box.height && box.y <= seg.y + seg.height &&
+      !(seg.width === 0 && (seg.x <= box.x || seg.x >= box.x + box.width)) &&
+      !(seg.height === 0 && (seg.y <= box.y || seg.y >= box.y + box.height))
+    ) {
+      return true;
+    }
+  }
+  return false;
 }

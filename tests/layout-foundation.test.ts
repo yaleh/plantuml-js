@@ -40,7 +40,11 @@ describe('gap-layout-foundation: ELK layout', () => {
     const baselineArea = baseline.find(
       (r) => r.group === 'fixture' && r.engine === 'elk',
     )!.metrics.areaUtilization;
-    expect(m.areaUtilization).toBeGreaterThan(baselineArea);
+    // Entity boxes snap up to the 8px grid (gap-render-visual-design-system),
+    // which costs the fixture a little area utilization against the pre-grid
+    // baseline; allow that bounded regression, not a layout one.
+    const GRID_SNAP_TOLERANCE = 0.01;
+    expect(m.areaUtilization).toBeGreaterThan(baselineArea - GRID_SNAP_TOLERANCE);
   });
 
   it('lays the package fixture with a balanced aspect ratio', async () => {
