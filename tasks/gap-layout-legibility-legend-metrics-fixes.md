@@ -25,12 +25,12 @@ depends_on:
 
 ## AC
 
-- [ ] `tests/hub-badge.test.ts`：渲染含 hub 的模型，徽标圆的包围盒与该节点文字包围盒不相交（`badgeLabelOverlap === 0`）；`computeLayoutMetrics` 新增 `badgeLabelOverlap`，合成反例断言确定值
-- [ ] `tests/legend.test.ts`：`legend: true` 时 SVG 含图例分组，列出回边、徽标、权重、分组框样式；默认对节点数 >30 的图开启
-- [ ] `overlappingEdgeLength` 改为近平行邻近长度，`tests/layout-metrics.test.ts` 断言：两条相距 3px 的平行线重叠长度为其公共投影长度；对 `package.elk` 的度量值 > 0
-- [ ] `package-overview`（depth=2）：孤立节点集中在不挤占主图的区域，`areaUtilization` ≥ 0.15；权重标签带白底，`tests/overview-labels.test.ts` 断言标签矩形不与其它标签矩形相交
-- [ ] 完整 `package` 图：Tests Layer 宽高比 ≤ 3，画布总宽 ≤ 2400 px；`package-pkg-Src_Layer` 视图的 `edgeCrossings` ≤ 完整图中 Src Layer 部分、`edgeNodeIntersections` === 0
-- [ ] `node scripts/render-samples.mjs --views <archguard 输出根目录>` 能自动发现 `class/all-classes.puml` 与 `overview/package.puml`；`npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
+- [x] `tests/hub-badge.test.ts`：渲染含 hub 的模型，徽标圆的包围盒与该节点文字包围盒不相交（`badgeLabelOverlap === 0`）；`computeLayoutMetrics` 新增 `badgeLabelOverlap`，合成反例断言确定值
+- [x] `tests/legend.test.ts`：`legend: true` 时 SVG 含图例分组，列出回边、徽标、权重、分组框样式；默认对节点数 >30 的图开启
+- [x] `overlappingEdgeLength` 改为近平行邻近长度，`tests/layout-metrics.test.ts` 断言：两条相距 3px 的平行线重叠长度为其公共投影长度；对 `package.elk` 的度量值 > 0
+- [x] `package-overview`（depth=2）：孤立节点集中在不挤占主图的区域，`areaUtilization` ≥ 0.15；权重标签带白底，`tests/overview-labels.test.ts` 断言标签矩形不与其它标签矩形相交
+- [x] 完整 `package` 图：Tests Layer 宽高比 ≤ 3，画布总宽 ≤ 2400 px；`package-pkg-Src_Layer` 视图的 `edgeCrossings` ≤ 完整图中 Src Layer 部分、`edgeNodeIntersections` === 0
+- [x] `node scripts/render-samples.mjs --views <archguard 输出根目录>` 能自动发现 `class/all-classes.puml` 与 `overview/package.puml`；`npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
 
 ## DoD
 
@@ -40,8 +40,12 @@ depends_on:
 
 - tasks/gap-layout-legibility-legend-metrics-fixes.md
 - src/render/svg.ts
+- src/render/labels.ts (new)
+- src/render/legend.ts (new)
 - src/layout-metrics.ts
 - src/layout/elk.ts
+- src/layout/compound.ts
+- src/core.ts
 - src/transform.ts
 - src/index.ts
 - scripts/render-samples.mjs
