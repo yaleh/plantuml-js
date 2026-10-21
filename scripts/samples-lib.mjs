@@ -64,3 +64,62 @@ export function evaluateThresholds(metrics, thresholds = {}) {
   }
   return failures;
 }
+
+/** Committed snapshot a later layout change is compared against. */
+export const defaultBaselinePath = join(repoRoot, 'rendered', 'metrics.baseline.json');
+
+/** Regression limits of `--compare`, relative to the baseline record of the same sample. */
+export const COMPARE_LIMITS = {
+  /** edgeCrossings may grow by at most this fraction. */
+  edgeCrossingsGrowth: 0.25,
+  /** areaUtilization may shrink by at most this fraction. */
+  areaUtilizationDrop: 0.3,
+  /** maxEmptyBlockRatio may grow by at most this absolute amount. */
+  maxEmptyBlockRatioGrowth: 0.05,
+};
+
+/**
+ * Compare current metric records against baseline records (both in the
+ * `rendered/metrics*.json` shape: `{ group, engine, metrics }`). Only the
+ * shipping `elk` engine is judged, and only samples present in both. Returns
+ * one message per regression: `<group>: <metric> <base> → <current> (limit …)`.
+ */
+export function compareToBaseline(baselineRecords, currentRecords) {
+  const key = (r) => `${r.group}\u0000${r.engine}`;
+  const base = new Map(baselineRecords.map((r) => [key(r), r]));
+  const regressions = [];
+  for (const cur of currentRecords) {
+    if (cur.engine !== 'elk') continue;
+    const old = base.get(key(cur));
+    if (!old) continue;
+    const a = old.metrics;
+    const b = cur.metrics;
+    if (typeof a.edgeCrossings === 'number' && typeof b.edgeCrossings === 'number') {
+      const limit = a.edgeCrossings * (1 + COMPARE_LIMITS.edgeCrossingsGrowth);
+      if (b.edgeCrossings > limit) {
+        regressions.push(`${cur.group}: edgeCrossings ${a.edgeCrossings} → ${b.edgeCrossings} (limit ${limit})`);
+      }
+    }
+    if (typeof a.areaUtilization === 'number' && typeof b.areaUtilization === 'number') {
+      const limit = a.areaUtilization * (1 - COMPARE_LIMITS.areaUtilizationDrop);
+      if (b.areaUtilization < limit) {
+        regressions.push(`${cur.group}: areaUtilization ${a.areaUtilization} → ${b.areaUtilization} (floor ${limit})`);
+      }
+    }
+    if (typeof a.maxEmptyBlockRatio === 'number' && typeof b.maxEmptyBlockRatio === 'number') {
+      const limit = a.maxEmptyBlockRatio + COMPARE_LIMITS.maxEmptyBlockRatioGrowth;
+      if (b.maxEmptyBlockRatio > limit) {
+        regressions.push(`${cur.group}: maxEmptyBlockRatio ${a.maxEmptyBlockRatio} → ${b.maxEmptyBlockRatio} (limit ${limit})`);
+      }
+    }
+  }
+  return regressions;
+}
+
+/** Baseline records overlaid with the current ones (same group+engine replaced, others kept). */
+export function mergeRecords(baselineRecords, currentRecords) {
+  const key = (r) => `${r.group}\u0000${r.engine}`;
+  const fresh = new Map(currentRecords.map((r) => [key(r), r]));
+  const kept = baselineRecords.filter((r) => !fresh.has(key(r)));
+  return [...kept, ...currentRecords];
+}

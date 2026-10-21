@@ -408,7 +408,7 @@ const EMPTY_BLOCK_MAX_CELLS = 400;
  * Rasterises nodes and package frames onto a coarse grid and returns the
  * largest all-empty rectangle (maximal-rectangle-in-histogram) over the canvas.
  */
-function computeMaxEmptyBlockRatio(layout: LayoutResult): number {
+export function computeMaxEmptyBlockRatio(layout: LayoutResult): number {
   if (layout.width <= 0 || layout.height <= 0) return 0;
   const cell = Math.max(
     EMPTY_BLOCK_CELL,

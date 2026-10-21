@@ -12,12 +12,17 @@
  * Usage:
  *   node scripts/render-samples.mjs [--baseline] [--views] [<archguard-output-dir>]
  *   node scripts/render-samples.mjs [--manifest [<archguard-output-dir>]] [--tiles]
+ *                                   [--compare [<baseline.json>]] [--baseline]
  *
  * Sample mode (`--manifest` and/or `--tiles`) renders the tiered S/M/L/XL set
  * declared in scripts/samples.json (elk for all, viz for S/M), prints a
  * per-tier metrics table, writes `rendered/metrics.json` (each record carries
  * `tier`), exits non-zero when a declared threshold is violated, and with
- * `--tiles` also cuts each diagram into 1:1 PNG tiles under
+ * `--compare` additionally checks every elk record against the committed
+ * `rendered/metrics.baseline.json` (or the given file): edgeCrossings may grow
+ * ≤25%, areaUtilization shrink ≤30%, maxEmptyBlockRatio grow ≤0.05, otherwise
+ * the exit code is non-zero. `--baseline` (sample mode) merges the fresh records
+ * into the baseline file. With `--tiles` also cuts each diagram into 1:1 PNG tiles under
  * `rendered/tiles/<id>/` plus an `overview.png` marking the tile grid.
  *
  * `<archguard-output-dir>` is either a directory holding .puml files directly or
@@ -46,8 +51,11 @@ import { execFile } from 'node:child_process';
 import { measureSvgTextOverflow } from './measure-svg-text.mjs';
 import { writeTiles } from './tile-png.mjs';
 import {
+  compareToBaseline,
+  defaultBaselinePath,
   evaluateThresholds,
   filterPackagesMatching,
+  mergeRecords,
   loadManifest,
   resolveSource,
   TIERS,
@@ -62,15 +70,22 @@ const argv = process.argv.slice(2);
 const baseline = argv.includes('--baseline');
 const views = argv.includes('--views');
 const tiles = argv.includes('--tiles');
+const compareIdx = argv.indexOf('--compare');
+const comparePath =
+  compareIdx === -1
+    ? null
+    : argv[compareIdx + 1] && !argv[compareIdx + 1].startsWith('--')
+      ? argv[compareIdx + 1]
+      : defaultBaselinePath;
 const manifestIdx = argv.indexOf('--manifest');
 const manifestMode = manifestIdx !== -1;
 const manifestDir =
   manifestMode && argv[manifestIdx + 1] && !argv[manifestIdx + 1].startsWith('--')
     ? argv[manifestIdx + 1]
     : null;
-const externalDir = argv.find((a, i) => !a.startsWith('--') && !(manifestMode && i === manifestIdx + 1));
+const externalDir = argv.find((a, i) => !a.startsWith('--') && !(manifestMode && i === manifestIdx + 1) && !(comparePath && i === compareIdx + 1));
 // Multi-scale sample mode (scripts/samples.json): enabled by --manifest and/or --tiles.
-const samplesMode = manifestMode || tiles;
+const samplesMode = manifestMode || tiles || comparePath !== null;
 
 // ── build + import the compiled library ────────────────────────────────────
 console.log('building dist/ …');
@@ -223,6 +238,17 @@ async function runSamples() {
   writeFileSync(join(renderedDir, 'metrics.json'), JSON.stringify(outRecords, null, 2) + '\n');
   printTierTable(outRecords);
   console.log(`wrote rendered/metrics.json (${outRecords.length} records)`);
+  if (comparePath) {
+    const regressions = compareToBaseline(JSON.parse(readFileSync(comparePath, 'utf8')), outRecords);
+    for (const r of regressions) failures.push(`regression vs ${basename(comparePath)}: ${r}`);
+    if (!regressions.length) console.log(`no regressions vs ${basename(comparePath)}`);
+  }
+  if (baseline && !failures.length) {
+    const path = defaultBaselinePath;
+    const old = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : [];
+    writeFileSync(path, JSON.stringify(mergeRecords(old, outRecords), null, 2) + '\n');
+    console.log('merged sample records into rendered/metrics.baseline.json');
+  }
   if (failures.length) {
     console.error(`\nthreshold violations (${failures.length}):`);
     for (const f of failures) console.error(`  ✗ ${f}`);

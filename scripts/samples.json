@@ -79,6 +79,8 @@
       "source": "all-classes.puml",
       "view": { "kind": "package", "id": "Src_Types_Layer" },
       "thresholds": {
+        "edgeCrossings": { "max": 80 },
+        "overlappingEdgeLength": { "max": 300 },
         "maxEmptyBlockRatio": { "max": 0.1 },
         "aspectRatio": { "min": 0.5, "max": 2.5 },
         "areaUtilization": { "min": 0.12 }
@@ -91,7 +93,9 @@
       "packagesMatching": "^Src_Plugins_",
       "expectedEntities": { "min": 100, "max": 200 },
       "thresholds": {
-        "aspectRatio": { "min": 0.4, "max": 3 },
+        "aspectRatio": { "min": 0.6, "max": 2.5 },
+        "areaUtilization": { "min": 0.12 },
+        "maxEmptyBlockRatio": { "max": 0.15 },
         "nonOrthogonalEdgeCount": { "max": 0 },
         "textOverflowCount": { "max": 0 }
       }

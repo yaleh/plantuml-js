@@ -38,6 +38,15 @@ const NESTED_SPLIT_WIDTH = 3500;
 
 /** Block count above which blocks are packed instead of layered. */
 const PACK_BLOCK_THRESHOLD = 12;
+/** Block count from which sparsely linked, layer-less roots are rect-packed too. */
+const MID_PACK_BLOCK_THRESHOLD = 8;
+/** Multipliers of the requested ratio tried when rect-packing blocks. */
+const PACK_ASPECT_CANDIDATES = [0.6, 1, 1.5];
+/** Above this many blocks the packing-candidate search is skipped. */
+const MAX_CANDIDATE_BLOCKS = 30;
+/** Canvas ratio band a packed candidate should stay inside to be preferred. */
+const PACK_BAND_MIN = 0.7;
+const PACK_BAND_MAX = 2.2;
 /** Gap between blocks: wide enough for several routing lanes. */
 const BLOCK_SPACING = 64;
 /** Clearance ELK keeps between an edge and a node / another edge inside a block. */
@@ -80,7 +89,18 @@ export interface CompoundOptions {
   aspectRatio?: number;
   /** Block id → semantic-layer partition index (layered mode only). */
   partitions: Map<string, number>;
+  /** Where stub nodes orbit the placed blocks; default [[DEFAULT_STUB_ORBIT]]. */
+  stubOrbit?: StubOrbit;
 }
+
+/** Channel to the frame (`gap`) and spacing between neighbouring stubs (`spacing`), px. */
+export interface StubOrbit {
+  gap: number;
+  spacing: number;
+  /** Row/column a stub slides to: its targets' centroid (default) or the target nearest its side. */
+  anchor?: 'centroid' | 'nearest';
+}
+export const DEFAULT_STUB_ORBIT: StubOrbit = { gap: 48, spacing: 120, anchor: 'centroid' };
 
 interface Block {
   /** Block key: package id, or entity id for a bare top-level entity. */
@@ -687,7 +707,24 @@ async function placeBlocks(
   blockOfEntity: Map<string, string>,
   options: CompoundOptions,
 ): Promise<Placement> {
-  const pack = blocks.size > PACK_BLOCK_THRESHOLD;
+  const stubKeys = new Set(
+    [...blocks.keys()].filter((k) => model.entities.find((e) => e.id === k)?.stub === true),
+  );
+  if (stubKeys.size > 0 && stubKeys.size < blocks.size) {
+    const main = new Map([...blocks].filter(([k]) => !stubKeys.has(k)));
+    const mainPlacement = await placeBlocks(elk, model, main, crossRelations, blockOfEntity, options);
+    return placeStubsNearTargets(model, blocks, stubKeys, mainPlacement, crossRelations, blockOfEntity, options.stubOrbit ?? DEFAULT_STUB_ORBIT);
+  }
+  const blockEdgeCount = new Set(
+    crossRelations.map((i) => `${blockOfEntity.get(model.relations[i].source)}\u0000${blockOfEntity.get(model.relations[i].target)}`),
+  ).size;
+  // Mid-scale root layers (a dozen-ish packages) with few block-level edges gain
+  // nothing from layering: it strings them into a column. Pack them instead.
+  const sparseMid =
+    blocks.size >= MID_PACK_BLOCK_THRESHOLD &&
+    options.partitions.size === 0 &&
+    blockEdgeCount * 2 < blocks.size;
+  const pack = blocks.size > PACK_BLOCK_THRESHOLD || sparseMid;
   if (!pack && options.partitions.size > 0) return stackLayerRows(blocks, options);
   const children: ElkNode[] = [...blocks.values()].map((b) => {
     const node: ElkNode = { id: b.key, width: b.width, height: b.height };
@@ -730,14 +767,201 @@ async function placeBlocks(
       };
   if (!pack && options.partitions.size > 0) layoutOptions['elk.partitioning.activate'] = 'true';
 
-  const graph: ElkNode = { id: 'blocks', layoutOptions, children, edges: pack ? [] : edges };
-  const result = await elk.layout(graph);
+  let result: ElkNode;
+  if (pack && blocks.size > MAX_CANDIDATE_BLOCKS) {
+    // Very many blocks: a single rectpacking run (the candidates below only pay off at mid scale).
+    result = await elk.layout({ id: 'blocks', layoutOptions, children, edges: [] });
+  } else if (pack) {
+    // rectpacking only honours a target ratio loosely and can leave a lone block
+    // on the last row; also try height-sorted shelves and keep the tightest
+    // canvas whose ratio stays near the target.
+    const target = options.aspectRatio ?? 1.6;
+    const candidates: ElkNode[] = [shelfPackBlocks(children, target)];
+    for (const ratio of PACK_ASPECT_CANDIDATES.map((f) => target * f)) {
+      candidates.push(
+        await elk.layout({
+          id: 'blocks',
+          layoutOptions: { ...layoutOptions, 'elk.aspectRatio': String(ratio) },
+          children: children.map((c) => ({ ...c })),
+          edges: [],
+        }),
+      );
+    }
+    const area = (n: ElkNode): number => (n.width ?? 0) * (n.height ?? 0);
+    const inBand = (n: ElkNode): boolean => {
+      const a = (n.width ?? 0) / Math.max(1, n.height ?? 0);
+      return a >= PACK_BAND_MIN && a <= PACK_BAND_MAX;
+    };
+    if (options.aspectRatio !== undefined) {
+      // An explicit caller ratio wins over compactness: closest candidate.
+      const miss = (n: ElkNode): number => Math.abs(Math.log((n.width ?? 1) / Math.max(1, n.height ?? 1) / target));
+      result = candidates.reduce((best, c) => (miss(c) < miss(best) ? c : best));
+    } else {
+      const pool = candidates.some(inBand) ? candidates.filter(inBand) : candidates;
+      result = pool.reduce((best, c) => (area(c) < area(best) ? c : best));
+    }
+  } else {
+    result = await elk.layout({ id: 'blocks', layoutOptions, children, edges });
+  }
 
   const positions = new Map<string, Point>();
   for (const child of result.children ?? []) {
     positions.set(child.id, { x: child.x ?? 0, y: child.y ?? 0 });
   }
   return { positions, width: result.width ?? 0, height: result.height ?? 0 };
+}
+
+
+/**
+ * Orbit stub nodes (external packages of a single-package view) around the
+ * placed blocks: each stub joins the side of the main bounding box nearest to
+ * the nodes it connects to, and slides along that side to its targets' own
+ * coordinate (sweeping apart where stubs would overlap). Edges then stay short
+ * instead of running across the whole frame to a far-away stub column.
+ */
+function placeStubsNearTargets(
+  model: PlantUmlModel,
+  blocks: Map<string, Block>,
+  stubKeys: Set<string>,
+  main: Placement,
+  crossRelations: number[],
+  blockOfEntity: Map<string, string>,
+  orbit: StubOrbit,
+): Placement {
+  const centre = new Map<string, Point>();
+  for (const [key, at] of main.positions) {
+    for (const n of blocks.get(key)?.nodes ?? []) {
+      centre.set(n.id, { x: at.x + n.x + n.width / 2, y: at.y + n.y + n.height / 2 });
+    }
+  }
+  type Side = 'left' | 'right' | 'top' | 'bottom';
+  const bySide = new Map<Side, { key: string; along: number }[]>();
+  for (const key of [...stubKeys].sort()) {
+    let sx = 0;
+    let sy = 0;
+    let count = 0;
+    const targets: Point[] = [];
+    for (const index of crossRelations) {
+      const r = model.relations[index];
+      const other = blockOfEntity.get(r.source) === key ? r.target : blockOfEntity.get(r.target) === key ? r.source : undefined;
+      const c = other === undefined ? undefined : centre.get(other);
+      if (c) {
+        sx += c.x;
+        sy += c.y;
+        count++;
+        targets.push(c);
+      }
+    }
+    const cx = count > 0 ? sx / count : main.width / 2;
+    const cy = count > 0 ? sy / count : main.height / 2;
+    const dist: [Side, number][] = [
+      ['left', cx],
+      ['right', main.width - cx],
+      ['top', cy],
+      ['bottom', main.height - cy],
+    ];
+    // Left/right sides are preferred on ties: side stubs keep text horizontal.
+    const side = dist.reduce((a, b) => (b[1] < a[1] - 1e-6 ? b : a))[0];
+    // Slide to the row/column of the connected node nearest this side, so the
+    // straight run into it is short and ends at the node's own centre line.
+    const vertical = side === 'left' || side === 'right';
+    const depth = (c: Point): number =>
+      side === 'left' ? c.x : side === 'right' ? main.width - c.x : side === 'top' ? c.y : main.height - c.y;
+    const anchor = targets.reduce((a, c) => (depth(c) < depth(a) ? c : a), targets[0] ?? { x: cx, y: cy });
+    const along = orbit.anchor === 'nearest' ? anchor : { x: cx, y: cy };
+    const alongValue = vertical ? along.y : along.x;
+    const list = bySide.get(side) ?? [];
+    list.push({ key, along: alongValue });
+    bySide.set(side, list);
+  }
+
+  const positions = new Map(main.positions);
+  let minX = 0;
+  let minY = 0;
+  let maxX = main.width;
+  let maxY = main.height;
+  for (const [side, list] of bySide) {
+    list.sort((a, b) => a.along - b.along || a.key.localeCompare(b.key));
+    const vertical = side === 'left' || side === 'right';
+    const extent = vertical ? main.height : main.width;
+    const lenOf = (key: string): number => (vertical ? blocks.get(key)!.height : blocks.get(key)!.width);
+    const thickOf = (key: string): number => (vertical ? blocks.get(key)!.width : blocks.get(key)!.height);
+    // A side that would outgrow the frame extent wraps into outward lanes; stubs
+    // interleave over the lanes so each lane still spans the whole side.
+    const totalLen = list.reduce((sum, { key }) => sum + lenOf(key) + orbit.spacing, 0);
+    const laneCount = Math.max(1, Math.ceil(totalLen / Math.max(extent, 1)));
+    let offset = orbit.gap - CANVAS_MARGIN;
+    for (let lane = 0; lane < laneCount; lane++) {
+      const members = list.filter((_, i) => i % laneCount === lane);
+      const thick = Math.max(0, ...members.map(({ key }) => thickOf(key)));
+      let cursor = -Infinity;
+      for (const { key, along } of members) {
+        const b = blocks.get(key)!;
+        const start = Math.max(along - lenOf(key) / 2, cursor);
+        cursor = start + lenOf(key) + orbit.spacing;
+        let x: number;
+        let y: number;
+        if (vertical) {
+          y = start;
+          x = side === 'left' ? CANVAS_MARGIN - offset - thick + (thick - b.width) : main.width - CANVAS_MARGIN + offset;
+        } else {
+          x = start;
+          y = side === 'top' ? CANVAS_MARGIN - offset - thick + (thick - b.height) : main.height - CANVAS_MARGIN + offset;
+        }
+        positions.set(key, { x, y });
+        minX = Math.min(minX, x - CANVAS_MARGIN);
+        minY = Math.min(minY, y - CANVAS_MARGIN);
+        maxX = Math.max(maxX, x + b.width + CANVAS_MARGIN);
+        maxY = Math.max(maxY, y + b.height + CANVAS_MARGIN);
+      }
+      offset += thick + orbit.gap / 2;
+    }
+  }
+  for (const [key, at] of positions) positions.set(key, { x: at.x - minX, y: at.y - minY });
+  return { positions, width: maxX - minX, height: maxY - minY };
+}
+
+/**
+ * Height-sorted shelf packing of fixed-size blocks: rows hold blocks of similar
+ * height, so a row leaves little dead space beside its shorter members. The row
+ * width scanned for is the one with the smallest canvas near `aspect`.
+ */
+function shelfPackBlocks(children: ElkNode[], aspect: number): ElkNode {
+  const items = children.map((c) => ({ ...c })).sort((a, b) => (b.height ?? 0) - (a.height ?? 0) || a.id.localeCompare(b.id));
+  const gap = BLOCK_SPACING;
+  const widest = Math.max(0, ...items.map((c) => c.width ?? 0));
+  const total = items.reduce((sum, c) => sum + (c.width ?? 0) + gap, 0);
+  let best: { items: ElkNode[]; width: number; height: number } | undefined;
+  let bestScore = Infinity;
+  const step = Math.max(8, (total - widest) / 200);
+  for (let inner = widest; inner <= total + step; inner += step) {
+    const placed: ElkNode[] = [];
+    let x = 0;
+    let y = 0;
+    let rowH = 0;
+    let width = 0;
+    for (const c of items) {
+      const w = c.width ?? 0;
+      if (x > 0 && x + gap + w > inner) {
+        y += rowH + gap;
+        x = 0;
+        rowH = 0;
+      }
+      if (x > 0) x += gap;
+      placed.push({ ...c, x: CANVAS_MARGIN + x, y: CANVAS_MARGIN + y });
+      x += w;
+      rowH = Math.max(rowH, c.height ?? 0);
+      width = Math.max(width, x);
+    }
+    const w = width + 2 * CANVAS_MARGIN;
+    const h = y + rowH + 2 * CANVAS_MARGIN;
+    const score = w * h * (1 + Math.abs(Math.log(w / h / aspect)) * 0.03);
+    if (score < bestScore) {
+      bestScore = score;
+      best = { items: placed, width: w, height: h };
+    }
+  }
+  return { id: 'blocks', width: best?.width ?? 0, height: best?.height ?? 0, children: best?.items ?? [] };
 }
 
 /** Row width beyond which a layer's blocks wrap onto a further row. */
