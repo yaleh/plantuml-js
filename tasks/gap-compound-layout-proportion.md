@@ -26,9 +26,9 @@ Architecture-tab 的 C 方案（一次全层级布局 + 缩放档位显隐切换
 
 ## AC
 
-- [ ] `tests/layout-compound-proportion.test.ts`（新增）合成 ≥2 层嵌套、跨包边模型：断言 `layout.width/layout.height` ∈ [0.33, 3] 或 `layout.width ≤ 10000`、`computeLayoutMetrics(...).edgeNodeIntersections === 0`，且同一模型两次 `ElkLayoutEngine.layout()` 的 width/height/nodes/edges 深比较相等（确定性）。`npx vitest run tests/layout-compound-proportion.test.ts` 退出 0。
-- [ ] `scripts/bench-nested.mjs`（新增）读 `tests/fixtures/archguard-neighborhood.json`（本任务把脱敏的 789 节点邻域固化进 fixture，替换对 `/tmp` 的依赖），输出 flat / nested-full / nested-depth4 的 layoutMs/canvas/crossings/nodeIntersect，并断言 nested-full 满足 `canvas.width ≤ 10000`、`crossings ≤ 800`、`nodeIntersect === 0`、`layoutMs ≤ 5000`，flat 满足 `crossings ≤ 1000`、`layoutMs ≤ 2000`；任一不满足退出 1。`node scripts/bench-nested.mjs` 退出 0。
-- [ ] `npm test` 与 `npm run typecheck` 退出 0（既有 suite 不回归）。
+- [x] `tests/layout-compound-proportion.test.ts`（新增）合成 ≥2 层嵌套、跨包边模型：断言 `layout.width/layout.height` ∈ [0.33, 3] 或 `layout.width ≤ 10000`、`computeLayoutMetrics(...).edgeNodeIntersections === 0`，且同一模型两次 `ElkLayoutEngine.layout()` 的 width/height/nodes/edges 深比较相等（确定性）。`npx vitest run tests/layout-compound-proportion.test.ts` 退出 0。
+- [x] `scripts/bench-nested.mjs`（新增）读 `tests/fixtures/archguard-neighborhood.json`（本任务把脱敏的 789 节点邻域固化进 fixture，替换对 `/tmp` 的依赖），输出 flat / nested-full / nested-depth4 的 layoutMs/canvas/crossings/nodeIntersect，并断言 nested-full 满足 `canvas.width ≤ 10000`、`crossings ≤ 800`、`nodeIntersect === 0`、`layoutMs ≤ 5000`，flat 满足 `crossings ≤ 1000`、`layoutMs ≤ 2000`；任一不满足退出 1。`node scripts/bench-nested.mjs` 退出 0。
+- [x] `npm test` 与 `npm run typecheck` 退出 0（既有 suite 不回归）。
 
 ## DoD
 
