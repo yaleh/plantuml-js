@@ -1,7 +1,7 @@
 ---
 id: gap-layout-mid-scale-packing-and-regression-guard
 title: 中等规模根层包装箱（L 档退化为单列）+ 单包视图 stub 就近排布 + 回退守门（对基线比较）
-status: ready
+status: done
 labels:
   - gap
   - layout
