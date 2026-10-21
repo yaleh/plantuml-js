@@ -1,7 +1,7 @@
 ---
 id: gap-render-undeclared-relation-endpoints
 title: 关系端点未声明（隐式类 / 包别名）时不再让 ELK 抛 JsonImportException
-status: todo
+status: ready
 labels:
   - gap
   - defect
