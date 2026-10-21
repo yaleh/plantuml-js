@@ -10,7 +10,7 @@
  */
 
 import { PlantUmlModel } from './model.js';
-import { LayoutResult, METRICS, Point, displayName } from './layout.js';
+import { LayoutResult, EdgeLayout, METRICS, Point, displayName } from './layout.js';
 import { countEdgeBoxIntersections, nodeRect, Rect } from './edge-router.js';
 import { measureTextWidth } from './text-measure.js';
 
@@ -29,6 +29,19 @@ export interface LayoutMetrics {
   textOverflowCount: number;
   /** Package label tabs that overlap content or are narrower than their text. */
   labelOverlapCount: number;
+  /**
+   * Summed length of collinear, overlapping segments from *different* edges —
+   * the orthogonal router's "parallel-line wall" is invisible to
+   * [[edgeCrossings]] (segments that merely overlap never *cross*), so this
+   * counts that hidden overlap in canvas pixels.
+   */
+  overlappingEdgeLength: number;
+  /**
+   * Incoming arrowheads stacked beyond a threshold on the same side of the
+   * same node — the "everything points at this hub" pile-up that
+   * [[edgeCrossings]] cannot see either.
+   */
+  hubArrowStack: number;
 }
 
 /** Package label tab geometry, kept in step with [[../render/svg]]. */
@@ -52,6 +65,8 @@ export function computeLayoutMetrics(
     aspectRatio: layout.height > 0 ? layout.width / layout.height : 0,
     textOverflowCount: countTextOverflow(model, layout),
     labelOverlapCount: countLabelOverlap(model, layout),
+    overlappingEdgeLength: countOverlappingEdgeLength(edges.map((e) => e.points)),
+    hubArrowStack: countHubArrowStack(edges),
   };
 }
 
@@ -182,4 +197,99 @@ function countLabelOverlap(model: PlantUmlModel, layout: LayoutResult): number {
     if (bad) count++;
   }
   return count;
+}
+
+/**
+ * Summed length of collinear, overlapping segments from different edges. Two
+ * axis-aligned segments that lie on the same line and overlap are a
+ * "parallel-line wall": they never produce a proper crossing (so
+ * [[countEdgeCrossings]] misses them) yet still read as clutter. Each
+ * (segment, segment) overlap is counted once, in canvas pixels.
+ */
+function countOverlappingEdgeLength(polylines: Point[][]): number {
+  interface Seg {
+    a: Point;
+    b: Point;
+    edge: number;
+  }
+  const segs: Seg[] = [];
+  polylines.forEach((pts, edge) => {
+    for (let i = 0; i + 1 < pts.length; i++) {
+      segs.push({ a: pts[i], b: pts[i + 1], edge });
+    }
+  });
+
+  let total = 0;
+  for (let i = 0; i < segs.length; i++) {
+    for (let j = i + 1; j < segs.length; j++) {
+      if (segs[i].edge === segs[j].edge) continue;
+      total += collinearOverlapLength(segs[i].a, segs[i].b, segs[j].a, segs[j].b);
+    }
+  }
+  return total;
+}
+
+/** Overlap length of two segments when collinear, else 0 (in canvas pixels). */
+function collinearOverlapLength(a: Point, b: Point, c: Point, d: Point): number {
+  const ux = b.x - a.x;
+  const uy = b.y - a.y;
+  const vx = d.x - c.x;
+  const vy = d.y - c.y;
+  const lenU = Math.hypot(ux, uy);
+  const lenV = Math.hypot(vx, vy);
+  if (lenU < 1e-9 || lenV < 1e-9) return 0;
+
+  // Parallel: the two direction vectors must be colinear.
+  if (Math.abs(ux * vy - uy * vx) > 1e-9 * lenU * lenV) return 0;
+
+  // Colinear: `c` must lie on the line through `a`/`b` (perpendicular distance).
+  const distC = Math.abs(ux * (c.y - a.y) - uy * (c.x - a.x)) / lenU;
+  if (distC > 0.01) return 0;
+
+  const uxN = ux / lenU;
+  const uyN = uy / lenU;
+  const proj = (p: Point) => (p.x - a.x) * uxN + (p.y - a.y) * uyN;
+  const t0 = Math.min(proj(a), proj(b));
+  const t1 = Math.max(proj(a), proj(b));
+  const s0 = Math.min(proj(c), proj(d));
+  const s1 = Math.max(proj(c), proj(d));
+  const overlap = Math.min(t1, s1) - Math.max(t0, s0);
+  return overlap > 0 ? overlap : 0;
+}
+
+/**
+ * Incoming arrowheads are grouped by (target node, entry side). A side that
+ * receives more than [[HUB_ARROW_STACK_THRESHOLD]] arrowheads contributes its
+ * excess to the total — the "everyone points at this hub from the same side"
+ * pile-up, invisible to [[countEdgeCrossings]].
+ */
+const HUB_ARROW_STACK_THRESHOLD = 3;
+
+type ArrowSide = 'top' | 'bottom' | 'left' | 'right';
+
+function countHubArrowStack(edges: EdgeLayout[]): number {
+  const groups = new Map<string, number>();
+  for (const edge of edges) {
+    const pts = edge.points;
+    if (pts.length < 2) continue;
+    const side = approachSide(pts[pts.length - 2], pts[pts.length - 1]);
+    if (side === undefined) continue;
+    const key = `${edge.target}\u0000${side}`;
+    groups.set(key, (groups.get(key) ?? 0) + 1);
+  }
+
+  let total = 0;
+  for (const count of groups.values()) {
+    if (count > HUB_ARROW_STACK_THRESHOLD) total += count - HUB_ARROW_STACK_THRESHOLD;
+  }
+  return total;
+}
+
+/** Side of the target the arrowhead enters from, derived from the last segment. */
+function approachSide(from: Point, to: Point): ArrowSide | undefined {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return undefined;
+  if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 'left' : 'right';
+  return dy > 0 ? 'top' : 'bottom';
 }

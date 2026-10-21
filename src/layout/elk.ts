@@ -23,9 +23,15 @@
  *
  * Cross-package edges would otherwise come back from ELK without any routing
  * section (the `INHERIT` hierarchy mode leaves them unresolved), so when the
- * model contains edges that cross package boundaries the engine switches that
- * layout to `INCLUDE_CHILDREN` — that is what lets ELK route those edges around
- * unrelated boxes and keeps `edgeNodeIntersections` at zero.
+ * model contains edges that cross *between two different packages* the engine
+ * switches that layout to `INCLUDE_CHILDREN` — that is what lets ELK route
+ * those edges around unrelated boxes and keeps `edgeNodeIntersections` at zero.
+ *
+ * A package↔top-level edge (e.g. a single-package view whose neighbours are
+ * top-level stubs) deliberately does *not* switch the hierarchy handling:
+ * `INCLUDE_CHILDREN` flattens a package with disconnected children into a
+ * single-row strip instead of a packed grid, which is exactly the failure the
+ * Tests Layer view used to show (`package-pkg-Tests_Layer` at aspect 14.9).
  */
 
 import ELKDefault from 'elkjs';
@@ -287,11 +293,15 @@ export class ElkLayoutEngine implements LayoutEngine {
     return partitions;
   }
 
-  /** True when any relation connects entities in different packages (or top level). */
+  /** True when any relation connects entities in two *different* packages. */
   private hasCrossPackageEdge(model: PlantUmlModel): boolean {
     const packageOf = new Map(model.entities.map((e) => [e.id, e.packageId]));
     for (const relation of model.relations) {
-      if (packageOf.get(relation.source) !== packageOf.get(relation.target)) return true;
+      const sourcePkg = packageOf.get(relation.source);
+      const targetPkg = packageOf.get(relation.target);
+      if (sourcePkg !== undefined && targetPkg !== undefined && sourcePkg !== targetPkg) {
+        return true;
+      }
     }
     return false;
   }

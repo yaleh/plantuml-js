@@ -27,6 +27,7 @@ import {
 } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join, basename, extname } from 'node:path';
+import { measureSvgTextOverflow } from './measure-svg-text.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const renderedDir = join(repoRoot, 'rendered');
@@ -145,6 +146,11 @@ for (const { group, pumlPath } of inputs) {
 
     writeFileSync(svgPath, svg);
     screenshot(svgPath, pngPath, layout.width, layout.height);
+    // Independent text-overflow truth: headless Chrome re-measures every
+    // `<text>` with the browser's font engine (see measure-svg-text.mjs),
+    // so a wrong advance in text-measure.ts cannot hide behind a metric that
+    // shares the same mistake.
+    metrics.chromeTextOverflow = await measureSvgTextOverflow(svgPath);
 
     records.push({
       group,

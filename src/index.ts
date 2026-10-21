@@ -38,7 +38,14 @@ export type { GraphvizEngine } from './render-dot.js';
 export { renderDot };
 
 export interface RendererOptions {
-  /** 'elk' (default) | 'viz' | a custom LayoutEngine instance. */
+  /**
+   * `'elk'` (default) | `'viz'` | a custom `LayoutEngine` instance.
+   *
+   * `'viz'` is **experimental**: the Graphviz engine reaches only a fraction
+   * of elk's area utilization and still routes a few edges through unrelated
+   * nodes on the package fixture (see `docs/viz-decision.md` for the measured
+   * comparison). Prefer `'elk'` or a custom engine for production diagrams.
+   */
   layout?: 'elk' | 'viz' | LayoutEngine;
   /** Collapse/expand the diagram before layout (overview, single package, …). */
   view?: ViewSpec;

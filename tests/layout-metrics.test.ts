@@ -182,6 +182,80 @@ describe('computeLayoutMetrics', () => {
     expect(m.textOverflowCount).toBe(0);
   });
 
+  it('sums collinear overlapping segments from different edges (parallel-wall length)', () => {
+    const model: PlantUmlModel = {
+      diagramType: 'class',
+      entities: [entity('A'), entity('B'), entity('C'), entity('D')],
+      relations: [
+        { source: 'A', target: 'B', type: 'association' },
+        { source: 'C', target: 'D', type: 'association' },
+      ],
+      packages: [],
+    };
+    const layout: LayoutResult = {
+      // Two horizontal edges on y=0 that overlap over x ∈ [50, 100]: they never
+      // cross (so edgeCrossings stays 0), but 50px of edge lie on top of each
+      // other — the orthogonal "parallel wall" this metric exists to count.
+      nodes: [],
+      edges: [
+        {
+          id: 'rel-0',
+          source: 'A',
+          target: 'B',
+          points: [
+            { x: 0, y: 0 },
+            { x: 100, y: 0 },
+          ],
+        },
+        {
+          id: 'rel-1',
+          source: 'C',
+          target: 'D',
+          points: [
+            { x: 50, y: 0 },
+            { x: 150, y: 0 },
+          ],
+        },
+      ],
+      width: 150,
+      height: 50,
+    };
+
+    const m = computeLayoutMetrics(model, layout);
+    expect(m.edgeCrossings).toBe(0);
+    expect(m.overlappingEdgeLength).toBeCloseTo(50, 5);
+  });
+
+  it('counts arrowheads stacked beyond the threshold on one node side', () => {
+    const model: PlantUmlModel = {
+      diagramType: 'class',
+      entities: [],
+      relations: [],
+      packages: [],
+    };
+    // Every edge's last segment runs left→right, so each arrowhead enters the
+    // target `T` from its left side.
+    const approachLeft = (count: number): LayoutResult['edges'] =>
+      Array.from({ length: count }, (_, i) => ({
+        id: `rel-${i}`,
+        source: `S${i}`,
+        target: 'T',
+        points: [
+          { x: 0, y: i * 4 },
+          { x: 90, y: i * 4 },
+        ],
+      }));
+    const layout = (count: number): LayoutResult => ({
+      nodes: [],
+      edges: approachLeft(count),
+      width: 100,
+      height: 100,
+    });
+
+    expect(computeLayoutMetrics(model, layout(3)).hubArrowStack).toBe(0);
+    expect(computeLayoutMetrics(model, layout(4)).hubArrowStack).toBe(1);
+  });
+
   it('returns all-zero metrics for an empty model and layout', () => {
     const model: PlantUmlModel = {
       diagramType: 'class',
@@ -205,6 +279,8 @@ describe('computeLayoutMetrics', () => {
       aspectRatio: 0,
       textOverflowCount: 0,
       labelOverlapCount: 0,
+      overlappingEdgeLength: 0,
+      hubArrowStack: 0,
     });
   });
 });

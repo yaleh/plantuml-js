@@ -4,6 +4,11 @@ Pure-TypeScript PlantUML **class diagram** renderer (MIT). Renders `.puml`
 class diagrams to SVG with a pluggable layout engine — `elkjs` (pure JS) by
 default, `@viz-js/viz` (WASM Graphviz) as an option.
 
+> **Engine status** — `'viz'` is **experimental**. It reaches only a fraction
+> of `'elk'`'s area utilization and still routes a few edges through unrelated
+> nodes on large package diagrams. See [`docs/viz-decision.md`](docs/viz-decision.md)
+> for the measured comparison. Use `'elk'` (the default) for production diagrams.
+
 ## Install
 
 ```bash
@@ -15,7 +20,7 @@ npm install @yalehwang/plantuml-js
 ```ts
 import { createRenderer } from '@yalehwang/plantuml-js';
 
-const renderer = createRenderer({ layout: 'elk' }); // or 'viz'
+const renderer = createRenderer({ layout: 'elk' }); // or 'viz' (experimental)
 const { svg, diagramType, warnings } = await renderer.render(`
 @startuml
 class A
@@ -46,7 +51,7 @@ console.log(svg);
 
 | Function | Description |
 |---|---|
-| `createRenderer({ layout })` | Build a renderer. `layout` is `'elk'` (default), `'viz'`, or a custom `LayoutEngine`. |
+| `createRenderer({ layout })` | Build a renderer. `layout` is `'elk'` (default), `'viz'` (experimental), or a custom `LayoutEngine`. |
 | `renderer.render(puml)` | Parse + layout + emit SVG. Returns `{ svg, diagramType, warnings }`. Throws `RenderError` on structurally invalid puml. |
 | `parsePlantUml(puml)` | Parse a puml string into a `PlantUmlModel`. |
 | `checkSyntax(puml)` | Validate without throwing. Returns `{ ok, errors, warnings }` of line-accurate `SyntaxDiagnostic`s. |
