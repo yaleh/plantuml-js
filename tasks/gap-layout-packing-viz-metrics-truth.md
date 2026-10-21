@@ -21,11 +21,11 @@ depends_on:
 
 ## AC
 
-- [ ] `scripts/measure-svg-text.mjs`：用 headless Chrome 加载 SVG，对每个 `<text>` 比较 `getBBox().width + paddingX*2` 与所在 `<rect>` 宽度，输出越界数；`node scripts/render-samples.mjs` 把它写入 `metrics.json` 的 `chromeTextOverflow` 字段，fixture 与 package 的该值为 0
-- [ ] `computeLayoutMetrics` 新增 `overlappingEdgeLength` 与 `hubArrowStack`，`tests/layout-metrics.test.ts` 用合成布局断言确定值
-- [ ] `tests/packing.test.ts`：12 个互不相连的节点渲染后宽高比 ≤ 3；`package-pkg-Tests_Layer` 的宽高比 ≤ 3
-- [ ] viz 决策二选一并落地：(a) `fixture.viz` 的 `areaUtilization` ≥ 0.2 且 `edgeNodeIntersections` === 0；或 (b) README 与 `RendererOptions` 文档标注 `'viz'` 为 experimental，并附 `docs/viz-decision.md` 记录度量对比
-- [ ] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
+- [x] `scripts/measure-svg-text.mjs`：用 headless Chrome 加载 SVG，对每个 `<text>` 比较 `getBBox().width + paddingX*2` 与所在 `<rect>` 宽度，输出越界数；`node scripts/render-samples.mjs` 把它写入 `metrics.json` 的 `chromeTextOverflow` 字段，fixture 与 package 的该值为 0
+- [x] `computeLayoutMetrics` 新增 `overlappingEdgeLength` 与 `hubArrowStack`，`tests/layout-metrics.test.ts` 用合成布局断言确定值
+- [x] `tests/packing.test.ts`：12 个互不相连的节点渲染后宽高比 ≤ 3；`package-pkg-Tests_Layer` 的宽高比 ≤ 3
+- [x] viz 决策二选一并落地：(a) `fixture.viz` 的 `areaUtilization` ≥ 0.2 且 `edgeNodeIntersections` === 0；或 (b) README 与 `RendererOptions` 文档标注 `'viz'` 为 experimental，并附 `docs/viz-decision.md` 记录度量对比
+- [x] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
 
 ## DoD
 
@@ -37,6 +37,8 @@ depends_on:
 - src/layout/elk.ts
 - src/layout/viz.ts
 - src/layout-metrics.ts
+- src/index.ts
+- src/text-measure.ts
 - scripts/render-samples.mjs
 - scripts/measure-svg-text.mjs (new)
 - README.md
