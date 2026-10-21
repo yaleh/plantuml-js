@@ -115,3 +115,50 @@ All 56 package views: `nonOrthogonalEdgeCount` 0, `edgeNodeIntersections`
 total 0, aspect ratios within 0.69–2.98 (previously 7 outside 0.25–4).
 `scripts/render-samples.mjs` skips the PNG (and the Chrome text re-measure) for
 canvases above 100 MP and logs it.
+
+## Multi-scale sample set (S/M/L/XL)
+
+`scripts/samples.json` declares 9 samples in four tiers; `node scripts/render-samples.mjs
+--manifest [<archguard-output-dir>] --tiles` renders them (elk for all, viz for S/M),
+prints a per-tier table, writes `rendered/metrics.json` (records carry `tier`), exits
+non-zero on a violated threshold, and cuts each elk diagram into 1:1 tiles
+(`rendered/tiles/<id>/r<row>c<col>.png`, ≤1800×1200) plus `overview.png` with the grid
+marked. XL is never rasterised whole.
+
+Measured (elk, current develop):
+
+| tier | id | ents | w×h | crossings | areaUtil | aspect | thresholds |
+|---|---|---|---|---|---|---|---|
+| S | s-class | 22 | 1644×1030 | 0 | 0.34 | 1.60 | pass |
+| S | s-architecture-manual | 21 | 2242×841 | 0 | 0.31 | 2.67 | **FAIL** aspect > 2.2 |
+| S | s-cli-utils-view | 21 | 1192×922 | 3 | 0.38 | 1.29 | pass |
+| M | m-architecture | 70 | 5104×2783 | 102 | 0.22 | 1.83 | pass |
+| M | m-package | 64 | 2256×2754 | 172 | 0.06 | 0.82 | **FAIL** areaUtilization 0.064 < 0.12 |
+| M | m-mermaid-view | 50 | 2897×2034 | 180 | 0.22 | 1.42 | pass |
+| M | m-types-view | 65 | 5343×2164 | 42 | 0.16 | 2.47 | pass |
+| L | l-plugins (172) | 172 | 7505×5968 | 607 | 0.16 | 1.26 | pass |
+| XL | xl-all-classes | 660 | 13245×6800 | 4658 | 0.27 | 1.95 | pass |
+
+### Exposed failures (not fixed here)
+
+- **S `s-architecture-manual`** — a 4-package flat strip layout (2242×841) overshoots the
+  S aspect band (2.67 > 2.2); the layered run places the packages side by side.
+- **M `m-package`** — areaUtilization 0.064: five packages of very uneven size in a
+  2256×2754 canvas leave large empty regions around the small packages.
+
+viz (S/M only) is reported for comparison: it is 2–3× larger in each dimension
+(area utilisation 0.02–0.06) and has 8–100 non-orthogonal edges per diagram.
+
+### Tile inspection notes
+
+Spot-checked `s-class`, `m-mermaid-view` and `l-plugins` tiles at 1:1:
+
+- Arrowheads (open triangles for inheritance, `>` for dependencies), composition diamonds,
+  `×N` multiplicity labels, and package tab titles are all legible; text is never clipped by
+  its box.
+- S (`s-class/r0c0`): inter-node gaps are generous; edges attach cleanly to node sides.
+- M (`m-mermaid-view/r0c0`): in the right part several long dashed/solid edges run as a
+  tight parallel bundle (≈4–8 px apart) down the canvas, which makes individual edges hard
+  to follow; `×3`/`×4` labels sit on those bundles.
+- L (`l-plugins/r2c2`): long inter-package edges thread between packages as many parallel
+  vertical/horizontal lines with small gaps; packages themselves are well spaced.

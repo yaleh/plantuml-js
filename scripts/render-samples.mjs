@@ -11,6 +11,14 @@
  *
  * Usage:
  *   node scripts/render-samples.mjs [--baseline] [--views] [<archguard-output-dir>]
+ *   node scripts/render-samples.mjs [--manifest [<archguard-output-dir>]] [--tiles]
+ *
+ * Sample mode (`--manifest` and/or `--tiles`) renders the tiered S/M/L/XL set
+ * declared in scripts/samples.json (elk for all, viz for S/M), prints a
+ * per-tier metrics table, writes `rendered/metrics.json` (each record carries
+ * `tier`), exits non-zero when a declared threshold is violated, and with
+ * `--tiles` also cuts each diagram into 1:1 PNG tiles under
+ * `rendered/tiles/<id>/` plus an `overview.png` marking the tile grid.
  *
  * `<archguard-output-dir>` is either a directory holding .puml files directly or
  * an archguard output root: `class/all-classes.puml` and `overview/package.puml`
@@ -27,12 +35,23 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join, basename, extname } from 'node:path';
+import { promisify } from 'node:util';
+import { execFile } from 'node:child_process';
 import { measureSvgTextOverflow } from './measure-svg-text.mjs';
+import { writeTiles } from './tile-png.mjs';
+import {
+  evaluateThresholds,
+  filterPackagesMatching,
+  loadManifest,
+  resolveSource,
+  TIERS,
+} from './samples-lib.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const renderedDir = join(repoRoot, 'rendered');
@@ -42,7 +61,16 @@ const fixturesDir = join(repoRoot, 'tests', 'fixtures');
 const argv = process.argv.slice(2);
 const baseline = argv.includes('--baseline');
 const views = argv.includes('--views');
-const externalDir = argv.find((a) => !a.startsWith('--'));
+const tiles = argv.includes('--tiles');
+const manifestIdx = argv.indexOf('--manifest');
+const manifestMode = manifestIdx !== -1;
+const manifestDir =
+  manifestMode && argv[manifestIdx + 1] && !argv[manifestIdx + 1].startsWith('--')
+    ? argv[manifestIdx + 1]
+    : null;
+const externalDir = argv.find((a, i) => !a.startsWith('--') && !(manifestMode && i === manifestIdx + 1));
+// Multi-scale sample mode (scripts/samples.json): enabled by --manifest and/or --tiles.
+const samplesMode = manifestMode || tiles;
 
 // ── build + import the compiled library ────────────────────────────────────
 console.log('building dist/ …');
@@ -102,6 +130,12 @@ function screenshot(svgPath, pngPath, width, height) {
     );
     return false;
   }
+  rawShotArgs(svgPath, pngPath, width, height).run();
+  return true;
+}
+
+/** Builds the headless-Chrome invocation; `run()` is sync, `runAsync()` for parallel tiling. */
+function rawShotArgs(svgPath, pngPath, width, height) {
   const bin = chromeBin();
   const w = Math.max(1, Math.ceil(width));
   const h = Math.max(1, Math.ceil(height));
@@ -116,8 +150,111 @@ function screenshot(svgPath, pngPath, width, height) {
     `--screenshot=${pngPath}`,
     url,
   ];
-  execFileSync(bin, args, { stdio: ['ignore', 'ignore', 'pipe'] });
-  return true;
+  return {
+    run: () => execFileSync(bin, args, { stdio: ['ignore', 'ignore', 'pipe'] }),
+    runAsync: () => promisify(execFile)(bin, args, { maxBuffer: 1 << 20 }),
+  };
+}
+
+// ── sample mode: tiered manifest ───────────────────────────────────────────
+if (samplesMode) {
+  const code = await runSamples();
+  process.exit(code);
+}
+
+async function runSamples() {
+  const manifest = loadManifest();
+  const outRecords = [];
+  const failures = [];
+  mkdirSync(renderedDir, { recursive: true });
+
+  for (const sample of manifest.samples) {
+    const puml = readFileSync(resolveSource(sample, manifestDir), 'utf8');
+    let parsed = parsePlantUml(puml);
+    if (sample.packagesMatching) parsed = filterPackagesMatching(parsed, sample.packagesMatching);
+    const model = sample.view ? transformView(parsed, sample.view) : transformFullGraph(parsed);
+    const engineNames = ['elk', ...(sample.tier === 'S' || sample.tier === 'M' ? ['viz'] : [])];
+
+    for (const engineName of engineNames) {
+      const layout = await engines[engineName]().layout(model);
+      const svg = renderSvg(model, layout);
+      const metrics = computeLayoutMetrics(model, layout);
+      const svgName = `${sample.id}.${engineName}.svg`;
+      const pngName = `${sample.id}.${engineName}.png`;
+      const svgPath = join(renderedDir, svgName);
+      writeFileSync(svgPath, svg);
+
+      // XL-size canvases are never rasterised whole (see MAX_PNG_PIXELS); tiles cover them.
+      const wrotePng = screenshot(svgPath, join(renderedDir, pngName), layout.width, layout.height);
+      metrics.chromeTextOverflow = wrotePng ? await measureSvgTextOverflow(svgPath) : null;
+
+      // Thresholds gate the elk run (the shipping engine); viz is reported for comparison.
+      const violated = engineName === 'elk' ? evaluateThresholds(metrics, sample.thresholds) : [];
+      if (violated.length) failures.push(`${sample.id} [${sample.tier}]: ${violated.join('; ')}`);
+
+      outRecords.push({
+        group: sample.id,
+        tier: sample.tier,
+        engine: engineName,
+        entities: model.entities.length,
+        svg: svgName,
+        png: wrotePng ? pngName : null,
+        width: round(layout.width),
+        height: round(layout.height),
+        metrics,
+        violations: violated,
+      });
+
+      if (tiles && engineName === 'elk') {
+        const tileDir = join(renderedDir, 'tiles', sample.id);
+        rmSync(tileDir, { recursive: true, force: true });
+        const t = await writeTiles({
+          svg,
+          outDir: tileDir,
+          shoot: (svgFile, pngFile, w, h) => rawShotArgs(svgFile, pngFile, w, h).runAsync(),
+        });
+        console.log(`tiled ${sample.id}: ${t.length} tiles → rendered/tiles/${sample.id}/`);
+      }
+      console.log(`rendered ${svgName} (${engineName}, ${sample.tier})`);
+    }
+  }
+
+  writeFileSync(join(renderedDir, 'metrics.json'), JSON.stringify(outRecords, null, 2) + '\n');
+  printTierTable(outRecords);
+  console.log(`wrote rendered/metrics.json (${outRecords.length} records)`);
+  if (failures.length) {
+    console.error(`\nthreshold violations (${failures.length}):`);
+    for (const f of failures) console.error(`  ✗ ${f}`);
+    return 1;
+  }
+  console.log('all sample thresholds satisfied');
+  return 0;
+}
+
+function printTierTable(recs) {
+  const cols = ['id', 'engine', 'ents', 'w×h', 'cross', 'edge×node', 'nonOrth', 'areaUtil', 'aspect', 'overflow', 'ok'];
+  for (const tier of TIERS) {
+    const rows = recs.filter((r) => r.tier === tier);
+    if (!rows.length) continue;
+    console.log(`\n── tier ${tier} ──`);
+    const lines = rows.map((r) => [
+      r.group,
+      r.engine,
+      r.entities,
+      `${Math.round(r.width)}×${Math.round(r.height)}`,
+      r.metrics.edgeCrossings,
+      r.metrics.edgeNodeIntersections,
+      r.metrics.nonOrthogonalEdgeCount,
+      round(r.metrics.areaUtilization),
+      round(r.metrics.aspectRatio),
+      r.metrics.textOverflowCount,
+      r.engine === 'elk' ? (r.violations.length ? 'FAIL' : 'pass') : '-',
+    ].map(String));
+    const widths = cols.map((c, i) => Math.max(c.length, ...lines.map((l) => l[i].length)));
+    const fmtRow = (cells) => cells.map((c, i) => c.padEnd(widths[i])).join('  ');
+    console.log(fmtRow(cols));
+    for (const l of lines) console.log(fmtRow(l));
+  }
 }
 
 // ── inputs: the two fixtures + optional external archguard dir ─────────────

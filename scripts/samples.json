@@ -1,0 +1,102 @@
+{
+  "$comment": "Multi-scale layout samples. `source` is a file name under tests/fixtures (or, with --manifest <archguard-output-dir>, the same file name found in that directory / its class/ and overview/ subdirs). `view` applies a renderer view; `packagesMatching` keeps only the packages whose id matches the regex (and their entities / inter-entity relations). `thresholds` map a metrics field to {min,max}; the harness exit code follows them.",
+  "tiers": {
+    "S": "<= 25 entities",
+    "M": "25-70 entities",
+    "L": "100-200 entities",
+    "XL": "all-classes (660 entities)"
+  },
+  "samples": [
+    {
+      "id": "s-class",
+      "tier": "S",
+      "source": "archguard-class.puml",
+      "thresholds": {
+        "edgeNodeIntersections": { "max": 0 },
+        "aspectRatio": { "min": 0.6, "max": 2.2 },
+        "areaUtilization": { "min": 0.25 }
+      }
+    },
+    {
+      "id": "s-architecture-manual",
+      "tier": "S",
+      "source": "archguard-architecture-manual.puml",
+      "thresholds": {
+        "edgeNodeIntersections": { "max": 0 },
+        "aspectRatio": { "min": 0.6, "max": 2.2 },
+        "areaUtilization": { "min": 0.25 }
+      }
+    },
+    {
+      "id": "s-cli-utils-view",
+      "tier": "S",
+      "source": "all-classes.puml",
+      "view": { "kind": "package", "id": "Src_Cli_Utils_Layer" },
+      "thresholds": {
+        "edgeNodeIntersections": { "max": 0 },
+        "aspectRatio": { "min": 0.6, "max": 2.2 },
+        "areaUtilization": { "min": 0.25 }
+      }
+    },
+    {
+      "id": "m-architecture",
+      "tier": "M",
+      "source": "archguard-architecture.puml",
+      "thresholds": {
+        "aspectRatio": { "min": 0.5, "max": 2.5 },
+        "areaUtilization": { "min": 0.12 }
+      }
+    },
+    {
+      "id": "m-package",
+      "tier": "M",
+      "source": "archguard-package.puml",
+      "thresholds": {
+        "aspectRatio": { "min": 0.5, "max": 2.5 },
+        "areaUtilization": { "min": 0.12 }
+      }
+    },
+    {
+      "id": "m-mermaid-view",
+      "tier": "M",
+      "source": "all-classes.puml",
+      "view": { "kind": "package", "id": "Src_Mermaid_Layer" },
+      "thresholds": {
+        "aspectRatio": { "min": 0.5, "max": 2.5 },
+        "areaUtilization": { "min": 0.12 }
+      }
+    },
+    {
+      "id": "m-types-view",
+      "tier": "M",
+      "source": "all-classes.puml",
+      "view": { "kind": "package", "id": "Src_Types_Layer" },
+      "thresholds": {
+        "aspectRatio": { "min": 0.5, "max": 2.5 },
+        "areaUtilization": { "min": 0.12 }
+      }
+    },
+    {
+      "id": "l-plugins",
+      "tier": "L",
+      "source": "all-classes.puml",
+      "packagesMatching": "^Src_Plugins_",
+      "expectedEntities": { "min": 100, "max": 200 },
+      "thresholds": {
+        "aspectRatio": { "min": 0.4, "max": 3 },
+        "nonOrthogonalEdgeCount": { "max": 0 },
+        "textOverflowCount": { "max": 0 }
+      }
+    },
+    {
+      "id": "xl-all-classes",
+      "tier": "XL",
+      "source": "all-classes.puml",
+      "thresholds": {
+        "aspectRatio": { "min": 0.4, "max": 3 },
+        "nonOrthogonalEdgeCount": { "max": 0 },
+        "textOverflowCount": { "max": 0 }
+      }
+    }
+  ]
+}
