@@ -28,11 +28,11 @@ depends_on:
 
 ## AC
 
-- [ ] `computeLayoutMetrics` 新增 `labelEdgeOverlap` 与 `labelLabelOverlap`，`tests/layout-metrics.test.ts` 用合成布局断言确定值（含一个故意压线、一个故意互压的反例）
-- [ ] `tests/edge-label-halo.test.ts`：渲染含标签的边后，SVG 里该标签文字带光晕（光晕颜色取自 theme token，不是硬编码），且标签位置不在其边的线段上（到自己那条边的距离 ≥ 文字高度的一半）
-- [ ] `tests/label-dedupe.test.ts`：同一源节点向同一目标分组发出 ≥ 5 条同文字标签的边，SVG 中该文字标签可见数 ≤ 2，其余边含 `<title>` 保留文字
-- [ ] 对 `s-architecture-manual` 与 `m-architecture`：`labelEdgeOverlap` 为 0，`labelLabelOverlap` 为 0；`xl-all-classes` 的 `labelLabelOverlap` 为 0
-- [ ] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
+- [x] `computeLayoutMetrics` 新增 `labelEdgeOverlap` 与 `labelLabelOverlap`，`tests/layout-metrics.test.ts` 用合成布局断言确定值（含一个故意压线、一个故意互压的反例）
+- [x] `tests/edge-label-halo.test.ts`：渲染含标签的边后，SVG 里该标签文字带光晕（光晕颜色取自 theme token，不是硬编码），且标签位置不在其边的线段上（到自己那条边的距离 ≥ 文字高度的一半）
+- [x] `tests/label-dedupe.test.ts`：同一源节点向同一目标分组发出 ≥ 5 条同文字标签的边，SVG 中该文字标签可见数 ≤ 2，其余边含 `<title>` 保留文字
+- [x] 对 `s-architecture-manual` 与 `m-architecture`：`labelEdgeOverlap` 为 0，`labelLabelOverlap` 为 0；`xl-all-classes` 的 `labelLabelOverlap` 为 0
+- [x] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
 
 ## DoD
 
@@ -43,6 +43,7 @@ depends_on:
 - tasks/gap-render-edge-label-halo-and-dedupe.md
 - src/render/svg.ts
 - src/render/theme.ts
+- src/render/labels.ts
 - src/layout/elk.ts
 - src/layout-metrics.ts
 - tests/layout-metrics.test.ts
