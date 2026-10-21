@@ -341,7 +341,77 @@ describe('computeLayoutMetrics', () => {
       edgeLabelOverlap: 0,
       labelNodeOverlap: 0,
       hubArrowStack: 0,
+      maxEmptyBlockRatio: 0,
+      edgeFlushCount: 0,
     });
+  });
+
+  it('measures the largest empty block (maxEmptyBlockRatio)', () => {
+    const model: PlantUmlModel = {
+      diagramType: 'class',
+      entities: [entity('A'), entity('B')],
+      relations: [],
+      packages: [],
+    };
+    const diagonal: LayoutResult = {
+      nodes: [
+        { id: 'A', x: 0, y: 0, width: 100, height: 100 },
+        { id: 'B', x: 100, y: 100, width: 100, height: 100 },
+      ],
+      edges: [],
+      width: 200,
+      height: 200,
+    };
+    // Two opposite quadrants stay free; the biggest rectangle is one quadrant.
+    expect(computeLayoutMetrics(model, diagonal).maxEmptyBlockRatio).toBeCloseTo(0.25, 5);
+
+    const corner: LayoutResult = { ...diagonal, nodes: [diagonal.nodes[0]] };
+    // One quadrant filled: the free L-shape holds a 200×100 band (half the canvas).
+    expect(computeLayoutMetrics(model, corner).maxEmptyBlockRatio).toBeCloseTo(0.5, 5);
+
+    // A package frame counts as occupied space.
+    const framed: LayoutResult = { ...corner, nodes: [], packages: [{ id: 'P', x: 0, y: 0, width: 200, height: 100 }] };
+    expect(computeLayoutMetrics(model, framed).maxEmptyBlockRatio).toBeCloseTo(0.5, 5);
+  });
+
+  it('counts edge segments flush with an unrelated node or frame border (edgeFlushCount)', () => {
+    const model: PlantUmlModel = {
+      diagramType: 'class',
+      entities: [entity('A'), entity('B'), entity('C')],
+      relations: [
+        { source: 'A', target: 'B', type: 'association' },
+        { source: 'A', target: 'B', type: 'association' },
+      ],
+      packages: [],
+    };
+    const nodes = [
+      { id: 'A', x: 0, y: 0, width: 40, height: 20 },
+      { id: 'B', x: 0, y: 200, width: 40, height: 20 },
+      { id: 'C', x: 100, y: 80, width: 100, height: 40 },
+    ];
+    const layout = (x1: number, x2: number): LayoutResult => ({
+      nodes,
+      packages: [],
+      edges: [
+        { id: 'rel-0', source: 'A', target: 'B', points: [{ x: x1, y: 20 }, { x: x1, y: 200 }] },
+        { id: 'rel-1', source: 'A', target: 'B', points: [{ x: x2, y: 20 }, { x: x2, y: 200 }] },
+      ],
+      width: 300,
+      height: 240,
+    });
+    // x=102 hugs C's left side (2px); x=120 is 20px from both sides; endpoints A/B never count.
+    expect(computeLayoutMetrics(model, layout(102, 120)).edgeFlushCount).toBe(1);
+    expect(computeLayoutMetrics(model, layout(95, 120)).edgeFlushCount).toBe(1);
+    expect(computeLayoutMetrics(model, layout(94, 120)).edgeFlushCount).toBe(0);
+
+    // A package frame border counts too (the frame is not an endpoint).
+    const framed: LayoutResult = {
+      ...layout(120, 130),
+      packages: [{ id: 'P', x: 0, y: 0, width: 300, height: 240 }],
+    };
+    expect(computeLayoutMetrics(model, framed).edgeFlushCount).toBe(0);
+    const hugging: LayoutResult = { ...framed, edges: [{ ...framed.edges[0], points: [{ x: 3, y: 20 }, { x: 3, y: 200 }] }] };
+    expect(computeLayoutMetrics(model, hugging).edgeFlushCount).toBe(1);
   });
 
   it('counts an edge label rectangle that lands on a node (labelNodeOverlap)', () => {

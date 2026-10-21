@@ -168,6 +168,9 @@ export function buildElkGraph(
     // Ports keep a fixed side per edge, so same-direction edges fan out across
     // one node edge instead of scattering onto every side (or one point).
     'elk.layered.portConstraints': 'FIXED_SIDE',
+    // Keep wires off node sides and off each other (see layout-metrics edgeFlushCount).
+    'elk.spacing.edgeNode': '12',
+    'elk.spacing.edgeEdge': '10',
     // Soft targets: pack disconnected components into a balanced rectangle
     // instead of a long horizontal strip. (hierarchyHandling stays INHERIT
     // unless cross-package edges exist — see the header comment.)

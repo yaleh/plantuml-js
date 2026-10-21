@@ -52,7 +52,9 @@ describe('gap-layout-foundation: ELK layout', () => {
     const layout = await new ElkLayoutEngine().layout(model);
     const m = computeLayoutMetrics(model, layout);
 
-    expect(m.aspectRatio).toBeGreaterThanOrEqual(1.2);
+    // Small layers share a row and the sparse Src layer is repacked, so the
+    // canvas is near-square (gap-layout-balance-clearance-bundling).
+    expect(m.aspectRatio).toBeGreaterThanOrEqual(1.0);
     expect(m.aspectRatio).toBeLessThanOrEqual(2.2);
     expect(m.textOverflowCount).toBe(0);
     expect(m.labelOverlapCount).toBe(0);

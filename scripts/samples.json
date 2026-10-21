@@ -12,6 +12,7 @@
       "tier": "S",
       "source": "archguard-class.puml",
       "thresholds": {
+        "edgeFlushCount": { "max": 0 },
         "edgeNodeIntersections": { "max": 0 },
         "aspectRatio": { "min": 0.6, "max": 2.2 },
         "areaUtilization": { "min": 0.25 }
@@ -43,6 +44,7 @@
       "tier": "M",
       "source": "archguard-architecture.puml",
       "thresholds": {
+        "edgeFlushCount": { "max": 0 },
         "aspectRatio": { "min": 0.5, "max": 2.5 },
         "areaUtilization": { "min": 0.12 }
       }
@@ -62,6 +64,7 @@
       "source": "all-classes.puml",
       "view": { "kind": "package", "id": "Src_Mermaid_Layer" },
       "thresholds": {
+        "edgeFlushCount": { "max": 0 },
         "aspectRatio": { "min": 0.5, "max": 2.5 },
         "areaUtilization": { "min": 0.12 }
       }
@@ -93,7 +96,9 @@
       "tier": "XL",
       "source": "all-classes.puml",
       "thresholds": {
-        "aspectRatio": { "min": 0.4, "max": 3 },
+        "edgeFlushCount": { "max": 24 },
+        "maxEmptyBlockRatio": { "max": 0.2 },
+        "aspectRatio": { "min": 0.5, "max": 2.5 },
         "nonOrthogonalEdgeCount": { "max": 0 },
         "textOverflowCount": { "max": 0 }
       }

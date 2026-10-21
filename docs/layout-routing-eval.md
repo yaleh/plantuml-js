@@ -162,3 +162,44 @@ Spot-checked `s-class`, `m-mermaid-view` and `l-plugins` tiles at 1:1:
   to follow; `×3`/`×4` labels sit on those bundles.
 - L (`l-plugins/r2c2`): long inter-package edges thread between packages as many parallel
   vertical/horizontal lines with small gaps; packages themselves are well spaced.
+
+## Balance, clearance and bundling (gap-layout-balance-clearance-bundling)
+
+Two metrics were added to `computeLayoutMetrics`: `maxEmptyBlockRatio` (largest node- and
+frame-free rectangle ÷ canvas, 20 px raster) and `edgeFlushCount` (edge segments parallel to
+and < 6 px from an unrelated node side or package frame border). Measured on the same
+fixtures before and after the change (before = layout of the previous commit, scored with
+the new metrics):
+
+| Sample | w×h before → after | areaUtil | aspect | maxEmptyBlockRatio | edgeFlushCount |
+| --- | --- | --- | --- | --- | --- |
+| s-class | 1650×1196 → same | 0.307 → 0.307 | 1.38 | 0.162 → 0.162 | 0 → 0 |
+| s-architecture-manual | 1826×1262 → same | 0.258 | 1.45 | 0.179 → 0.179 | 0 → 0 |
+| m-architecture | 4578×2867 → 4580×2867 | 0.241 | 1.60 | 0.116 → 0.116 | 0 → 0 |
+| m-package | 2314×2826 → 1644×1276 | 0.073 → 0.228 | 0.82 → 1.29 | 0.134 → 0.169 | 0 → 1 |
+| m-mermaid-view | 2927×2088 → 2929×2088 | 0.229 | 1.40 | 0.019 → 0.027 | 0 → 0 |
+| l-plugins | 7548×6036 → 7984×5996 | 0.160 → 0.153 | 1.25 → 1.33 | 0.115 → 0.141 | 21 → 0 |
+| xl-all-classes | 13144×7032 → 14568×6840 | 0.271 → 0.251 | 1.87 → 2.13 | 0.103 → 0.110 | **121 → 5** (−96 %) |
+
+What changed:
+
+- **Edge clearance** — the grid router charges extra for lattice steps that run along a
+  package frame border within 12 px (`FRAME_CLEARANCE`), and the ELK runs set
+  `elk.spacing.edgeNode=12` / `edgeEdge=10`. All 121 XL flush segments were grid-routed lanes
+  hugging frames. Cost: XL `overlappingEdgeLength` 86268 → 95375 and crossings 4590 → 4646,
+  because lanes now share the channel centre.
+- **Sparse blocks** — a single-package block of ≥ 30 nodes below 0.16 node density is first
+  re-laid with ELK layer wrapping, then rect-packed if still sparse (edges grid-routed).
+  `m-package` Src block no longer sprawls over 2234×1766.
+- **Small layers** — neighbouring small layer blocks (≤ 600 px tall) share one row, and all
+  rows are left-aligned instead of centred.
+- **Hub rail** — summarised hubs with no drawn edge leave the layered run and stack in a
+  column on the package's left side (wrapping at the block height).
+- **Bundling** — ≥ 5 unlabelled dependency/association edges leaving one source in the same
+  direction render as a single `uml-edge-bundle` path (shared segments drawn once) with
+  `data-bundle-size` and the summed `data-weight`; each target keeps its arrowhead.
+
+Not done: the fan-out lines still leave the source from distinct ports (the bundle is one
+element but the branches are not snapped to a single trunk), and the long
+`examples → src/plugins/golang` edge (item 5) is untouched. `s-cli-utils-view` still misses
+its 0.25 areaUtilization threshold (0.233, unchanged from before this task).

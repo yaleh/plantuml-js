@@ -29,7 +29,17 @@ export interface GridRouterOptions {
   margin?: number;
   /** Lattice pitch in pixels; chosen from the canvas area when omitted. */
   pitch?: number;
+  /**
+   * Package frames. A wire running parallel to a frame border within
+   * [[FRAME_CLEARANCE]] px pays [[FRAME_FLUSH_COST]] per step, so lanes keep off
+   * the box outline instead of reading as part of it.
+   */
+  frames?: { x: number; y: number; width: number; height: number }[];
 }
+
+/** Distance (px) a lane keeps from a package frame border when it can. */
+export const FRAME_CLEARANCE = 12;
+const FRAME_FLUSH_COST = 5;
 
 const BEND_COST = 3;
 const SHARED_LANE_COST = 2;
@@ -133,6 +143,31 @@ export function routeOrthogonal(
     for (let r = r0; r <= r1; r++) {
       for (let c = c0; c <= c1; c++) blocked[r * cols + c] = 1;
     }
+  }
+
+  // Lattice vertices hugging a frame border; `nearV` marks vertical sides (x),
+  // `nearH` horizontal ones (y). Only moves *along* the side are penalised.
+  const nearV = new Uint8Array(vertexCount);
+  const nearH = new Uint8Array(vertexCount);
+  for (const f of options.frames ?? []) {
+    const markCols = (x: number, y0: number, y1: number): void => {
+      const c0 = Math.max(0, Math.ceil((x - FRAME_CLEARANCE) / pitch));
+      const c1 = Math.min(cols - 1, Math.floor((x + FRAME_CLEARANCE) / pitch));
+      const r0 = Math.max(0, Math.ceil(y0 / pitch));
+      const r1 = Math.min(rows - 1, Math.floor(y1 / pitch));
+      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) nearV[r * cols + c] = 1;
+    };
+    const markRows = (y: number, x0: number, x1: number): void => {
+      const r0 = Math.max(0, Math.ceil((y - FRAME_CLEARANCE) / pitch));
+      const r1 = Math.min(rows - 1, Math.floor((y + FRAME_CLEARANCE) / pitch));
+      const c0 = Math.max(0, Math.ceil(x0 / pitch));
+      const c1 = Math.min(cols - 1, Math.floor(x1 / pitch));
+      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) nearH[r * cols + c] = 1;
+    };
+    markCols(f.x, f.y, f.y + f.height);
+    markCols(f.x + f.width, f.y, f.y + f.height);
+    markRows(f.y, f.x, f.x + f.width);
+    markRows(f.y + f.height, f.x, f.x + f.width);
   }
 
   const stateCount = vertexCount * 4;
@@ -265,6 +300,7 @@ export function routeOrthogonal(
         if (blocked[nv]) continue;
         let step = 1;
         if (nd !== dir) step += BEND_COST;
+        if (nd & 1 ? nearH[nv] : nearV[nv]) step += FRAME_FLUSH_COST;
         if (nd & 1) {
           if (usedH[nv]) step += SHARED_LANE_COST;
           if (usedV[nv]) step += CROSSING_COST;

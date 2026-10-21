@@ -40,6 +40,18 @@ const NESTED_SPLIT_WIDTH = 3500;
 const PACK_BLOCK_THRESHOLD = 12;
 /** Gap between blocks: wide enough for several routing lanes. */
 const BLOCK_SPACING = 64;
+/** Clearance ELK keeps between an edge and a node / another edge inside a block. */
+const EDGE_NODE_SPACING = 12;
+const EDGE_EDGE_SPACING = 10;
+
+/** A layered block with at least this many nodes at lower density is repacked. */
+const SPARSE_MIN_NODES = 30;
+const SPARSE_DENSITY = 0.16;
+
+/** Hub rail: gap between hubs / columns, and the shortest column height before wrapping. */
+const HUB_RAIL_GAP = 16;
+const HUB_RAIL_MIN_HEIGHT = 400;
+
 /** Border kept free around the whole canvas for outer routing lanes. */
 const CANVAS_MARGIN = 40;
 
@@ -177,7 +189,11 @@ export async function compoundLayout(
     const target = nodeById.get(relation.target);
     if (source && target) requests.push({ id: String(index), source, target });
   }
-  const routed = routeOrthogonal(requests, nodes, { width: placed.width, height: placed.height });
+  const routed = routeOrthogonal(requests, nodes, {
+    width: placed.width,
+    height: placed.height,
+    frames: packagesOut,
+  });
   for (const [id, points] of routed) edgePoints.set(Number(id), points);
 
   const edges: EdgeLayout[] = model.relations.map((relation, index) => ({
@@ -228,8 +244,20 @@ async function layoutBlock(
     });
   }
   const rootChildren: ElkNode[] = [];
+  const touched = new Set<string>();
+  for (const r of model.relations) {
+    touched.add(r.source);
+    touched.add(r.target);
+  }
+  // Summarised hubs without any drawn edge are not part of the layered graph:
+  // they get a rail along the package side instead of a row on top of it.
+  const hubs: PlantUmlEntity[] = [];
   for (const entity of entities) {
     const size = estimateEntitySize(entity);
+    if (entity.packageId === topId && (entity.usageCount ?? 0) > 0 && !touched.has(entity.id)) {
+      hubs.push(entity);
+      continue;
+    }
     const leaf: ElkNode = { id: entity.id, width: size.width, height: size.height };
     const owner = entity.packageId !== undefined && entity.packageId !== topId ? pkgNodes.get(entity.packageId) : undefined;
     if (owner) owner.children!.push(leaf);
@@ -265,6 +293,8 @@ async function layoutBlock(
     'elk.aspectRatio': '1.6',
     'elk.separateConnectedComponents': 'true',
     'elk.layered.nodePlacement.strategy': 'INTERACTIVE',
+    'elk.spacing.edgeNode': String(EDGE_NODE_SPACING),
+    'elk.spacing.edgeEdge': String(EDGE_EDGE_SPACING),
     'elk.padding': '[top=26,left=10,bottom=10,right=10]',
   };
   if (hasNested) layoutOptions['elk.hierarchyHandling'] = 'INCLUDE_CHILDREN';
@@ -272,12 +302,24 @@ async function layoutBlock(
   const graph: ElkNode = { id: 'block', layoutOptions, children: rootChildren, edges };
   let result = await elk.layout(graph);
   let repacked = false;
-  const aspect = (result.width ?? 0) / Math.max(1, result.height ?? 1);
+  let aspect = (result.width ?? 0) / Math.max(1, result.height ?? 1);
   const wide = (result.width ?? 0) > NESTED_SPLIT_WIDTH;
   if (hasNested && wide && (aspect > BLOCK_MAX_ASPECT || aspect < 1 / BLOCK_MAX_ASPECT)) {
     return splitNestedBlock(elk, model, key, entities, packages, relationIndexes, options);
   }
-  if (!hasNested && (options.dense || aspect > BLOCK_MAX_ASPECT || aspect < 1 / BLOCK_MAX_ASPECT)) {
+  let sparse = !hasNested && rootChildren.length >= SPARSE_MIN_NODES && blockDensity(rootChildren, result) < SPARSE_DENSITY;
+  if (sparse) {
+    // Fold the long layer chain into several rows before giving up on layering.
+    const wrapped = await elk.layout({
+      ...graph,
+      layoutOptions: { ...layoutOptions, 'elk.layered.wrapping.strategy': 'MULTI_EDGE' },
+    });
+    if (blockDensity(rootChildren, wrapped) > blockDensity(rootChildren, result)) {
+      result = wrapped;
+      sparse = blockDensity(rootChildren, result) < SPARSE_DENSITY;
+    }
+  }
+  if (!hasNested && (options.dense || sparse || aspect > BLOCK_MAX_ASPECT || aspect < 1 / BLOCK_MAX_ASPECT)) {
     // A single wide layer cannot be wrapped by the layered algorithm; pack the
     // boxes into a balanced rectangle and let the grid router draw the edges.
     result = await elk.layout({
@@ -309,24 +351,77 @@ async function layoutBlock(
   };
   for (const child of result.children ?? []) flatten(child, 0, 0);
 
-  const width = Math.max(result.width ?? 0, packageMinWidth(pkg.name));
-  const height = Math.max(result.height ?? 0, PACKAGE_LABEL.tabHeight + 36);
-  packagesOut.push({ id: topId, x: 0, y: 0, width, height });
+  let width = Math.max(result.width ?? 0, packageMinWidth(pkg.name));
+  let height = Math.max(result.height ?? 0, PACKAGE_LABEL.tabHeight + 36);
 
   const nodeById = new Map(nodes.map((n) => [n.id, n]));
   const edgeMap = new Map<number, Point[]>();
-  if (repacked) {
-    return { key, width, height, nodes, packages: packagesOut, edges: edgeMap, unrouted: relationIndexes };
-  }
-  for (const edge of result.edges ?? []) {
-    const index = Number((edge.id ?? '').slice('rel-'.length));
-    const relation: PlantUmlRelation = model.relations[index];
-    const reversed = REVERSED_RELATION_TYPES.has(relation.type);
-    const points = elkEdgePoints(edge, nodeById, offsets);
-    edgeMap.set(index, reversed ? points.slice().reverse() : points);
+  if (!repacked) {
+    for (const edge of result.edges ?? []) {
+      const index = Number((edge.id ?? '').slice('rel-'.length));
+      const relation: PlantUmlRelation = model.relations[index];
+      const reversed = REVERSED_RELATION_TYPES.has(relation.type);
+      const points = elkEdgePoints(edge, nodeById, offsets);
+      edgeMap.set(index, reversed ? points.slice().reverse() : points);
+    }
   }
 
-  return { key, width, height, nodes, packages: packagesOut, edges: edgeMap };
+  if (hubs.length > 0) {
+    const rail = placeHubRail(hubs, height);
+    for (const n of nodes) {
+      n.x += rail.width;
+    }
+    for (const p of packagesOut) {
+      p.x += rail.width;
+    }
+    for (const points of edgeMap.values()) for (const pt of points) pt.x += rail.width;
+    nodes.push(...rail.nodes);
+    width += rail.width;
+    height = Math.max(height, rail.height);
+  }
+  packagesOut.push({ id: topId, x: 0, y: 0, width, height });
+
+  return repacked
+    ? { key, width, height, nodes, packages: packagesOut, edges: edgeMap, unrouted: relationIndexes }
+    : { key, width, height, nodes, packages: packagesOut, edges: edgeMap };
+}
+
+/** Node area ÷ block area of a layered result; low means a sparse, mostly empty block. */
+function blockDensity(children: ElkNode[], result: ElkNode): number {
+  const area = (result.width ?? 0) * (result.height ?? 0);
+  if (area <= 0) return 1;
+  return children.reduce((sum, c) => sum + (c.width ?? 0) * (c.height ?? 0), 0) / area;
+}
+
+/**
+ * Stack summarised hubs in column(s) on the package's left side, below the label
+ * tab. Columns wrap at the block height (at least [[HUB_RAIL_MIN_HEIGHT]]).
+ * `width` is the space the rail takes from the left edge, gap included.
+ */
+function placeHubRail(
+  hubs: PlantUmlEntity[],
+  blockHeight: number,
+): { nodes: NodeLayout[]; width: number; height: number } {
+  const top = 26;
+  const limit = Math.max(blockHeight - 10, HUB_RAIL_MIN_HEIGHT);
+  const nodes: NodeLayout[] = [];
+  let x = 10;
+  let y = top;
+  let colWidth = 0;
+  let bottom = top;
+  for (const entity of hubs) {
+    const size = estimateEntitySize(entity);
+    if (y > top && y + size.height > limit) {
+      x += colWidth + HUB_RAIL_GAP;
+      y = top;
+      colWidth = 0;
+    }
+    nodes.push({ id: entity.id, x, y, width: size.width, height: size.height });
+    colWidth = Math.max(colWidth, size.width);
+    y += size.height + HUB_RAIL_GAP;
+    bottom = Math.max(bottom, y - HUB_RAIL_GAP);
+  }
+  return { nodes, width: x + colWidth + HUB_RAIL_GAP * 2 - 10, height: bottom + 10 };
 }
 
 /**
@@ -543,6 +638,8 @@ async function placeBlocks(
 
 /** Row width beyond which a layer's blocks wrap onto a further row. */
 const MAX_ROW_WIDTH = 2000;
+/** Blocks up to this tall count as small and may share a row with other small blocks. */
+const SMALL_BLOCK_HEIGHT = 600;
 
 /**
  * Semantic-layer placement: every layer is a horizontal band, bands stack in
@@ -581,10 +678,21 @@ function stackLayerRows(blocks: Map<string, Block>, options: CompoundOptions): P
   const widthOf = (row: Block[]): number =>
     row.reduce((sum, b) => sum + b.width, 0) + BLOCK_SPACING * (row.length - 1);
   const inner = Math.max(0, ...rows.map(widthOf));
+  // Neighbouring rows of small blocks share one row (in layer order, left to
+  // right) instead of stacking into a narrow column above the big layer.
+  const isSmall = (row: Block[]): boolean => row.every((b) => b.height <= SMALL_BLOCK_HEIGHT);
+  for (let i = 0; i + 1 < rows.length; ) {
+    const merged = [...rows[i], ...rows[i + 1]];
+    if (isSmall(rows[i]) && isSmall(rows[i + 1]) && widthOf(merged) <= inner) {
+      rows.splice(i, 2, merged);
+    } else {
+      i++;
+    }
+  }
   const positions = new Map<string, Point>();
   let y = CANVAS_MARGIN;
   for (const row of rows) {
-    let x = CANVAS_MARGIN + (inner - widthOf(row)) / 2;
+    let x = CANVAS_MARGIN; // rows share one left edge
     for (const block of row) {
       positions.set(block.key, { x, y });
       x += block.width + BLOCK_SPACING;

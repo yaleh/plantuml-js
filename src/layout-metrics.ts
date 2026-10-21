@@ -64,6 +64,18 @@ export interface LayoutMetrics {
    * [[edgeCrossings]] cannot see either.
    */
   hubArrowStack: number;
+  /**
+   * Area of the largest axis-aligned rectangle on the canvas that holds neither
+   * a node nor a package frame, divided by the canvas area (0..1). A big value
+   * is the "empty quadrant" a row-packed root layer leaves behind.
+   */
+  maxEmptyBlockRatio: number;
+  /**
+   * Edge segments running parallel to, and within [[EDGE_FLUSH_DISTANCE]] px
+   * of, a side of a node they do not end at or of a package frame border they
+   * do not end at — the edge then reads as part of the box outline.
+   */
+  edgeFlushCount: number;
 }
 
 /** Package label tab geometry, kept in step with [[../render/svg]]. */
@@ -95,6 +107,8 @@ export function computeLayoutMetrics(
     edgeLabelOverlap: countEdgeLabelOverlap(model, layout),
     labelNodeOverlap: countLabelNodeOverlap(model, layout),
     hubArrowStack: countHubArrowStack(edges),
+    maxEmptyBlockRatio: computeMaxEmptyBlockRatio(layout),
+    edgeFlushCount: countEdgeFlush(edges, layout),
   };
 }
 
@@ -358,4 +372,96 @@ function approachSide(from: Point, to: Point): ArrowSide | undefined {
   if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return undefined;
   if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 'left' : 'right';
   return dy > 0 ? 'top' : 'bottom';
+}
+
+/** Edge-to-box distance (px) below which a parallel segment counts as flush. */
+export const EDGE_FLUSH_DISTANCE = 6;
+
+/** Raster cell (px) used to find the largest empty block; coarsened for huge canvases. */
+const EMPTY_BLOCK_CELL = 20;
+const EMPTY_BLOCK_MAX_CELLS = 400;
+
+/**
+ * Rasterises nodes and package frames onto a coarse grid and returns the
+ * largest all-empty rectangle (maximal-rectangle-in-histogram) over the canvas.
+ */
+function computeMaxEmptyBlockRatio(layout: LayoutResult): number {
+  if (layout.width <= 0 || layout.height <= 0) return 0;
+  const cell = Math.max(
+    EMPTY_BLOCK_CELL,
+    layout.width / EMPTY_BLOCK_MAX_CELLS,
+    layout.height / EMPTY_BLOCK_MAX_CELLS,
+  );
+  const cols = Math.ceil(layout.width / cell);
+  const rows = Math.ceil(layout.height / cell);
+  const filled = new Uint8Array(cols * rows);
+  const boxes: Rect[] = [...layout.nodes.map(nodeRect), ...(layout.packages ?? [])];
+  for (const b of boxes) {
+    const c0 = Math.max(0, Math.floor(b.x / cell));
+    const c1 = Math.min(cols - 1, Math.ceil((b.x + b.width) / cell) - 1);
+    const r0 = Math.max(0, Math.floor(b.y / cell));
+    const r1 = Math.min(rows - 1, Math.ceil((b.y + b.height) / cell) - 1);
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) filled[r * cols + c] = 1;
+  }
+
+  const heights = new Array<number>(cols).fill(0);
+  let best = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) heights[c] = filled[r * cols + c] ? 0 : heights[c] + 1;
+    const stack: number[] = [];
+    for (let c = 0; c <= cols; c++) {
+      const h = c === cols ? 0 : heights[c];
+      while (stack.length > 0 && heights[stack[stack.length - 1]] >= h) {
+        const height = heights[stack.pop()!];
+        const left = stack.length > 0 ? stack[stack.length - 1] + 1 : 0;
+        best = Math.max(best, height * (c - left));
+      }
+      stack.push(c);
+    }
+  }
+  return Math.min(1, (best * cell * cell) / (layout.width * layout.height));
+}
+
+/** Segments parallel and within [[EDGE_FLUSH_DISTANCE]] of an unrelated node side or frame border. */
+function countEdgeFlush(edges: EdgeLayout[], layout: LayoutResult): number {
+  const nodeBoxes = layout.nodes.map((n) => ({ id: n.id, rect: nodeRect(n) }));
+  const frames = (layout.packages ?? []).map((p) => ({ id: p.id, rect: p as Rect }));
+  let count = 0;
+  for (const edge of edges) {
+    const ends = new Set([edge.source, edge.target]);
+    for (let i = 0; i + 1 < edge.points.length; i++) {
+      const a = edge.points[i];
+      const b = edge.points[i + 1];
+      const vertical = Math.abs(a.x - b.x) < 1e-6;
+      const horizontal = Math.abs(a.y - b.y) < 1e-6;
+      if (vertical === horizontal) continue; // diagonal or degenerate
+      for (const box of nodeBoxes) {
+        if (!ends.has(box.id) && segmentFlushRect(a, b, vertical, box.rect)) count++;
+      }
+      for (const frame of frames) {
+        if (!ends.has(frame.id) && segmentFlushRect(a, b, vertical, frame.rect)) count++;
+      }
+    }
+  }
+  return count;
+}
+
+/** True when the axis-aligned segment ab runs along a side of `r` within the flush distance. */
+function segmentFlushRect(a: Point, b: Point, vertical: boolean, r: Rect): boolean {
+  if (vertical) {
+    const lo = Math.min(a.y, b.y);
+    const hi = Math.max(a.y, b.y);
+    if (Math.min(hi, r.y + r.height) - Math.max(lo, r.y) <= 1e-6) return false;
+    return (
+      Math.abs(a.x - r.x) < EDGE_FLUSH_DISTANCE ||
+      Math.abs(a.x - (r.x + r.width)) < EDGE_FLUSH_DISTANCE
+    );
+  }
+  const lo = Math.min(a.x, b.x);
+  const hi = Math.max(a.x, b.x);
+  if (Math.min(hi, r.x + r.width) - Math.max(lo, r.x) <= 1e-6) return false;
+  return (
+    Math.abs(a.y - r.y) < EDGE_FLUSH_DISTANCE ||
+    Math.abs(a.y - (r.y + r.height)) < EDGE_FLUSH_DISTANCE
+  );
 }

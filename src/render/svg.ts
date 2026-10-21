@@ -81,9 +81,19 @@ export function renderSvg(
     if (label.kind === 'weight') weightLabels.set(label.edge, label);
     else plainLabels.set(label.edge, label);
   }
+  const bundles = findEdgeBundles(model, edgesById);
+  const bundled = new Set<number>(bundles.flat());
+  for (const group of bundles) {
+    body.push(
+      renderBundle(
+        group.map((i) => ({ rel: model.relations[i], edge: edgesById.get(`rel-${i}`)!, weightLabel: weightLabels.get(i) })),
+        theme,
+      ),
+    );
+  }
   for (let i = 0; i < model.relations.length; i++) {
     const edge = edgesById.get(`rel-${i}`);
-    if (edge) body.push(renderEdge(model.relations[i], edge, theme, weightLabels.get(i), plainLabels.get(i)));
+    if (edge && !bundled.has(i)) body.push(renderEdge(model.relations[i], edge, theme, weightLabels.get(i), plainLabels.get(i)));
   }
 
   for (const entity of model.entities) {
@@ -236,6 +246,80 @@ function renderPackage(pkg: PlantUmlPackage, box: PackageLayout, theme: Theme, t
   );
 }
 
+/** Edges sharing a source and exit direction beyond this count are drawn as one bundle. */
+export const EDGE_BUNDLE_MIN = 5;
+
+/**
+ * Groups of ≥ [[EDGE_BUNDLE_MIN]] unlabelled dependency/association edges that
+ * leave one source in the same direction — the "comb" of near-parallel lines a
+ * hub-like source otherwise draws. Returns relation indexes per group.
+ */
+function findEdgeBundles(model: PlantUmlModel, edgesById: Map<string, EdgeLayout>): number[][] {
+  const groups = new Map<string, number[]>();
+  model.relations.forEach((rel, i) => {
+    const edge = edgesById.get(`rel-${i}`);
+    if (!edge || edge.points.length < 2 || rel.label || rel.feedback) return;
+    if (rel.type !== 'dependency' && rel.type !== 'association') return;
+    const from = edge.points[0];
+    const next = edge.points[1];
+    const dx = next.x - from.x;
+    const dy = next.y - from.y;
+    const dir = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'E' : 'W') : dy >= 0 ? 'S' : 'N';
+    const key = `${rel.source}\u0000${rel.type}\u0000${dir}`;
+    const list = groups.get(key);
+    if (list) list.push(i);
+    else groups.set(key, [i]);
+  });
+  return [...groups.values()].filter((g) => g.length >= EDGE_BUNDLE_MIN);
+}
+
+/**
+ * One visible line for a fan-out: the union of the member polylines with
+ * shared segments drawn once, tagged with the summed `data-weight`. Each member
+ * keeps its own arrowhead (carrying `data-edge-target`).
+ */
+function renderBundle(
+  members: { rel: PlantUmlRelation; edge: EdgeLayout; weightLabel?: EdgeLabelPlacement }[],
+  theme: Theme,
+): string {
+  const first = members[0].rel;
+  const weak = first.type === 'dependency';
+  const color = weak ? theme.color.edgeWeak : theme.color.edge;
+  const dash = weak ? theme.dash.weak : undefined;
+  const totalWeight = members.reduce((sum, m) => sum + (m.rel.weight && m.rel.weight > 1 ? m.rel.weight : 1), 0);
+  const strokeWidth = Math.min(theme.stroke.edge + Math.log2(members.length) * theme.stroke.weightStep, theme.stroke.weightMax);
+
+  const seen = new Set<string>();
+  const segments: string[] = [];
+  const heads: string[] = [];
+  for (const { rel, edge, weightLabel } of members) {
+    if (weightLabel) heads.push(renderWeightLabel(weightLabel, theme));
+    const line = trimPolyline(edge.points, 0, theme.arrow.chevron);
+    for (let i = 0; i + 1 < line.length; i++) {
+      const a = line[i];
+      const b = line[i + 1];
+      const [p, q] = a.x < b.x || (a.x === b.x && a.y <= b.y) ? [a, b] : [b, a];
+      const key = `${fmt(p.x)},${fmt(p.y)}-${fmt(q.x)},${fmt(q.y)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      segments.push(`M${fmt(p.x)} ${fmt(p.y)}L${fmt(q.x)} ${fmt(q.y)}`);
+    }
+    heads.push(
+      `<g data-edge-target="${escapeXml(rel.target)}" class="uml-bundle-head">` +
+        renderChevron(edge.points, rel.type, color, theme) +
+        `</g>`,
+    );
+  }
+  return (
+    `<g data-edge-source="${escapeXml(first.source)}" data-edge-type="${first.type}"` +
+    ` data-bundle-size="${members.length}" data-weight="${totalWeight}" class="uml-edge uml-edge-bundle">` +
+    `<path d="${segments.join('')}" fill="none" stroke="${color}" stroke-width="${fmt(strokeWidth)}"` +
+    `${dash ? ` stroke-dasharray="${dash}"` : ''} stroke-linejoin="round"/>` +
+    heads.join('') +
+    `</g>`
+  );
+}
+
 function renderEdge(
   rel: PlantUmlRelation,
   edge: EdgeLayout,
@@ -289,18 +373,7 @@ function renderEdge(
   }
 
   parts.push(...renderEdgeTexts(rel, points, theme, plainLabel));
-  if (weightLabel) {
-    // Canvas-coloured backing box so the label stays legible over its line.
-    const r = weightLabel.rect;
-    parts.push(
-      `<rect class="uml-edge-label-bg" x="${fmt(r.x)}" y="${fmt(r.y)}" width="${fmt(r.width)}"` +
-        ` height="${fmt(r.height)}" fill="${theme.color.canvas}" fill-opacity="0.92"/>`,
-    );
-    parts.push(
-      textEl(weightLabel.text, r.x + r.width / 2, r.y + r.height / 2 + 4, 'middle',
-        EDGE_LABEL_FONT_SIZE, 'normal', theme.color.textMember, theme),
-    );
-  }
+  if (weightLabel) parts.push(renderWeightLabel(weightLabel, theme));
   if (rel.label && !plainLabel) {
     // No label position clear of the nodes: keep the text reachable as a tooltip.
     parts.unshift(`<title>${escapeXml(rel.label)}</title>`);
@@ -312,6 +385,17 @@ function renderEdge(
     ` data-edge-type="${rel.type}" class="uml-edge">` +
     parts.join('') +
     `</g>`
+  );
+}
+
+/** `×N` weight label on a canvas-coloured backing box so it stays legible over its line. */
+function renderWeightLabel(weightLabel: EdgeLabelPlacement, theme: Theme): string {
+  const r = weightLabel.rect;
+  return (
+    `<rect class="uml-edge-label-bg" x="${fmt(r.x)}" y="${fmt(r.y)}" width="${fmt(r.width)}"` +
+    ` height="${fmt(r.height)}" fill="${theme.color.canvas}" fill-opacity="0.92"/>` +
+    textEl(weightLabel.text, r.x + r.width / 2, r.y + r.height / 2 + 4, 'middle',
+      EDGE_LABEL_FONT_SIZE, 'normal', theme.color.textMember, theme)
   );
 }
 
