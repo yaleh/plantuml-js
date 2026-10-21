@@ -19,11 +19,11 @@ extra:
 
 ## AC
 
-- [ ] 根层包装箱对中等包数生效：`tests/root-packing.test.ts` 对合成的 12 个互不相连或弱连通的顶层包断言，渲染宽高比在 0.6–2.5 之间、`maxEmptyBlockRatio` ≤ 0.15；`l-plugins`：`areaUtilization` ≥ 0.12、宽高比 0.6–2.5、`maxEmptyBlockRatio` ≤ 0.15（`scripts/samples.json` 为 L 档增加这三条阈值）
-- [ ] 单包视图 stub 就近排布：`tests/stub-placement.test.ts` 断言每个 stub 节点到其所连接的包内节点的平均距离小于「stub 全部排在画布最右列」的同一图的对应值的 60%；`m-types-view` 的 `edgeCrossings` ≤ 80、`overlappingEdgeLength` ≤ 300
-- [ ] 回退守门：`render-samples.mjs` 新增 `--compare <baseline.json>`（默认对已提交的 `rendered/metrics.baseline.json`），对每个样例检查 `edgeCrossings` 增幅 ≤ 25%、`areaUtilization` 降幅 ≤ 30%、`maxEmptyBlockRatio` 增幅 ≤ 0.05，超限则退出码非 0 并打印该样例与指标；`--baseline` 刷新基线；`tests/baseline-compare.test.ts` 用合成的两份 metrics 断言通过与失败两种情形
-- [ ] 以第六轮结果更新并提交 `rendered/metrics.baseline.json`（只有在本任务的各项阈值满足之后），使后续任务有新的比较基线
-- [ ] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
+- [x] 根层包装箱对中等包数生效：`tests/root-packing.test.ts` 对合成的 12 个互不相连或弱连通的顶层包断言，渲染宽高比在 0.6–2.5 之间、`maxEmptyBlockRatio` ≤ 0.15；`l-plugins`：`areaUtilization` ≥ 0.12、宽高比 0.6–2.5、`maxEmptyBlockRatio` ≤ 0.15（`scripts/samples.json` 为 L 档增加这三条阈值）
+- [x] 单包视图 stub 就近排布：`tests/stub-placement.test.ts` 断言每个 stub 节点到其所连接的包内节点的平均距离小于「stub 全部排在画布最右列」的同一图的对应值的 60%；`m-types-view` 的 `edgeCrossings` ≤ 80、`overlappingEdgeLength` ≤ 300
+- [x] 回退守门：`render-samples.mjs` 新增 `--compare <baseline.json>`（默认对已提交的 `rendered/metrics.baseline.json`），对每个样例检查 `edgeCrossings` 增幅 ≤ 25%、`areaUtilization` 降幅 ≤ 30%、`maxEmptyBlockRatio` 增幅 ≤ 0.05，超限则退出码非 0 并打印该样例与指标；`--baseline` 刷新基线；`tests/baseline-compare.test.ts` 用合成的两份 metrics 断言通过与失败两种情形
+- [x] 以第六轮结果更新并提交 `rendered/metrics.baseline.json`（只有在本任务的各项阈值满足之后），使后续任务有新的比较基线
+- [x] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
 
 ## DoD
 
@@ -33,8 +33,11 @@ extra:
 
 - tasks/gap-layout-mid-scale-packing-and-regression-guard.md
 - src/layout/elk.ts
+- src/layout/compound.ts
+- src/layout-metrics.ts
 - src/transform.ts
 - scripts/render-samples.mjs
+- scripts/samples-lib.mjs
 - scripts/samples.json
 - rendered/metrics.baseline.json
 - tests/root-packing.test.ts (new)
