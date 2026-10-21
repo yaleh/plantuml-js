@@ -75,12 +75,15 @@ export function renderSvg(model: PlantUmlModel, layout: LayoutResult): string {
 function renderEntity(entity: PlantUmlEntity, node: NodeLayout): string {
   const italic = entity.kind === 'interface' || entity.kind === 'abstract';
   const fontStyle = italic ? ' font-style="italic"' : '';
+  const stub = entity.stub === true;
 
   const parts: string[] = [];
+  const fill = stub ? '#f6f8fa' : '#ffffff';
+  const stubAttrs = stub ? ` class="uml-stub" stroke-dasharray="5,3"` : '';
   parts.push(
     `<rect x="${fmt(node.x)}" y="${fmt(node.y)}" width="${fmt(node.width)}"` +
-      ` height="${fmt(node.height)}" rx="2" ry="2" fill="#ffffff"` +
-      ` stroke="${STROKE}" stroke-width="1.5"/>`,
+      ` height="${fmt(node.height)}" rx="2" ry="2" fill="${fill}"` +
+      `${stubAttrs} stroke="${STROKE}" stroke-width="1.5"/>`,
   );
 
   const titleBaseline = node.y + METRICS.paddingY + METRICS.fontSize - 2;
@@ -105,7 +108,27 @@ function renderEntity(entity: PlantUmlEntity, node: NodeLayout): string {
     );
   });
 
+  if (entity.usageCount && entity.usageCount > 0) {
+    parts.push(renderHubBadge(node, entity.usageCount));
+  }
+
   return parts.join('');
+}
+
+/**
+ * Hub badge — the "used by N packages" marker drawn at the top-right corner of
+ * a node whose incoming edges were summarized away (see [[../transform]]).
+ */
+function renderHubBadge(node: NodeLayout, count: number): string {
+  const cx = node.x + node.width - 12;
+  const cy = node.y + 13;
+  return (
+    `<g class="uml-hub-badge">` +
+    `<circle cx="${fmt(cx)}" cy="${fmt(cy)}" r="9" fill="#c0392b"/>` +
+    `<text x="${fmt(cx)}" y="${fmt(cy + 3.5)}" text-anchor="middle"` +
+    ` font-family="${METRICS.fontFamily}" font-size="11" fill="#ffffff">${count}</text>` +
+    `</g>`
+  );
 }
 
 function renderPackage(pkg: PlantUmlPackage, box: PackageLayout): string {
@@ -136,6 +159,7 @@ function renderEdge(rel: PlantUmlRelation, edge: EdgeLayout): string {
   if (edge.points.length < 2) return '';
   const points = edge.points;
   const dashed = rel.type === 'implementation' || rel.type === 'dependency';
+  const color = rel.feedback ? '#c0392b' : STROKE;
 
   const sourceTrim =
     rel.type === 'aggregation' || rel.type === 'composition' ? DIAMOND_SIZE : 0;
@@ -149,26 +173,36 @@ function renderEdge(rel: PlantUmlRelation, edge: EdgeLayout): string {
   const linePoints = trimPolyline(points, sourceTrim, targetTrim);
   const parts: string[] = [];
 
+  // Weight encodes the number of aggregated original edges: a thicker line,
+  // plus a `×N` label when more than one relation collapsed into this edge.
+  const weight = rel.weight && rel.weight > 1 ? rel.weight : 1;
+  const strokeWidth = Math.min(1.2 + (weight - 1) * 0.4, 6);
+  const feedbackClass = rel.feedback ? ' class="uml-feedback"' : '';
+
   parts.push(
-    `<polyline points="${pointsAttr(linePoints)}" fill="none" stroke="${STROKE}"` +
-      ` stroke-width="1.2"${dashed ? ' stroke-dasharray="6,4"' : ''}/>`,
+    `<polyline points="${pointsAttr(linePoints)}" fill="none" stroke="${color}"` +
+      ` stroke-width="${fmt(strokeWidth)}"${dashed ? ' stroke-dasharray="6,4"' : ''}${feedbackClass}/>`,
   );
 
   if (rel.type === 'aggregation' || rel.type === 'composition') {
-    parts.push(renderDiamond(points, rel.type === 'composition'));
+    parts.push(renderDiamond(points, rel.type === 'composition', color));
   }
   if (rel.type === 'inheritance' || rel.type === 'implementation') {
-    parts.push(renderTriangle(points, rel.type));
+    parts.push(renderTriangle(points, rel.type, color));
   }
   if (rel.type === 'dependency' || rel.type === 'association') {
-    parts.push(renderChevron(points, rel.type));
+    parts.push(renderChevron(points, rel.type, color));
   }
 
-  parts.push(...renderEdgeTexts(rel, points));
+  parts.push(...renderEdgeTexts(rel, points, color));
+  if (weight > 1) {
+    const mid = points[Math.floor(points.length / 2)];
+    parts.push(textAt(`×${weight}`, mid.x, mid.y - (rel.label ? 20 : 10), 11, color));
+  }
   return parts.join('');
 }
 
-function renderTriangle(points: Point[], type: PlantUmlRelation['type']): string {
+function renderTriangle(points: Point[], type: PlantUmlRelation['type'], color = STROKE): string {
   const { u, tip } = targetDir(points);
   const base = { x: tip.x - u.x * TRIANGLE_SIZE, y: tip.y - u.y * TRIANGLE_SIZE };
   const px = -u.y;
@@ -181,11 +215,11 @@ function renderTriangle(points: Point[], type: PlantUmlRelation['type']): string
   ];
   return (
     `<polygon class="uml-arrow uml-arrow-${type}" points="${pointsAttr(pts)}"` +
-    ` fill="none" stroke="${STROKE}" stroke-width="1.2"/>`
+    ` fill="none" stroke="${color}" stroke-width="1.2"/>`
   );
 }
 
-function renderChevron(points: Point[], type: PlantUmlRelation['type']): string {
+function renderChevron(points: Point[], type: PlantUmlRelation['type'], color = STROKE): string {
   const { u, tip } = targetDir(points);
   const back = { x: tip.x - u.x * CHEVRON_SIZE, y: tip.y - u.y * CHEVRON_SIZE };
   const px = -u.y;
@@ -198,11 +232,11 @@ function renderChevron(points: Point[], type: PlantUmlRelation['type']): string 
   ];
   return (
     `<polyline class="uml-arrow uml-arrow-${type}" points="${pointsAttr(pts)}"` +
-    ` fill="none" stroke="${STROKE}" stroke-width="1.2"/>`
+    ` fill="none" stroke="${color}" stroke-width="1.2"/>`
   );
 }
 
-function renderDiamond(points: Point[], filled: boolean): string {
+function renderDiamond(points: Point[], filled: boolean, color = STROKE): string {
   const { u, tip } = sourceDir(points);
   const px = -u.y;
   const py = u.x;
@@ -216,31 +250,31 @@ function renderDiamond(points: Point[], filled: boolean): string {
   ];
   return (
     `<polygon class="uml-arrow uml-arrow-${filled ? 'composition' : 'aggregation'}"` +
-    ` points="${pointsAttr(pts)}" fill="${filled ? STROKE : 'none'}"` +
-    ` stroke="${STROKE}" stroke-width="1.2"/>`
+    ` points="${pointsAttr(pts)}" fill="${filled ? color : 'none'}"` +
+    ` stroke="${color}" stroke-width="1.2"/>`
   );
 }
 
-function renderEdgeTexts(rel: PlantUmlRelation, points: Point[]): string[] {
+function renderEdgeTexts(rel: PlantUmlRelation, points: Point[], color = '#000000'): string[] {
   const parts: string[] = [];
   if (rel.sourceCardinality) {
-    parts.push(textAt(rel.sourceCardinality, points[0].x, points[0].y - 7, 11));
+    parts.push(textAt(rel.sourceCardinality, points[0].x, points[0].y - 7, 11, color));
   }
   if (rel.targetCardinality) {
     const last = points[points.length - 1];
-    parts.push(textAt(rel.targetCardinality, last.x, last.y - 7, 11));
+    parts.push(textAt(rel.targetCardinality, last.x, last.y - 7, 11, color));
   }
   if (rel.label) {
     const mid = points[Math.floor(points.length / 2)];
-    parts.push(textAt(rel.label, mid.x, mid.y - 10, 12));
+    parts.push(textAt(rel.label, mid.x, mid.y - 10, 12, color));
   }
   return parts;
 }
 
-function textAt(text: string, x: number, y: number, size: number): string {
+function textAt(text: string, x: number, y: number, size: number, color = '#000000'): string {
   return (
     `<text x="${fmt(x)}" y="${fmt(y)}" text-anchor="middle"` +
-    ` font-family="${METRICS.fontFamily}" font-size="${size}" fill="#000000">${escapeXml(text)}</text>`
+    ` font-family="${METRICS.fontFamily}" font-size="${size}" fill="${color}">${escapeXml(text)}</text>`
   );
 }
 

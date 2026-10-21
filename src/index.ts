@@ -14,6 +14,7 @@ import { ElkLayoutEngine } from './layout/elk.js';
 import { VizLayoutEngine } from './layout/viz.js';
 import { renderSvg } from './render/svg.js';
 import { renderDot } from './render-dot.js';
+import { applyView, transformModel, ViewSpec, TransformOptions } from './transform.js';
 
 export type {
   PlantUmlModel,
@@ -39,6 +40,10 @@ export { renderDot };
 export interface RendererOptions {
   /** 'elk' (default) | 'viz' | a custom LayoutEngine instance. */
   layout?: 'elk' | 'viz' | LayoutEngine;
+  /** Collapse/expand the diagram before layout (overview, single package, …). */
+  view?: ViewSpec;
+  /** Extra model transforms applied on top of the view (aggregation, cycles, …). */
+  transform?: TransformOptions;
 }
 
 export interface RenderResult {
@@ -106,12 +111,28 @@ export function createRenderer(options: RendererOptions = {}): Renderer {
       const syntax = checkSyntax(puml);
       if (!syntax.ok) throw new RenderError(syntax.errors);
 
-      const model = parsePlantUml(puml);
+      const parsed = parsePlantUml(puml);
+      const model = transformForRender(parsed, options);
       const layout = await engine.layout(model);
       const svg = renderSvg(model, layout);
       return { svg, diagramType: model.diagramType, warnings: [] };
     },
   };
+}
+
+/**
+ * Apply the configured view and transforms. A view collapses/expands first,
+ * then the transform pipeline runs with the view's defaults (aggregation +
+ * cycle marking) unless the caller overrides them. Without a view the model is
+ * untouched unless `transform` is given explicitly.
+ */
+function transformForRender(model: PlantUmlModel, options: RendererOptions): PlantUmlModel {
+  if (options.view) {
+    const viewed = applyView(model, options.view);
+    return transformModel(viewed, { aggregate: true, cycles: true, ...options.transform });
+  }
+  if (options.transform) return transformModel(model, options.transform);
+  return model;
 }
 
 const ENTITY_DECL = /^(?:abstract\s+)?(?:class|interface|enum)\s+(.+)$/i;
@@ -309,3 +330,12 @@ function stripComment(line: string): string {
 export { parsePlantUml, ElkLayoutEngine, VizLayoutEngine, renderSvg };
 export { computeLayoutMetrics } from './layout-metrics.js';
 export type { LayoutMetrics } from './layout-metrics.js';
+export {
+  applyView,
+  transformModel,
+  aggregateRelations,
+  transitiveReduce,
+  summarizeHubs,
+  markCycles,
+} from './transform.js';
+export type { ViewSpec, TransformOptions } from './transform.js';

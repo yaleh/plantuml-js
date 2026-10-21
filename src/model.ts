@@ -36,6 +36,17 @@ export interface PlantUmlEntity {
   members: PlantUmlMember[];
   /** id of the package containing this entity (undefined = top level). */
   packageId?: string;
+  /**
+   * Number of distinct sources whose incoming edges were summarized away by
+   * hub summarization (see [[../transform]]). Drawn as a "used by N" badge.
+   */
+  usageCount?: number;
+  /**
+   * True when the entity is a collapsed stand-in node (an overview package
+   * node, or an external package stub in a single-package view). Stubs carry
+   * no members and are drawn with a distinct frame.
+   */
+  stub?: boolean;
 }
 
 export type RelationType =
@@ -56,6 +67,14 @@ export interface PlantUmlRelation {
   sourceCardinality?: string;
   /** Optional cardinality on the target side ("1", "*"). */
   targetCardinality?: string;
+  /**
+   * Number of original relations this aggregated edge represents. Absent (or
+   * 1) means a single, un-aggregated relation; the renderer encodes weight as
+   * line width plus a `×N` label.
+   */
+  weight?: number;
+  /** True when this edge is a cycle feedback arc, drawn in a distinct color. */
+  feedback?: boolean;
 }
 
 export interface PlantUmlPackage {
