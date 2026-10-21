@@ -134,10 +134,15 @@ function renderEntity(entity: PlantUmlEntity, node: NodeLayout): string {
     parts.push(renderHubBadge(node, entity.usageCount));
   }
 
-  // Each entity is a single DOM group carrying its stable id, so a browser host
-  // can bind hover/click handlers and cross-panel linkage by `data-entity-id`.
+  // Each entity is a single DOM group carrying its stable id and its innermost
+  // package, so a browser host can bind hover/click handlers, cross-panel
+  // linkage, and package-containment queries without geometric hit-testing.
+  const packageAttr =
+    entity.packageId !== undefined
+      ? ` data-package-id="${escapeXml(entity.packageId)}"`
+      : '';
   return (
-    `<g data-entity-id="${escapeXml(entity.id)}" class="uml-node">` +
+    `<g data-entity-id="${escapeXml(entity.id)}"${packageAttr} class="uml-node">` +
     parts.join('') +
     `</g>`
   );
