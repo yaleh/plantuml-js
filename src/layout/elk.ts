@@ -1,22 +1,26 @@
 /**
  * ElkLayoutEngine — the default engine, pure-JS layered layout via elkjs.
- * Even a single entity goes through elkjs (never a hand-rolled position), so
- * the engine contract is exercised on the smallest input.
+ * Packages become nested container nodes (so members stay grouped and frames
+ * nest), edges use ORTHOGONAL routing to keep crossings down, and the result
+ * is flattened back to absolute coordinates for the renderer.
  */
 
 import ELKDefault from 'elkjs';
 import type {
   ElkNode,
   ElkExtendedEdge,
+  ElkEdgeSection,
+  ElkPoint,
   ELK as ElkInstance,
   ELKConstructorArguments,
 } from 'elkjs';
-import { PlantUmlModel } from '../model.js';
+import { PlantUmlModel, PlantUmlEntity } from '../model.js';
 import {
   LayoutEngine,
   LayoutResult,
   NodeLayout,
   EdgeLayout,
+  PackageLayout,
   Point,
   estimateEntitySize,
 } from '../layout.js';
@@ -27,15 +31,13 @@ const ElkConstructor = ELKDefault as unknown as new (
   args?: ELKConstructorArguments,
 ) => ElkInstance;
 
+const PACKAGE_PREFIX = 'pkg::';
+
 export class ElkLayoutEngine implements LayoutEngine {
   private readonly elk = new ElkConstructor();
 
   async layout(model: PlantUmlModel): Promise<LayoutResult> {
-    const children: ElkNode[] = model.entities.map((entity) => {
-      const size = estimateEntitySize(entity);
-      return { id: entity.id, width: size.width, height: size.height };
-    });
-
+    const children = this.buildChildren(model);
     const edges: ElkExtendedEdge[] = model.relations.map((relation, i) => ({
       id: `rel-${i}`,
       sources: [relation.source],
@@ -47,6 +49,9 @@ export class ElkLayoutEngine implements LayoutEngine {
       layoutOptions: {
         'elk.algorithm': 'layered',
         'elk.direction': 'DOWN',
+        'elk.edgeRouting': 'ORTHOGONAL',
+        'elk.spacing.nodeNode': '40',
+        'elk.layered.spacing.nodeNodeBetweenLayers': '60',
       },
       children,
       edges,
@@ -54,33 +59,142 @@ export class ElkLayoutEngine implements LayoutEngine {
 
     const result = await this.elk.layout(graph);
 
-    const nodes: NodeLayout[] = (result.children ?? []).map((child) => ({
-      id: child.id,
-      x: child.x ?? 0,
-      y: child.y ?? 0,
-      width: child.width ?? 0,
-      height: child.height ?? 0,
-    }));
+    const nodes: NodeLayout[] = [];
+    const packages: PackageLayout[] = [];
+    const offsets = new Map<string, Point>([['root', { x: 0, y: 0 }]]);
+    for (const child of result.children ?? []) {
+      this.flatten(child, 0, 0, nodes, packages, offsets);
+    }
 
-    const laidEdges: EdgeLayout[] = (result.edges ?? []).map((edge, i) => {
-      const section = edge.sections?.[0];
-      const points: Point[] =
-        section && section.startPoint && section.endPoint
-          ? [section.startPoint, section.endPoint]
-          : [];
-      return {
-        id: edge.id ?? `rel-${i}`,
-        source: edge.sources?.[0] ?? '',
-        target: edge.targets?.[0] ?? '',
-        points,
-      };
-    });
+    const nodeById = new Map(nodes.map((n) => [n.id, n]));
+    const laidEdges: EdgeLayout[] = (result.edges ?? []).map((edge, i) => ({
+      id: edge.id ?? `rel-${i}`,
+      source: edge.sources?.[0] ?? '',
+      target: edge.targets?.[0] ?? '',
+      points: this.edgePoints(edge, nodeById, offsets),
+    }));
 
     return {
       nodes,
       edges: laidEdges,
+      packages,
       width: result.width ?? 0,
       height: result.height ?? 0,
     };
   }
+
+  private buildChildren(model: PlantUmlModel): ElkNode[] {
+    const pkgNodes = new Map<string, ElkNode>();
+    for (const pkg of model.packages) {
+      pkgNodes.set(pkg.id, { id: PACKAGE_PREFIX + pkg.id, children: [] });
+    }
+
+    const top: ElkNode[] = [];
+    for (const entity of model.entities) {
+      const leaf = this.entityLeaf(entity);
+      const owner = entity.packageId ? pkgNodes.get(entity.packageId) : undefined;
+      if (owner) owner.children!.push(leaf);
+      else top.push(leaf);
+    }
+
+    // Link nested packages into their parents; packages without a parent (or
+    // whose parent is unknown) sit at the top level.
+    for (const pkg of model.packages) {
+      const node = pkgNodes.get(pkg.id)!;
+      const parent = pkg.parentId ? pkgNodes.get(pkg.parentId) : undefined;
+      if (parent) parent.children!.push(node);
+      else top.push(node);
+    }
+
+    return top;
+  }
+
+  private entityLeaf(entity: PlantUmlEntity): ElkNode {
+    const size = estimateEntitySize(entity);
+    return { id: entity.id, width: size.width, height: size.height };
+  }
+
+  private flatten(
+    node: ElkNode,
+    offsetX: number,
+    offsetY: number,
+    nodes: NodeLayout[],
+    packages: PackageLayout[],
+    offsets: Map<string, Point>,
+  ): void {
+    const x = (node.x ?? 0) + offsetX;
+    const y = (node.y ?? 0) + offsetY;
+    offsets.set(node.id, { x, y });
+
+    if (node.id.startsWith(PACKAGE_PREFIX)) {
+      packages.push({
+        id: node.id.slice(PACKAGE_PREFIX.length),
+        x,
+        y,
+        width: node.width ?? 0,
+        height: node.height ?? 0,
+      });
+      for (const child of node.children ?? []) {
+        this.flatten(child, x, y, nodes, packages, offsets);
+      }
+    } else {
+      nodes.push({
+        id: node.id,
+        x,
+        y,
+        width: node.width ?? 0,
+        height: node.height ?? 0,
+      });
+    }
+  }
+
+  private edgePoints(
+    edge: ElkExtendedEdge,
+    nodeById: Map<string, NodeLayout>,
+    offsets: Map<string, Point>,
+  ): Point[] {
+    const sections = edge.sections ?? [];
+    if (sections.length === 0) {
+      return this.straightEdge(edge, nodeById);
+    }
+
+    const containerOffset = offsets.get(edge.container ?? 'root') ?? {
+      x: 0,
+      y: 0,
+    };
+    const points: Point[] = [];
+    for (const section of sections) {
+      for (const p of this.sectionPoints(section)) {
+        const shifted = { x: p.x + containerOffset.x, y: p.y + containerOffset.y };
+        const last = points[points.length - 1];
+        if (!last || Math.abs(last.x - shifted.x) > 0.01 || Math.abs(last.y - shifted.y) > 0.01) {
+          points.push(shifted);
+        }
+      }
+    }
+    return points.length >= 2 ? points : this.straightEdge(edge, nodeById);
+  }
+
+  private sectionPoints(section: ElkEdgeSection): Point[] {
+    const pts: Point[] = [];
+    if (section.startPoint) pts.push(section.startPoint);
+    for (const b of section.bendPoints ?? []) pts.push(b);
+    if (section.endPoint) pts.push(section.endPoint);
+    return pts;
+  }
+
+  private straightEdge(
+    edge: ElkExtendedEdge,
+    nodeById: Map<string, NodeLayout>,
+  ): Point[] {
+    const source = nodeById.get(edge.sources?.[0] ?? '');
+    const target = nodeById.get(edge.targets?.[0] ?? '');
+    if (!source || !target) return [];
+    return [
+      { x: source.x + source.width / 2, y: source.y + source.height / 2 },
+      { x: target.x + target.width / 2, y: target.y + target.height / 2 },
+    ];
+  }
 }
+
+export type { ElkPoint };

@@ -1,34 +1,64 @@
 /**
  * Hand-written recursive-descent parser for the PlantUML class-diagram subset.
  *
- * M1 scope: `@startuml`/`@enduml` and single-line `class` / `interface` /
- * `enum` / `abstract class` declarations. Members, relations, generics,
- * package grouping, and aliases are added in M2; those lines are recognised
- * and skipped here rather than failing the parse.
+ * M2 scope adds members (visibility `-`/`+`/`#`/`~`, fields, method
+ * signatures), relations (inheritance / implementation / dependency /
+ * association / aggregation / composition with cardinality and labels),
+ * generics (`List~Item~`, `BaseEntity<T>`), package/namespace grouping,
+ * aliases, and tolerant skipping of skinparam/hide/note directives.
  */
 
 import {
   PlantUmlModel,
   PlantUmlEntity,
+  PlantUmlMember,
+  PlantUmlRelation,
   EntityKind,
+  Visibility,
+  RelationType,
   emptyModel,
 } from './model.js';
 
+type Frame = { kind: 'package' | 'entity'; id: string };
+
 const ENTITY_LINE = /^(abstract\s+)?(class|interface|enum)\s+(.+)$/i;
+
+const ARROWS: Record<string, { type: RelationType; swap?: boolean }> = {
+  '--|>': { type: 'inheritance' },
+  '<|--': { type: 'inheritance', swap: true },
+  '..|>': { type: 'implementation' },
+  '<|..': { type: 'implementation', swap: true },
+  '..>': { type: 'dependency' },
+  '<..': { type: 'dependency', swap: true },
+  '-->': { type: 'association' },
+  '<--': { type: 'association', swap: true },
+  '--': { type: 'association' },
+  'o--': { type: 'aggregation' },
+  '--o': { type: 'aggregation', swap: true },
+  '*--': { type: 'composition' },
+  '--*': { type: 'composition', swap: true },
+};
 
 /**
  * Parse a PlantUML source string into a PlantUmlModel.
  *
- * Unknown lines (skinparam, hide, note, title, relation lines, member lines,
- * package blocks in M1) are ignored — M1 only extracts entity declarations.
+ * The parser is total: unrecognised lines (skinparam, hide, note, title,
+ * legend, …) are tolerated and skipped rather than failing the parse.
  */
 export function parsePlantUml(source: string): PlantUmlModel {
   const model = emptyModel();
   const lines = source.split(/\r?\n/);
   let inDiagram = false;
+  const stack: Frame[] = [];
+  let lastDeclaration: { kind: 'package' | 'entity'; id: string } | null =
+    null;
 
-  for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i];
+  const open = (frame: Frame) => {
+    stack.push(frame);
+    lastDeclaration = null;
+  };
+
+  for (const raw of lines) {
     const line = raw.trim();
     if (line === '') continue;
 
@@ -45,46 +75,322 @@ export function parsePlantUml(source: string): PlantUmlModel {
     const code = stripComment(line);
     if (code === '') continue;
 
-    const entity = parseEntityLine(code);
-    if (entity) model.entities.push(entity);
+    // Directives that carry no class-model content — tolerated, not rendered.
+    if (
+      /^(skinparam\b|hide\b|title\b|legend\b|note\b|end\s+note\b|scale\b|left-to-right\b|top-to-bottom\b)/i.test(
+        code,
+      )
+    ) {
+      lastDeclaration = null;
+      continue;
+    }
+
+    // A bare `{` opens a block for the most recent `class Foo` / `package X`
+    // declaration that was written without an inline brace.
+    if (code === '{') {
+      if (lastDeclaration) open({ kind: lastDeclaration.kind, id: lastDeclaration.id });
+      continue;
+    }
+    if (code === '}') {
+      stack.pop();
+      lastDeclaration = null;
+      continue;
+    }
+
+    const pkg = parsePackageLine(code);
+    if (pkg) {
+      model.packages.push({
+        id: pkg.id,
+        name: pkg.name,
+        parentId: currentPackageId(stack),
+      });
+      if (pkg.opensBlock) open({ kind: 'package', id: pkg.id });
+      else lastDeclaration = { kind: 'package', id: pkg.id };
+      continue;
+    }
+
+    const ent = parseEntityLine(code);
+    if (ent) {
+      ent.entity.packageId = currentPackageId(stack);
+      model.entities.push(ent.entity);
+      if (ent.opensBlock) open({ kind: 'entity', id: ent.entity.id });
+      else lastDeclaration = { kind: 'entity', id: ent.entity.id };
+      continue;
+    }
+
+    // Member lines belong to the innermost open entity body.
+    if (stack.length > 0 && stack[stack.length - 1].kind === 'entity') {
+      const member = parseMemberLine(code);
+      if (member) {
+        const ownerId = stack[stack.length - 1].id;
+        const owner = model.entities.find((e) => e.id === ownerId);
+        owner?.members.push(member);
+        continue;
+      }
+    }
+
+    // Relation lines are valid at top level and inside a package, never
+    // inside an entity body.
+    if (stack.length === 0 || stack[stack.length - 1].kind === 'package') {
+      const relation = parseRelationLine(code);
+      if (relation) {
+        model.relations.push(relation);
+        lastDeclaration = null;
+        continue;
+      }
+    }
   }
 
   return model;
 }
 
-function parseEntityLine(code: string): PlantUmlEntity | null {
-  const match = ENTITY_LINE.exec(code);
-  if (!match) return null;
+function currentPackageId(stack: Frame[]): string | undefined {
+  for (let i = stack.length - 1; i >= 0; i--) {
+    if (stack[i].kind === 'package') return stack[i].id;
+  }
+  return undefined;
+}
 
-  const isAbstract = match[1] !== undefined;
-  const keyword = match[2].toLowerCase();
-  const name = extractName(match[3]);
-  if (name === null) return null;
+function parsePackageLine(
+  code: string,
+): { id: string; name: string; opensBlock: boolean } | null {
+  let opensBlock = false;
+  if (code.endsWith('{')) {
+    opensBlock = true;
+    code = code.slice(0, -1).trim();
+  }
+  const m = /^(package|namespace)\s+(.+)$/i.exec(code);
+  if (!m) return null;
+
+  const rest = m[2].trim();
+  const asMatch = /\s+as\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/i.exec(rest);
+  const alias = asMatch?.[1];
+  const core = asMatch ? rest.slice(0, asMatch.index).trim() : rest;
+
+  let name: string;
+  if (core.startsWith('"')) {
+    const close = core.indexOf('"', 1);
+    if (close === -1) return null;
+    name = core.slice(1, close);
+  } else {
+    name = core.split(/\s+/)[0];
+  }
+  if (name === '') return null;
+
+  return { id: alias ?? name, name, opensBlock };
+}
+
+function parseEntityLine(
+  code: string,
+): { entity: PlantUmlEntity; opensBlock: boolean } | null {
+  let opensBlock = false;
+  if (code.endsWith('{')) {
+    opensBlock = true;
+    code = code.slice(0, -1).trim();
+  }
+
+  const m = ENTITY_LINE.exec(code);
+  if (!m) return null;
+
+  const isAbstract = m[1] !== undefined;
+  const keyword = m[2].toLowerCase();
+  const rest = m[3].trim();
+
+  const asMatch = /\s+as\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/i.exec(rest);
+  const alias = asMatch?.[1];
+  const core = asMatch ? rest.slice(0, asMatch.index).trim() : rest;
+
+  const parsed = parseNameAndGenerics(core);
+  if (!parsed) return null;
 
   const kind: EntityKind = isAbstract
     ? 'abstract'
     : (keyword as 'class' | 'interface' | 'enum');
 
-  return { id: name, name, kind, members: [] };
+  return {
+    entity: {
+      id: alias ?? parsed.name,
+      name: parsed.name,
+      generics: parsed.generics,
+      kind,
+      members: [],
+    },
+    opensBlock,
+  };
 }
 
-/**
- * Extract a declaration name from the tail of an entity line. Accepts a bare
- * token (`class A`) or a quoted name (`class "User Repo"`). A trailing
- * `as <alias>` is tolerated and ignored in M1 (alias handling lands in M2).
- */
-function extractName(rest: string): string | null {
-  const asIndex = rest.search(/\s+as\s+\S+\s*$/i);
-  const core = asIndex === -1 ? rest.trim() : rest.slice(0, asIndex).trim();
+function parseNameAndGenerics(
+  core: string,
+): { name: string; generics: string[] } | null {
+  core = core.trim();
   if (core === '') return null;
 
   if (core.startsWith('"')) {
     const close = core.indexOf('"', 1);
     if (close === -1) return null;
-    return core.slice(1, close);
+    const name = core.slice(1, close);
+    const tail = core.slice(close + 1).trim();
+    return { name, generics: parseGenericTail(tail) };
   }
 
-  return core.split(/\s+/)[0];
+  // Drop a stereotype suffix (`<< ... >>`) — not part of the name in M2.
+  const stereo = core.indexOf('<<');
+  if (stereo !== -1) core = core.slice(0, stereo).trim();
+
+  const tilde = /^(\S+?)~([^~]+)~$/.exec(core);
+  if (tilde) return { name: tilde[1], generics: splitArgs(tilde[2]) };
+
+  const angle = /^(\S+?)<([^>]+)>$/.exec(core);
+  if (angle) return { name: angle[1], generics: splitArgs(angle[2]) };
+
+  return { name: core.split(/\s+/)[0], generics: [] };
+}
+
+function parseGenericTail(tail: string): string[] {
+  const angle = /^<([^>]+)>$/.exec(tail);
+  if (angle) return splitArgs(angle[1]);
+  const tilde = /^~([^~]+)~$/.exec(tail);
+  if (tilde) return splitArgs(tilde[1]);
+  return [];
+}
+
+function splitArgs(args: string): string[] {
+  return args
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s !== '');
+}
+
+function parseMemberLine(code: string): PlantUmlMember | null {
+  const visMap: Record<string, Visibility> = {
+    '+': 'public',
+    '-': 'private',
+    '#': 'protected',
+    '~': 'package-private',
+  };
+  const symbol = code[0];
+  const visibility = visMap[symbol];
+  if (!visibility) return null;
+
+  const raw = code.trim();
+  let rest = code.slice(1).trim();
+
+  // Strip leading modifier tokens ({static}/{abstract} and bare async/…).
+  const modifiers: string[] = [];
+  for (;;) {
+    const brace = /^\{[^{}]*\}\s*/.exec(rest);
+    if (brace) {
+      modifiers.push(brace[0].trim());
+      rest = rest.slice(brace[0].length).trim();
+      continue;
+    }
+    const word = /^(async|abstract|static)\s+/.exec(rest);
+    if (word) {
+      modifiers.push(word[1]);
+      rest = rest.slice(word[0].length).trim();
+      continue;
+    }
+    break;
+  }
+
+  const paren = rest.indexOf('(');
+  if (paren !== -1) {
+    const name = rest.slice(0, paren).trim();
+    const close = matchingParen(rest, paren);
+    if (close === -1) return null;
+    const parameters = rest.slice(paren, close + 1);
+    const after = rest.slice(close + 1).trim();
+    const type = after.startsWith(':') ? after.slice(1).trim() : undefined;
+    return { visibility, name, kind: 'method', type, parameters, modifiers, raw };
+  }
+
+  const colon = rest.indexOf(':');
+  if (colon !== -1) {
+    let name = rest.slice(0, colon).trim();
+    const optional = name.endsWith('?');
+    if (optional) name = name.slice(0, -1).trim();
+    const type = rest.slice(colon + 1).trim();
+    return { visibility, name, kind: 'field', type, modifiers, optional, raw };
+  }
+
+  let name = rest;
+  const optional = name.endsWith('?');
+  if (optional) name = name.slice(0, -1).trim();
+  return { visibility, name, kind: 'field', modifiers, optional, raw };
+}
+
+function matchingParen(s: string, open: number): number {
+  let depth = 0;
+  for (let i = open; i < s.length; i++) {
+    const c = s[i];
+    if (c === '(') depth++;
+    else if (c === ')') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+function parseRelationLine(code: string): PlantUmlRelation | null {
+  // Split a trailing `: label` at the last top-level colon.
+  let label: string | undefined;
+  const colon = lastTopLevelColon(code);
+  if (colon !== -1) {
+    label = code.slice(colon + 1).trim();
+    code = code.slice(0, colon).trim();
+  }
+
+  const tokens = code.split(/\s+/).filter(Boolean);
+  const arrowIdx = tokens.findIndex((t) => ARROWS[t] !== undefined);
+  if (arrowIdx === -1) return null;
+
+  const left = tokens.slice(0, arrowIdx);
+  const right = tokens.slice(arrowIdx + 1);
+  if (left.length === 0 || right.length === 0) return null;
+
+  let source = endpointName(left[0]);
+  let target = endpointName(right[right.length - 1]);
+  let sourceCardinality = left[1] ? stripQuotes(left[1]) : undefined;
+  let targetCardinality =
+    right.length > 1 ? stripQuotes(right[0]) : undefined;
+
+  const arrow = ARROWS[tokens[arrowIdx]];
+  if (arrow.swap) {
+    [source, target] = [target, source];
+    [sourceCardinality, targetCardinality] = [targetCardinality, sourceCardinality];
+  }
+
+  return {
+    source,
+    target,
+    type: arrow.type,
+    label: label === '' ? undefined : label,
+    sourceCardinality,
+    targetCardinality,
+  };
+}
+
+function lastTopLevelColon(s: string): number {
+  let quote = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === '"') quote = !quote;
+    else if (c === ':' && !quote) return i;
+  }
+  return -1;
+}
+
+function endpointName(token: string): string {
+  const generic = /^(\S+?)(?:~[^~]*~|<[^>]*>)$/.exec(token);
+  return generic ? generic[1] : token;
+}
+
+function stripQuotes(token: string): string {
+  if (token.length >= 2 && token.startsWith('"') && token.endsWith('"')) {
+    return token.slice(1, -1);
+  }
+  return token;
 }
 
 /** Strip PlantUML `'` line comments (a leading `'` or a trailing inline `'`). */

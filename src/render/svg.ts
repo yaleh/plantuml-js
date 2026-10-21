@@ -4,13 +4,28 @@
  * model's display fields; it never reaches back into the parser.
  */
 
-import { PlantUmlModel, PlantUmlEntity } from '../model.js';
-import { LayoutResult, NodeLayout } from '../layout.js';
+import {
+  PlantUmlModel,
+  PlantUmlEntity,
+  PlantUmlPackage,
+  PlantUmlRelation,
+} from '../model.js';
+import {
+  LayoutResult,
+  NodeLayout,
+  EdgeLayout,
+  PackageLayout,
+  Point,
+  METRICS,
+  displayName,
+} from '../layout.js';
 
-const TITLE_COMPARTMENT = 18;
-const PADDING = 8;
 const FONT_FAMILY = 'monospace';
-const FONT_SIZE = 13;
+const STROKE = '#333333';
+
+const TRIANGLE_SIZE = 10;
+const CHEVRON_SIZE = 9;
+const DIAMOND_SIZE = 13;
 
 export function escapeXml(text: string): string {
   return text
@@ -20,9 +35,28 @@ export function escapeXml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/** Format a coordinate deterministically: 2dp, never `-0`, no exponent. */
+function fmt(n: number): string {
+  const r = Math.round(n * 100) / 100;
+  return Object.is(r, -0) ? '0' : String(r);
+}
+
 export function renderSvg(model: PlantUmlModel, layout: LayoutResult): string {
   const nodesById = new Map(layout.nodes.map((n) => [n.id, n]));
+  const packagesById = new Map((layout.packages ?? []).map((p) => [p.id, p]));
+  const edgesById = new Map((layout.edges ?? []).map((e) => [e.id, e]));
+
   const body: string[] = [];
+
+  for (const pkg of model.packages) {
+    const box = packagesById.get(pkg.id);
+    if (box) body.push(renderPackage(pkg, box));
+  }
+
+  for (let i = 0; i < model.relations.length; i++) {
+    const edge = edgesById.get(`rel-${i}`);
+    if (edge) body.push(renderEdge(model.relations[i], edge));
+  }
 
   for (const entity of model.entities) {
     const node = nodesById.get(entity.id);
@@ -32,32 +66,232 @@ export function renderSvg(model: PlantUmlModel, layout: LayoutResult): string {
   const width = layout.width;
   const height = layout.height;
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"` +
-    ` viewBox="0 0 ${width} ${height}">${body.join('')}</svg>`
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${fmt(width)}" height="${fmt(height)}"` +
+    ` viewBox="0 0 ${fmt(width)} ${fmt(height)}">${body.join('')}</svg>`
   );
 }
 
 function renderEntity(entity: PlantUmlEntity, node: NodeLayout): string {
   const italic = entity.kind === 'interface' || entity.kind === 'abstract';
   const fontStyle = italic ? ' font-style="italic"' : '';
-  const name = escapeXml(entity.name);
 
   const parts: string[] = [];
   parts.push(
-    `<rect x="${node.x}" y="${node.y}" width="${node.width}"` +
-      ` height="${node.height}" rx="2" ry="2" fill="#ffffff"` +
-      ` stroke="#333333" stroke-width="1.5"/>`,
-  );
-  parts.push(
-    `<line x1="${node.x}" y1="${node.y + TITLE_COMPARTMENT}"` +
-      ` x2="${node.x + node.width}" y2="${node.y + TITLE_COMPARTMENT}"` +
-      ` stroke="#333333" stroke-width="1"/>`,
-  );
-  parts.push(
-    `<text x="${node.x + node.width / 2}" y="${node.y + TITLE_COMPARTMENT - 5}"` +
-      ` text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${FONT_SIZE}"` +
-      `${fontStyle} fill="#000000">${name}</text>`,
+    `<rect x="${fmt(node.x)}" y="${fmt(node.y)}" width="${fmt(node.width)}"` +
+      ` height="${fmt(node.height)}" rx="2" ry="2" fill="#ffffff"` +
+      ` stroke="${STROKE}" stroke-width="1.5"/>`,
   );
 
+  const titleBaseline = node.y + METRICS.paddingY + METRICS.fontSize - 2;
+  parts.push(
+    `<line x1="${fmt(node.x)}" y1="${fmt(node.y + METRICS.paddingY + METRICS.lineHeight)}"` +
+      ` x2="${fmt(node.x + node.width)}" y2="${fmt(node.y + METRICS.paddingY + METRICS.lineHeight)}"` +
+      ` stroke="${STROKE}" stroke-width="1"/>`,
+  );
+  parts.push(
+    `<text x="${fmt(node.x + node.width / 2)}" y="${fmt(titleBaseline)}"` +
+      ` text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${METRICS.fontSize}"` +
+      `${fontStyle} fill="#000000">${escapeXml(displayName(entity))}</text>`,
+  );
+
+  entity.members.forEach((member, i) => {
+    const baseline =
+      node.y + METRICS.paddingY + METRICS.lineHeight * (i + 1) + METRICS.fontSize - 2;
+    parts.push(
+      `<text x="${fmt(node.x + METRICS.paddingX)}" y="${fmt(baseline)}"` +
+        ` text-anchor="start" font-family="${FONT_FAMILY}" font-size="${METRICS.fontSize}"` +
+        ` fill="#000000">${escapeXml(member.raw)}</text>`,
+    );
+  });
+
   return parts.join('');
+}
+
+function renderPackage(pkg: PlantUmlPackage, box: PackageLayout): string {
+  const tabWidth = Math.min(box.width, Math.max(24, measureName(pkg.name) + 12));
+  const parts: string[] = [];
+  parts.push(
+    `<rect x="${fmt(box.x)}" y="${fmt(box.y)}" width="${fmt(box.width)}"` +
+      ` height="${fmt(box.height)}" fill="none" stroke="${STROKE}" stroke-width="1.5"/>`,
+  );
+  parts.push(
+    `<rect x="${fmt(box.x)}" y="${fmt(box.y)}" width="${fmt(tabWidth)}"` +
+      ` height="18" fill="#ffffff" stroke="${STROKE}" stroke-width="1.5"/>`,
+  );
+  parts.push(
+    `<text x="${fmt(box.x + 6)}" y="${fmt(box.y + 13)}" text-anchor="start"` +
+      ` font-family="${FONT_FAMILY}" font-size="12" fill="#000000">${escapeXml(pkg.name)}</text>`,
+  );
+  return parts.join('');
+}
+
+function measureName(name: string): number {
+  let w = 0;
+  for (const ch of name) w += ch.length === 1 ? 6.5 : 12;
+  return w;
+}
+
+function renderEdge(rel: PlantUmlRelation, edge: EdgeLayout): string {
+  if (edge.points.length < 2) return '';
+  const points = edge.points;
+  const dashed = rel.type === 'implementation' || rel.type === 'dependency';
+
+  const sourceTrim =
+    rel.type === 'aggregation' || rel.type === 'composition' ? DIAMOND_SIZE : 0;
+  const targetTrim =
+    rel.type === 'inheritance' || rel.type === 'implementation'
+      ? TRIANGLE_SIZE
+      : rel.type === 'dependency' || rel.type === 'association'
+        ? CHEVRON_SIZE
+        : 0;
+
+  const linePoints = trimPolyline(points, sourceTrim, targetTrim);
+  const parts: string[] = [];
+
+  parts.push(
+    `<polyline points="${pointsAttr(linePoints)}" fill="none" stroke="${STROKE}"` +
+      ` stroke-width="1.2"${dashed ? ' stroke-dasharray="6,4"' : ''}/>`,
+  );
+
+  if (rel.type === 'aggregation' || rel.type === 'composition') {
+    parts.push(renderDiamond(points, rel.type === 'composition'));
+  }
+  if (rel.type === 'inheritance' || rel.type === 'implementation') {
+    parts.push(renderTriangle(points, rel.type));
+  }
+  if (rel.type === 'dependency' || rel.type === 'association') {
+    parts.push(renderChevron(points, rel.type));
+  }
+
+  parts.push(...renderEdgeTexts(rel, points));
+  return parts.join('');
+}
+
+function renderTriangle(points: Point[], type: PlantUmlRelation['type']): string {
+  const { u, tip } = targetDir(points);
+  const base = { x: tip.x - u.x * TRIANGLE_SIZE, y: tip.y - u.y * TRIANGLE_SIZE };
+  const px = -u.y;
+  const py = u.x;
+  const half = TRIANGLE_SIZE / 2;
+  const pts: Point[] = [
+    tip,
+    { x: base.x + px * half, y: base.y + py * half },
+    { x: base.x - px * half, y: base.y - py * half },
+  ];
+  return (
+    `<polygon class="uml-arrow uml-arrow-${type}" points="${pointsAttr(pts)}"` +
+    ` fill="none" stroke="${STROKE}" stroke-width="1.2"/>`
+  );
+}
+
+function renderChevron(points: Point[], type: PlantUmlRelation['type']): string {
+  const { u, tip } = targetDir(points);
+  const back = { x: tip.x - u.x * CHEVRON_SIZE, y: tip.y - u.y * CHEVRON_SIZE };
+  const px = -u.y;
+  const py = u.x;
+  const half = CHEVRON_SIZE / 2;
+  const pts: Point[] = [
+    { x: back.x + px * half, y: back.y + py * half },
+    tip,
+    { x: back.x - px * half, y: back.y - py * half },
+  ];
+  return (
+    `<polyline class="uml-arrow uml-arrow-${type}" points="${pointsAttr(pts)}"` +
+    ` fill="none" stroke="${STROKE}" stroke-width="1.2"/>`
+  );
+}
+
+function renderDiamond(points: Point[], filled: boolean): string {
+  const { u, tip } = sourceDir(points);
+  const px = -u.y;
+  const py = u.x;
+  const half = DIAMOND_SIZE / 2;
+  const mid = { x: tip.x + u.x * half, y: tip.y + u.y * half };
+  const pts: Point[] = [
+    tip,
+    { x: mid.x + px * half, y: mid.y + py * half },
+    { x: tip.x + u.x * DIAMOND_SIZE, y: tip.y + u.y * DIAMOND_SIZE },
+    { x: mid.x - px * half, y: mid.y - py * half },
+  ];
+  return (
+    `<polygon class="uml-arrow uml-arrow-${filled ? 'composition' : 'aggregation'}"` +
+    ` points="${pointsAttr(pts)}" fill="${filled ? STROKE : 'none'}"` +
+    ` stroke="${STROKE}" stroke-width="1.2"/>`
+  );
+}
+
+function renderEdgeTexts(rel: PlantUmlRelation, points: Point[]): string[] {
+  const parts: string[] = [];
+  if (rel.sourceCardinality) {
+    parts.push(textAt(rel.sourceCardinality, points[0].x, points[0].y - 7, 11));
+  }
+  if (rel.targetCardinality) {
+    const last = points[points.length - 1];
+    parts.push(textAt(rel.targetCardinality, last.x, last.y - 7, 11));
+  }
+  if (rel.label) {
+    const mid = points[Math.floor(points.length / 2)];
+    parts.push(textAt(rel.label, mid.x, mid.y - 10, 12));
+  }
+  return parts;
+}
+
+function textAt(text: string, x: number, y: number, size: number): string {
+  return (
+    `<text x="${fmt(x)}" y="${fmt(y)}" text-anchor="middle"` +
+    ` font-family="${FONT_FAMILY}" font-size="${size}" fill="#000000">${escapeXml(text)}</text>`
+  );
+}
+
+function pointsAttr(points: Point[]): string {
+  return points.map((p) => `${fmt(p.x)},${fmt(p.y)}`).join(' ');
+}
+
+function trimPolyline(
+  points: Point[],
+  sourceTrim: number,
+  targetTrim: number,
+): Point[] {
+  const out = points.map((p) => ({ ...p }));
+  if (sourceTrim > 0 && out.length >= 2) {
+    const a = out[0];
+    const b = out[1];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (len > 0) {
+      const t = Math.min(sourceTrim, len) / len;
+      out[0] = { x: a.x + dx * t, y: a.y + dy * t };
+    }
+  }
+  if (targetTrim > 0 && out.length >= 2) {
+    const a = out[out.length - 2];
+    const b = out[out.length - 1];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (len > 0) {
+      const t = Math.min(targetTrim, len) / len;
+      out[out.length - 1] = { x: b.x - dx * t, y: b.y - dy * t };
+    }
+  }
+  return out;
+}
+
+function targetDir(points: Point[]): { u: Point; tip: Point } {
+  const tip = points[points.length - 1];
+  const prev = points[points.length - 2];
+  const dx = tip.x - prev.x;
+  const dy = tip.y - prev.y;
+  const len = Math.hypot(dx, dy) || 1;
+  return { u: { x: dx / len, y: dy / len }, tip };
+}
+
+function sourceDir(points: Point[]): { u: Point; tip: Point } {
+  const tip = points[0];
+  const next = points[1];
+  const dx = next.x - tip.x;
+  const dy = next.y - tip.y;
+  const len = Math.hypot(dx, dy) || 1;
+  return { u: { x: dx / len, y: dy / len }, tip };
 }

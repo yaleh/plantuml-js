@@ -1,0 +1,142 @@
+@startuml
+package "Src Analysis Layer" as Src_Analysis_Layer {
+  interface EnrichedPackageNode {
+    +fanIn: number
+    +fanOut: number
+  }
+  interface FlaggedGodPackage {
+    +reasons: Array
+  }
+  interface GodPackageMetrics {
+    +entityCount: number
+    +fanIn: number
+    +fanOut: number
+    +fileCount: number
+    +loc?: number
+    +packageName: string
+  }
+  interface GodPackageThresholds {
+    +minEntities: number
+    +minFanIn: number
+    +minFanOut: number
+    +minFiles: number
+  }
+  interface ReadHistoryOptions {
+    +scope?: string
+  }
+  interface MetricsHistoryEntry {
+    +packages: PackageMetricsSnapshot
+    +scopeKey?: string
+    +sources?: Array
+    +timestamp: string
+  }
+  interface MetricsHistoryScopeInfo {
+    +scopeKey?: string
+    +sources?: Array
+  }
+  interface PackageMetricsSnapshot {
+    +cycleCount: number
+    +entityCount: number
+    +fanIn: number
+    +fanOut: number
+    +name: string
+  }
+  interface PackageMetricsEntry {
+    +cycleCount: number
+    +cyclesWith: Array
+    +fanIn: number
+    +fanOut: number
+    +packageName: string
+  }
+  interface ProjectSemanticsPreflight {
+    +error?: string
+    +projectSemantics: ProjectSemanticsStatus
+    +semantics?: ProjectSemanticsInput
+  }
+  interface MetricDiffEntry {
+    +delta: number
+    +from: number
+    +metric: string
+    +percentChange: number
+    +to: number
+  }
+  interface MetricDiffResult {
+    +entries: MetricDiffEntry
+    +fromCommit: string
+    +fromTimestamp: string
+    +schemaVersionMismatch: boolean
+    +toCommit: string
+    +toTimestamp: string
+    +warnings: Array
+  }
+  interface MetricSnapshot {
+    +archguardVersion: string
+    +branch: string
+    +commitSha: string
+    +metricVector: MetricVector
+    +schemaVersion: number
+    +timestamp: string
+  }
+  class TestAnalyzer {
+    +async analyze(archJson: ArchJSON, plugin: ILanguagePlugin, options: TestAnalyzerOptions): any
+  }
+  interface TestAnalyzerOptions {
+    +patternConfig?: TestPatternConfig
+    +projectSemantics?: any
+    +testSources?: Array
+    +workspaceRoot: string
+  }
+  class TestCoverageMapper {
+    +buildCoverageMap(testFiles: TestFileInfo, archJson: ArchJSON, workspaceRoot: string): CoverageLink
+  }
+  class TestIssueDetector {
+    +detect(testFiles: TestFileInfo, coverageMap: CoverageLink): TestIssue
+  }
+}
+package "Src Analysis Duplicates Layer" as Src_Analysis_Duplicates_Layer {
+  interface DuplicateAnalysis {
+    +groups: DuplicateGroup
+    +manifest: DuplicateManifest
+  }
+  interface DuplicateGroup {
+    +hash: string
+    +lineCount: number
+    +members: DuplicateMember
+    +savableLines: number
+    +statementCount: number
+    +tokenCount: number
+  }
+  interface DuplicateManifest {
+    +generatedAt: string
+    +options: DuplicateOptions
+    +scannedFiles: number
+    +scannedFunctions: number
+    +sources: Array
+    +totalGroups: number
+    +version: "1"
+  }
+  interface DuplicateMember {
+    +endLine: number
+    +file: string
+    +kind: FunctionFingerprintKind
+    +name: string
+    +startLine: number
+  }
+  interface DuplicateOptions {
+    +includeTests: boolean
+    +minStatements: number
+    +minTokens: number
+    +topN?: number
+  }
+}
+FlaggedGodPackage --|> GodPackageMetrics
+DuplicateAnalysis *-- DuplicateGroup
+DuplicateAnalysis *-- DuplicateManifest
+DuplicateGroup *-- DuplicateMember
+DuplicateManifest *-- DuplicateOptions
+MetricsHistoryEntry *-- PackageMetricsSnapshot
+MetricDiffResult *-- MetricDiffEntry
+TestAnalyzer *-- TestCoverageMapper
+TestAnalyzer *-- TestIssueDetector
+TestAnalyzer ..> TestAnalyzerOptions
+@enduml

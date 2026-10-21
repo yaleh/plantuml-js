@@ -6,6 +6,7 @@
  */
 
 import { PlantUmlModel, PlantUmlEntity } from './model.js';
+import { measureTextWidth } from './text-measure.js';
 
 export interface Point {
   x: number;
@@ -27,9 +28,19 @@ export interface EdgeLayout {
   points: Point[];
 }
 
+export interface PackageLayout {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface LayoutResult {
   nodes: NodeLayout[];
   edges: EdgeLayout[];
+  /** Package frames; engines without container support may omit this. */
+  packages?: PackageLayout[];
   width: number;
   height: number;
 }
@@ -38,19 +49,42 @@ export interface LayoutEngine {
   layout(model: PlantUmlModel): Promise<LayoutResult>;
 }
 
-// Naive monospace estimate used until M2 lands real font metrics (opentype.js
-// or a width table). Every engine shares this so an entity is sized once.
-const CHAR_WIDTH = 8;
-const LINE_HEIGHT = 18;
-const PADDING = 8;
-const MIN_WIDTH = 60;
+/**
+ * Shared drawing metrics. The renderer reads these so entity sizing and the
+ * emitted SVG stay in lockstep (M2 replaces M1's naive CHAR_WIDTH estimate
+ * with real per-glyph measurement from [[../text-measure]]).
+ */
+export const METRICS = {
+  fontSize: 13,
+  lineHeight: 18,
+  paddingX: 10,
+  paddingY: 8,
+  minWidth: 60,
+} as const;
 
+/** Reconstruct the name drawn in the title compartment, generics expanded. */
+export function displayName(entity: PlantUmlEntity): string {
+  if (entity.generics.length === 0) return entity.name;
+  return `${entity.name}<${entity.generics.join(', ')}>`;
+}
+
+/**
+ * Approximate the on-canvas size of an entity box. The title plus every member
+ * line contributes one row; the width is the longest rendered line measured
+ * through the text table plus padding, never below MIN_WIDTH.
+ */
 export function estimateEntitySize(
   entity: PlantUmlEntity,
 ): { width: number; height: number } {
-  const lines = [entity.name, ...entity.members.map((m) => m.name)];
-  const longest = lines.reduce((max, line) => Math.max(max, line.length), 0);
-  const width = Math.max(MIN_WIDTH, longest * CHAR_WIDTH + PADDING * 2);
-  const height = lines.length * LINE_HEIGHT + PADDING * 2;
+  const lines = [
+    displayName(entity),
+    ...entity.members.map((m) => m.raw),
+  ];
+  const longest = lines.reduce(
+    (max, line) => Math.max(max, measureTextWidth(line, METRICS.fontSize)),
+    0,
+  );
+  const width = Math.max(METRICS.minWidth, longest + METRICS.paddingX * 2);
+  const height = lines.length * METRICS.lineHeight + METRICS.paddingY * 2;
   return { width, height };
 }
