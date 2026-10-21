@@ -24,12 +24,12 @@ extra:
 
 ## AC
 
-- [ ] 改动前红：`grep -c "PACKAGE_TAB_HEIGHT\|PACKAGE_LABEL_FONT_SIZE\|PACKAGE_TAB_PADDING" src/layout-metrics.ts` 当前命中 ≥1；`grep -c "function stripComment" src/core.ts src/parser.ts` 合计为 2。改动后前者为 0，后者仅 1 处定义（另一处 import/引用）
-- [ ] 几何单源：`src/layout-metrics.ts` 删除本地三个常量并 import `PACKAGE_LABEL`；`grep -rn "tabHeight: 20\|tabHeight: 18\|tabPadding: 8\|tabPadding: 12" src --include='*.ts'` 只命中 `src/layout.ts` 的 `PACKAGE_LABEL` 定义
-- [ ] 度量对齐回归：新增或修改 `tests/layout-metrics.test.ts`，断言 label 重叠判定使用的几何 === `PACKAGE_LABEL`（合成包标签用例，改动前该断言红、改动后绿）
-- [ ] 词法单源：`checkSyntax`/`explain`（`src/core.ts`）复用 parser（或共享词法模块）的实体声明正则与 `stripComment`，`src/core.ts` 不再本地定义 `ENTITY_DECL`/`ENTITY_KEYWORD`/`extractDeclaredName`/`stripComment`；`grep -c "stripComment" src/core.ts` 为 0（只剩 import 或调用）
-- [ ] 无行为回归：`npm run typecheck` 与 `npx vitest run` 全绿，`tests/api.test.ts`（checkSyntax/explain）与 `tests/members.test.ts`、`tests/relations.test.ts` 不改断言即通过；两个 fixture 渲染 SVG sha256 与改动前相等
-- [ ] 度量漂移修复可解释：`node scripts/render-samples.mjs` 后对比 `rendered/metrics.baseline.json`，`labelOverlapCount` 若变化须在任务评论写明变化量与原因（改用正确的 20/8 重新度量是预期内变化，不是回归）
+- [x] 改动前红：`grep -c "PACKAGE_TAB_HEIGHT\|PACKAGE_LABEL_FONT_SIZE\|PACKAGE_TAB_PADDING" src/layout-metrics.ts` 当前命中 ≥1；`grep -c "function stripComment" src/core.ts src/parser.ts` 合计为 2。改动后前者为 0，后者仅 1 处定义（另一处 import/引用）
+- [x] 几何单源：`src/layout-metrics.ts` 删除本地三个常量并 import `PACKAGE_LABEL`；`grep -rn "tabHeight: 20\|tabHeight: 18\|tabPadding: 8\|tabPadding: 12" src --include='*.ts'` 只命中 `src/layout.ts` 的 `PACKAGE_LABEL` 定义
+- [x] 度量对齐回归：新增或修改 `tests/layout-metrics.test.ts`，断言 label 重叠判定使用的几何 === `PACKAGE_LABEL`（合成包标签用例，改动前该断言红、改动后绿）
+- [x] 词法单源：`checkSyntax`/`explain`（`src/core.ts`）复用 parser（或共享词法模块）的实体声明正则与 `stripComment`，`src/core.ts` 不再本地定义 `ENTITY_DECL`/`ENTITY_KEYWORD`/`extractDeclaredName`/`stripComment`；`grep -c "stripComment" src/core.ts` 为 0（只剩 import 或调用）
+- [x] 无行为回归：`npm run typecheck` 与 `npx vitest run` 全绿，`tests/api.test.ts`（checkSyntax/explain）与 `tests/members.test.ts`、`tests/relations.test.ts` 不改断言即通过；两个 fixture 渲染 SVG sha256 与改动前相等
+- [x] 度量漂移修复可解释：`node scripts/render-samples.mjs` 后对比 `rendered/metrics.baseline.json`，`labelOverlapCount` 若变化须在任务评论写明变化量与原因（改用正确的 20/8 重新度量是预期内变化，不是回归）
 
 ## DoD
 
