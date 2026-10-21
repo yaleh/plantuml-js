@@ -11,7 +11,7 @@
 
 import { PlantUmlModel } from './model.js';
 import { LayoutResult, EdgeLayout, METRICS, Point, displayName } from './layout.js';
-import { countEdgeBoxIntersections, nodeRect, Rect } from './edge-router.js';
+import { countEdgeBoxIntersections, countNonOrthogonalSegments, nodeRect, Rect } from './edge-router.js';
 import { measureTextWidth } from './text-measure.js';
 
 export interface LayoutMetrics {
@@ -19,6 +19,12 @@ export interface LayoutMetrics {
   edgeCrossings: number;
   /** Edge segments passing through the interior of an unrelated node. */
   edgeNodeIntersections: number;
+  /**
+   * Edges drawn with at least one diagonal segment (or no usable polyline at
+   * all) — the straight-line fallback an engine takes when its router returns
+   * no route. Zero means every edge is an orthogonal polyline.
+   */
+  nonOrthogonalEdgeCount: number;
   /** Summed polyline length of every edge, in canvas pixels. */
   totalEdgeLength: number;
   /** Sum of node areas divided by canvas area (0..1). */
@@ -60,6 +66,9 @@ export function computeLayoutMetrics(
   return {
     edgeCrossings: countEdgeCrossings(edges.map((e) => e.points)),
     edgeNodeIntersections: countEdgeBoxIntersections(edges, layout.nodes),
+    nonOrthogonalEdgeCount: edges.filter(
+      (e) => e.points.length >= 2 && countNonOrthogonalSegments(e.points) > 0,
+    ).length,
     totalEdgeLength: edges.reduce((sum, e) => sum + polylineLength(e.points), 0),
     areaUtilization: canvasArea > 0 ? nodeArea / canvasArea : 0,
     aspectRatio: layout.height > 0 ? layout.width / layout.height : 0,

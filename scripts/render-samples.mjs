@@ -85,7 +85,18 @@ function chromeBin() {
   );
 }
 
+/** Canvases above this many pixels are not rasterised: headless Chrome is OOM-killed on them. */
+const MAX_PNG_PIXELS = 100e6;
+
+/** Returns true when a PNG was written, false when the canvas was too large to rasterise. */
 function screenshot(svgPath, pngPath, width, height) {
+  const pixels = Math.ceil(width) * Math.ceil(height);
+  if (pixels > MAX_PNG_PIXELS) {
+    console.log(
+      `skipping PNG for ${basename(svgPath)}: ${round(pixels / 1e6)} MP exceeds the ${MAX_PNG_PIXELS / 1e6} MP limit (SVG still written)`,
+    );
+    return false;
+  }
   const bin = chromeBin();
   const w = Math.max(1, Math.ceil(width));
   const h = Math.max(1, Math.ceil(height));
@@ -101,6 +112,7 @@ function screenshot(svgPath, pngPath, width, height) {
     url,
   ];
   execFileSync(bin, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+  return true;
 }
 
 // ── inputs: the two fixtures + optional external archguard dir ─────────────
@@ -145,23 +157,24 @@ for (const { group, pumlPath } of inputs) {
     const pngPath = join(renderedDir, pngName);
 
     writeFileSync(svgPath, svg);
-    screenshot(svgPath, pngPath, layout.width, layout.height);
+    const wrotePng = screenshot(svgPath, pngPath, layout.width, layout.height);
     // Independent text-overflow truth: headless Chrome re-measures every
     // `<text>` with the browser's font engine (see measure-svg-text.mjs),
     // so a wrong advance in text-measure.ts cannot hide behind a metric that
     // shares the same mistake.
-    metrics.chromeTextOverflow = await measureSvgTextOverflow(svgPath);
+    // Oversized canvases are not loaded into Chrome (same budget as the PNG).
+    metrics.chromeTextOverflow = wrotePng ? await measureSvgTextOverflow(svgPath) : null;
 
     records.push({
       group,
       engine: engineName,
       svg: svgName,
-      png: pngName,
+      png: wrotePng ? pngName : null,
       width: round(layout.width),
       height: round(layout.height),
       metrics,
     });
-    console.log(`rendered ${svgName} + ${pngName} (${engineName})`);
+    console.log(`rendered ${svgName}${wrotePng ? ` + ${pngName}` : ''} (${engineName})`);
   }
 }
 
@@ -186,18 +199,18 @@ if (views) {
     const svgPath = join(renderedDir, svgName);
     const pngPath = join(renderedDir, pngName);
     writeFileSync(svgPath, svg);
-    if (png) screenshot(svgPath, pngPath, layout.width, layout.height);
+    const wrotePng = png && screenshot(svgPath, pngPath, layout.width, layout.height);
 
     records.push({
       group,
       engine: 'elk',
       svg: svgName,
-      png: pngName,
+      png: wrotePng ? pngName : null,
       width: round(layout.width),
       height: round(layout.height),
       metrics,
     });
-    console.log(`rendered ${svgName}${png ? ` + ${pngName}` : ''} (view)`);
+    console.log(`rendered ${svgName}${wrotePng ? ` + ${pngName}` : ''} (view)`);
     return { group, metrics };
   };
 

@@ -1,0 +1,5298 @@
+@startuml
+package "Src Analysis Layer" as Src_Analysis_Layer {
+  interface EnrichedPackageNode {
+    +fanIn: number
+    +fanOut: number
+  }
+  interface FlaggedGodPackage {
+    +reasons: Array
+  }
+  interface GodPackageMetrics {
+    +entityCount: number
+    +fanIn: number
+    +fanOut: number
+    +fileCount: number
+    +loc?: number
+    +packageName: string
+  }
+  interface GodPackageThresholds {
+    +minEntities: number
+    +minFanIn: number
+    +minFanOut: number
+    +minFiles: number
+  }
+  interface ReadHistoryOptions {
+    +scope?: string
+  }
+  interface MetricsHistoryEntry {
+    +packages: PackageMetricsSnapshot
+    +scopeKey?: string
+    +sources?: Array
+    +timestamp: string
+  }
+  interface MetricsHistoryScopeInfo {
+    +scopeKey?: string
+    +sources?: Array
+  }
+  interface PackageMetricsSnapshot {
+    +cycleCount: number
+    +entityCount: number
+    +fanIn: number
+    +fanOut: number
+    +name: string
+  }
+  interface PackageMetricsEntry {
+    +cycleCount: number
+    +cyclesWith: Array
+    +fanIn: number
+    +fanOut: number
+    +packageName: string
+  }
+  interface ProjectSemanticsPreflight {
+    +error?: string
+    +projectSemantics: ProjectSemanticsStatus
+    +semantics?: ProjectSemanticsInput
+  }
+  interface MetricDiffEntry {
+    +delta: number
+    +from: number
+    +metric: string
+    +percentChange: number
+    +to: number
+  }
+  interface MetricDiffResult {
+    +entries: MetricDiffEntry
+    +fromCommit: string
+    +fromTimestamp: string
+    +schemaVersionMismatch: boolean
+    +toCommit: string
+    +toTimestamp: string
+    +warnings: Array
+  }
+  interface MetricSnapshot {
+    +archguardVersion: string
+    +branch: string
+    +commitSha: string
+    +metricVector: MetricVector
+    +schemaVersion: number
+    +timestamp: string
+  }
+  class TestAnalyzer {
+    +async analyze(archJson: ArchJSON, plugin: ILanguagePlugin, options: TestAnalyzerOptions): any
+  }
+  interface TestAnalyzerOptions {
+    +patternConfig?: TestPatternConfig
+    +projectSemantics?: any
+    +testSources?: Array
+    +workspaceRoot: string
+  }
+  class TestCoverageMapper {
+    +buildCoverageMap(testFiles: TestFileInfo, archJson: ArchJSON, workspaceRoot: string): CoverageLink
+  }
+  class TestIssueDetector {
+    +detect(testFiles: TestFileInfo, coverageMap: CoverageLink): TestIssue
+  }
+}
+package "Src Analysis Duplicates Layer" as Src_Analysis_Duplicates_Layer {
+  interface DuplicateAnalysis {
+    +groups: DuplicateGroup
+    +manifest: DuplicateManifest
+  }
+  interface DuplicateGroup {
+    +hash: string
+    +lineCount: number
+    +members: DuplicateMember
+    +savableLines: number
+    +statementCount: number
+    +tokenCount: number
+  }
+  interface DuplicateManifest {
+    +generatedAt: string
+    +options: DuplicateOptions
+    +scannedFiles: number
+    +scannedFunctions: number
+    +sources: Array
+    +totalGroups: number
+    +version: "1"
+  }
+  interface DuplicateMember {
+    +endLine: number
+    +file: string
+    +kind: FunctionFingerprintKind
+    +name: string
+    +startLine: number
+  }
+  interface DuplicateOptions {
+    +includeTests: boolean
+    +minStatements: number
+    +minTokens: number
+    +topN?: number
+  }
+}
+package "Src Analysis Gim Layer" as Src_Analysis_Gim_Layer {
+  interface DirectionHint {
+    +caveat: string
+    +confidence: ConfidenceLevel
+    +direction: DirectionType
+    +recommendation: string
+    +signals: DirectionSignal
+  }
+  interface DirectionSignal {
+    +delta: number
+    +direction: any
+    +metric: string
+    +percentChange: number
+  }
+  interface LossStatus {
+    +detail: string
+    +proxy: true
+    +status: any
+    +value: number
+  }
+}
+package "Src Analysis Git History Layer" as Src_Analysis_Git_History_Layer {
+  interface CommitRecord {
+    +authorEmail: string
+    +date: string
+    +files: FileChange
+    +sha: string
+  }
+  interface FileChange {
+    +added: number
+    +deleted: number
+    +path: string
+  }
+  interface GitLogWindow {
+    +commits: CommitRecord
+    +truncated: boolean
+    +windowEnd: string
+    +windowStart: string
+  }
+  interface ReadGitLogOptions {
+    +includeMerges: boolean
+    +maxCommits: number
+    +pathFilter?: any
+    +sinceDays: number
+  }
+  interface FileAccumulator {
+    +addedLines: number
+    +authors: Map
+    +authorShas: Map
+    +commits: Array
+    +dates: Set
+    +deletedLines: number
+    +lastDate: string
+    +path: string
+  }
+  interface RiskInput {
+    +authorCount: number
+    +commitCount: number
+    +lastChangedAt: string
+    +primaryOwnerShare: number
+    +topCochangeNeighbors: CochangeEdge
+  }
+  interface RiskNorms {
+    +maxAuthorCount: number
+    +maxCommitCount: number
+  }
+  interface AnalyzedWindow {
+    +generatedAt: string
+    +note?: string
+    +sinceDays: number
+    +totalCommits: number
+    +truncated?: boolean
+    +windowEnd?: string
+    +windowStart?: string
+  }
+  interface ChangeContextResult {
+    +analyzedWindow: AnalyzedWindow
+    +ownerConcentration: [Type]
+    +recentChurn: [Type]
+    +resolvedTarget: string
+    +risk: [Type]
+    +stalePathWarning?: string
+    +summary: [Type]
+    +target: string
+    +targetType: any
+    +topCochangeNeighbors: CochangeEdge
+  }
+  interface ChangeRiskResult {
+    +currentlyExists: boolean
+    +factorExplanations: [Type]
+    +factors: RiskFactors
+    +limitation: string
+    +resolvedTarget: string
+    +riskLevel: any
+    +riskScore: number
+    +target: string
+    +targetType: any
+  }
+  interface CochangeResult {
+    +analyzedWindow: AnalyzedWindow
+    +limitation: string
+    +neighbors: CochangeEdge
+    +resolvedTarget: string
+    +target: string
+    +targetType: any
+  }
+  interface EvidencePackEntry {
+    +resolvedTarget: string
+    +riskLevel: any
+    +riskScore: number
+    +target: string
+    +targetType: any
+    +topFactor: string
+  }
+  interface EvidencePackNotFound {
+    +code: HistoryNotFoundCode
+    +reason: string
+    +target: string
+    +targetType: any
+  }
+  interface EvidencePackResult {
+    +hotspots: EvidencePackEntry
+    +notFound: EvidencePackNotFound
+    +results: EvidencePackEntry
+  }
+  class HistoryQuery {
+    +constructor(data: LoadedHistoryData)
+    +getChangeContext(targetType: any, target: string): ChangeContextResult
+    +getChangeRisk(targetType: any, target: string): ChangeRiskResult
+    +getCochange(targetType: any, target: string, topN?: number): CochangeResult
+    +getEvidencePack(targets: [Type]): EvidencePackResult
+    +getOwnership(targetType: any, target: string): OwnershipResult
+  }
+  class HistoryTargetNotFoundError {
+    +constructor(code: HistoryNotFoundCode, target: string, targetType: any, resolvedTarget: string, detail: string, analyzedPaths?: Array, window?: [Type], suggestion?: string)
+  }
+  interface OwnershipContributor {
+    +commitCount: number
+    +email: string
+    +share: number
+  }
+  interface OwnershipResult {
+    +activeMaintainers: number
+    +analyzedWindow: AnalyzedWindow
+    +busFactor: number
+    +contributors: OwnershipContributor
+    +primaryOwner: string
+    +primaryOwnerShare: number
+    +resolvedTarget: string
+    +target: string
+    +targetType: any
+  }
+  interface LoadedHistoryData {
+    +fileMetrics: Map
+    +manifest: GitHistoryManifest
+    +packageMetrics: Map
+  }
+}
+package "Src Analysis Jl Layer" as Src_Analysis_Jl_Layer {
+  interface AdjacencyOptions {
+    +resolveByName?: boolean
+  }
+  class BoundaryAlignmentScorer {
+    +{static} extractPackage(entityName: string, depth: number): string
+    +{static} globalBAS(scores: PackageBASScore): number
+    +{static} score(entities: Array, assignments: Array, options?: ClusterBoundaryOptions, packages?: Array): PackageBASScore
+  }
+  class ClusterBoundaryAnalyzer {
+    +{static} analyze(matrix: Array[], entityNames: Array, options?: ClusterBoundaryOptions, packageOf?: Array): ClusterBoundaryReport
+  }
+  class DriftCalculator {
+    +{static} compare(from: DriftSnapshot, to: DriftSnapshot, options?: any): DriftReport
+  }
+  class EntityAligner {
+    +{static} align(entityIndex1: Array, entityIndex2: Array): AlignmentResult
+    +{static} buildAlignedRow(row: Array, sourceEntityIndex: Array, alignedEntityIndex: Array): Array
+  }
+  interface ComputeIntrinsicDimensionInput {
+    +commitSha?: string
+    +entityCount: number
+    +epsilon: number
+    +featureVersion?: string
+    +k: number
+    +matrix: Array[]
+    +mode: ProjectionMode
+    +timestamp?: string
+    +varianceThreshold?: number
+  }
+  class KMeansClusterer {
+    +{static} cluster(matrix: Array[], options?: KMeansOptions): KMeansResult
+  }
+  interface AlignmentResult {
+    +added: Array
+    +entityIndex: Array
+    +removed: Array
+    +shared: Array
+  }
+  interface AppendSnapshotResult {
+    +ok: boolean
+    +previous: IntrinsicDimensionResult
+    +reason?: string
+  }
+  interface ArchHealthHistory {
+    +language: string
+    +schemaVersion: number
+    +snapshots: IntrinsicDimensionResult
+  }
+  interface ClusterBoundaryOptions {
+    +crossPackageThreshold?: number
+    +dominantCoverageThreshold?: number
+    +includeOrphans?: boolean
+    +kInit?: number
+    +minPackageSize?: number
+    +packageDepth?: number
+    +seed?: number
+    +splitThreshold?: number
+  }
+  interface ClusterBoundaryReport {
+    +clusterCount: number
+    +clusters: ClusterSummary
+    +crossDomainFusions: CrossDomainFusion
+    +entityCount: number
+    +globalBAS: number
+    +mode: ProjectionMode
+    +orphanEntities: Array
+    +packageCount: number
+    +packageScores: PackageBASScore
+    +silhouetteScore: number
+    +splitPackages: SplitPackageIssue
+    +warning?: string
+  }
+  interface ClusterSummary {
+    +clusterId: number
+    +dominantPackage: string
+    +dominantPackageRatio: number
+    +entityCount: number
+  }
+  interface CrossDomainFusion {
+    +clusterId: number
+    +involvedPackages: [Type]
+    +representativeEntities: Array
+  }
+  interface DriftOptions {
+    +base?: string
+    +minLevel?: DriftLevel
+    +threshold: number
+    +topK?: number
+  }
+  interface DriftReport {
+    +addedEntities: Array
+    +drifts: EntityDrift
+    +fromSnapshot: [Type]
+    +k: number
+    +mode: ProjectionMode
+    +nUnion: number
+    +removedEntities: Array
+    +sharedEntityCount: number
+    +summary: [Type]
+    +toSnapshot: [Type]
+  }
+  interface DriftSnapshot {
+    +adjacencyRows: Array[]
+    +commitSha?: string
+    +entityIndex: Array
+    +timestamp: string
+  }
+  interface EntityDrift {
+    +deltaCoverage: number
+    +deltaFanIn: number
+    +deltaFanOut: number
+    +drift: number
+    +entityId: string
+    +level: DriftLevel
+  }
+  interface IntrinsicDimensionResult {
+    +commitSha?: string
+    +dInt: number
+    +dIntNormalized: number
+    +entityCount: number
+    +entityIndex?: Array
+    +epsilon: number
+    +featureVersion: string
+    +k: number
+    +mode: ProjectionMode
+    +scopeKey?: string
+    +sources?: Array
+    +timestamp: string
+    +varianceExplained: Array
+  }
+  interface JLConfig {
+    +directModeThreshold: number
+    +epsilon: number
+    +seed: number
+  }
+  interface KMeansOptions {
+    +convergenceThreshold?: number
+    +kInit?: number
+    +maxIterations?: number
+    +sampleSize?: number
+    +sampleThreshold?: number
+    +seed?: number
+  }
+  interface KMeansResult {
+    +assignments: Array
+    +centroids: Array[]
+    +converged: boolean
+    +entityIndices: Array
+    +iterations: number
+    +k: number
+    +orphanIndices: Array
+    +silhouetteScore: number
+    +warning?: string
+  }
+  interface PackageBASScore {
+    +bas: number
+    +coverage: number
+    +dominantCluster: number
+    +entityCount: number
+    +packageName: string
+    +purity: number
+  }
+  interface SplitPackageIssue {
+    +bas: number
+    +clusterDistribution: [Type]
+    +packageName: string
+    +purity: number
+  }
+}
+package "Src Analysis Shape Smells Layer" as Src_Analysis_Shape_Smells_Layer {
+  interface DetectDispersionOptions {
+    +srcRoot?: string
+    +threshold?: number
+  }
+  interface DiscriminatorType {
+    +file: string
+    +kind: DiscriminatorKind
+    +line: number
+    +name: string
+    +values: Array
+  }
+  interface LiteralDispersionSmell {
+    +dispersion: number
+    +files: Array
+    +locations: SourceLocation
+    +severity: any
+    +typeName: string
+    +value: string
+  }
+  interface ShapeSmellAnalysis {
+    +manifest: ShapeSmellManifest
+    +results: ShapeSmellResult
+  }
+  interface ShapeSmellManifest {
+    +bySeverity: [Type]
+    +generatedAt: string
+    +totalSmells: number
+    +version: string
+  }
+  interface ShapeSmellResult {
+    +diagnostic?: string
+    +layer: ShapeSmellLayer
+    +smells: LiteralDispersionSmell
+  }
+  interface SourceLocation {
+    +file: string
+    +line: number
+  }
+}
+package "Src Analysis Slice Delta Layer" as Src_Analysis_Slice_Delta_Layer {
+  interface GraphEdge {
+    +from: string
+    +importedNames: Array
+    +to: string
+    +typeOnlyStrength: number
+    +valueStrength: number
+  }
+  interface RefactorSliceDeclaration {
+    +concern?: string
+    +declaredPrediction?: [Type]
+    +mustNotChange?: [Type]
+    +negativeControl: [Type]
+    +proposedCut: [Type]
+    +provenance?: any
+    +subject: string
+  }
+  interface SimulateRefactorSliceInput {
+    +graph: TsModuleGraph
+    +observed?: any
+    +provenance?: unknown
+    +slice: RefactorSliceDeclaration
+  }
+  interface SliceConsumer {
+    +dir: string
+    +file?: string
+    +imports: Array
+  }
+  interface SliceDeltaAccountingEntry {
+    +barrel: boolean
+    +certainty: any
+    +destinations: Array
+    +edge: string
+    +moving: [Type]
+    +names: Array
+    +note?: string
+    +staying: Array
+    +strength?: null
+    +survives?: true
+    +unaccounted: Array
+  }
+  interface SliceDeltaAddedEdge {
+    +certainty?: "unknown"
+    +from: string
+    +source: any
+    +to: string
+    +via?: string
+  }
+  interface SliceDeltaAffectedConsumer {
+    +becomes: string
+    +edge: string
+    +explainedBy: Array
+    +importedNames: Array
+    +movedFromDir: string
+    +movedToDir: string
+    +sourceDir: string
+  }
+  interface SliceDeltaComparison {
+    +computedSccSize: number
+    +declaredSccSize?: number
+    +membersMatch: boolean
+    +observedSccSize?: number
+    +relation: any
+    +sizeMatches: boolean
+  }
+  interface SliceDeltaComputed {
+    +addedEdges: SliceDeltaAddedEdge
+    +inputsUsed: Array
+    +removedEdges: SliceDeltaRemovedEdge
+    +sccAfter: Array
+    +sccBefore: Array
+    +sccLeft: Array
+    +sccRemaining: Array
+    +strengthenedEdges: SliceDeltaStrengthenedEdge
+    +subjectFanInAfter: number
+    +syntheticNodes?: SliceDeltaSyntheticNode
+    +whyLeft: SliceDeltaWhyLeft
+  }
+  interface SliceDeltaCurrent {
+    +relevantEdges: [Type]
+    +sccMembers: Array
+    +sccSize: number
+    +subjectFanIn: number
+  }
+  interface SliceDeltaDeclaredConsumer {
+    +declared: SliceConsumer
+    +movedToDir: string
+    +note?: string
+    +status: any
+  }
+  interface SliceDeltaEvaluatedReport {
+    +accounting?: SliceDeltaAccountingEntry
+    +affectedConsumers: SliceDeltaAffectedConsumer
+    +computedDelta: SliceDeltaComputed
+    +concern: string
+    +current: SliceDeltaCurrent
+    +declaredConsumers: SliceDeltaDeclaredConsumer
+    +declaredPrediction: [Type]
+    +guards: SliceDeltaGuards
+    +mustNotChange: [Type]
+    +negativeControl: SliceDeltaNegativeControl
+    +observedDelta: any
+    +predictionComparison: SliceDeltaPredictionComparison
+    +proposedCut: [Type]
+    +provenance: unknown
+    +status: "evaluated"
+    +subject: string
+    +unknowns?: SliceDeltaUnknowns
+  }
+  interface SliceDeltaGuards {
+    +clean: boolean
+    +negativeControlFalsified: boolean
+    +violations: number
+  }
+  interface SliceDeltaNegativeControl {
+    +afterSccMembers: Array
+    +beforeSccMembers: Array
+    +description: string
+    +falsified: boolean
+    +reason: string
+    +restoreEdges: SliceEdge
+    +restoresBeforeMembership: boolean
+    +subjectBackInScc: boolean
+    +subjectSccMembersAfterRestore: Array
+  }
+  interface SliceDeltaNotEvaluatedReport {
+    +reason: string
+    +status: "not-evaluated"
+  }
+  interface SliceDeltaPredictionComparison {
+    +declaredVsComputed: SliceDeltaComparison
+    +observedVsComputed: SliceDeltaComparison
+  }
+  interface SliceDeltaRemovedEdge {
+    +becomes: string
+    +certainty?: "unknown"
+    +from: string
+    +importedNames: Array
+    +to: string
+    +typeOnlyStrength: number
+    +valueStrength: number
+  }
+  interface SliceDeltaStrengthenedEdge {
+    +effect: "strengthens-existing-edge"
+    +from: string
+    +note: string
+    +source: any
+    +strength: null
+    +to: string
+    +via?: string
+  }
+  interface SliceDeltaSyntheticNode {
+    +fileCount: null
+    +id: string
+    +inboundEdges: Array
+    +note: string
+    +stats: null
+  }
+  interface SliceDeltaUnknowns {
+    +barrelEdges: Array
+    +nameCollisionEdges?: Array
+    +unevaluatedDynamicImports: number
+    +unreferencedSymbols?: Array
+    +unreferencedSymbolsNote?: string
+    +unresolvedAliasRefs: SliceDeltaUnresolvedAliasRef
+  }
+  interface SliceDeltaUnresolvedAliasRef {
+    +from: string
+    +specifier: string
+  }
+  interface SliceDeltaViolation {
+    +dir?: string
+    +edge?: string
+    +edges?: Array
+    +kind: any
+  }
+  interface SliceDeltaWhyLeft {
+    +dir: string
+    +inCycleAfter: boolean
+    +inEdgeSourcesAfter: Array
+    +inEdgeSourcesBefore: Array
+    +reason: string
+  }
+  interface SliceEdge {
+    +from: string
+    +to: string
+  }
+  interface SliceMove {
+    +file?: string
+    +from: string
+    +note?: string
+    +symbols: Array
+    +to: string
+  }
+  interface SlicePreflightBlocking {
+    +code: string
+    +fix: string
+    +reason: string
+    +scope: string
+  }
+  interface SlicePreflightDestinationVerdict {
+    +blocking?: Array
+    +declaration?: [Type]
+    +dir: string
+    +kind: any
+    +legalAsMoveTarget: boolean
+    +reason: string
+  }
+  interface SlicePreflightEdgeObligation {
+    +edge: string
+    +forSource: string
+    +from: string
+    +importedNames: Array
+    +kind: any
+    +reason: string
+    +to: string
+  }
+  interface SlicePreflightEvaluatedReport {
+    +blocking: SlicePreflightBlocking
+    +current: [Type]
+    +declarations: [Type]
+    +destinations: SlicePreflightDestinationVerdict
+    +edges: SlicePreflightEdgeObligation
+    +legalDestinations: [Type]
+    +nextSteps: Array
+    +notes: Array
+    +outgoing: SlicePreflightOutgoingEdge
+    +provenance: unknown
+    +status: "preflight"
+    +subject: string
+  }
+  interface SlicePreflightInput {
+    +destinations?: Array
+    +graph: TsModuleGraph
+    +provenance?: unknown
+    +subject: string
+  }
+  interface SlicePreflightMoveGroup {
+    +blockedBy: Array
+    +from: string
+    +legal: boolean
+    +reason: string
+    +relationship: any
+    +symbols: SlicePreflightSymbolMove
+    +via: Array
+  }
+  interface SlicePreflightNotEvaluatedReport {
+    +reason: string
+    +status: "not-evaluated"
+  }
+  interface SlicePreflightOutgoingEdge {
+    +edge: string
+    +importedNames: Array
+    +reason: string
+    +to: string
+  }
+  interface SlicePreflightStayGroup {
+    +dir: string
+    +edge: string
+    +forSource: string
+    +reason: string
+    +symbols: Array
+  }
+  interface SlicePreflightSymbolMove {
+    +carriedBy: Array
+    +destinations: Array
+    +newDirDestinations: [Type]
+    +reason: string
+    +symbol: string
+  }
+  interface SliceStay {
+    +dir: string
+    +note?: string
+    +symbols: Array
+  }
+}
+package "Src Cli Layer" as Src_Cli_Layer {
+  class ConfigLoader {
+    +constructor(configDir?: string)
+    +async getConfigPath(): any
+    +async init(options?: [Type]): any
+    +async load(cliOptions?: any, configPath?: string): any
+  }
+  interface FileConfig {
+    +cache?: [Type]
+    +cli?: [Type]
+    +concurrency?: number
+    +diagrams?: [Type]
+    +exclude?: Array
+    +formats?: any
+    +mermaid?: [Type]
+    +outputDir?: string
+    +projectSemantics?: [Type]
+    +verbose?: boolean
+    +workDir?: string
+  }
+  class MetricsHistoryWriter {
+    +async append(packages: PackageMetricsSnapshot, outputDir: string, scope?: MetricsHistoryScopeInfo): any
+    +{static} readonly FILENAME: "metrics-history.jsonl"
+  }
+  interface AnalyzeOptions {
+    +cache: boolean
+    +cacheDir?: string
+    +cliArgs?: string
+    +cliCommand?: string
+    +concurrency?: number
+    +exclude?: Array
+    +format: any
+    +name?: string
+    +output?: string
+    +outputDir?: string
+    +source: any
+    +verbose?: boolean
+    +workDir?: string
+  }
+  interface CLIConfig {
+    +args: Array
+    +command: string
+    +timeout: number
+  }
+  interface Config {
+    +ai?: [Type]
+    +cache: [Type]
+    +cli: CLIConfig
+    +concurrency?: number
+    +exclude: Array
+    +format: any
+    +output?: string
+    +outputDir: string
+    +source: any
+    +verbose?: boolean
+    +workDir?: string
+  }
+}
+package "Src Cli Analyze Layer" as Src_Cli_Analyze_Layer {
+  interface ArchHealthOutcome {
+    +persisted: boolean
+    +previous: IntrinsicDimensionResult
+    +reason?: string
+    +result: IntrinsicDimensionResult
+    +threshold: number
+  }
+  interface ArchHealthScope {
+    +scopeKey?: string
+    +sources?: Array
+  }
+  interface DetectorOptions {
+    +exclude?: Array
+    +formats?: OutputFormats
+    +label?: string
+    +moduleName?: string
+  }
+  interface RunAnalysisOptions {
+    +cliOptions: any
+    +parseWorkerPools?: ProcessParseWorkerPools
+    +reporter: ProgressReporterLike
+    +sessionRoot: string
+    +workDir: string
+  }
+  interface RunAnalysisResult {
+    +archHealth?: ArchHealthOutcome
+    +config: any
+    +diagrams: DiagramConfig
+    +hasDiagramFailures: boolean
+    +lastArchJson?: ArchJSON
+    +persistedScopeKeys: Array
+    +persistedScopes?: QueryScopeEntry
+    +queryScopesPersisted: number
+    +results: DiagramResult
+    +warnings?: Array
+  }
+}
+package "Src Cli Cache Layer" as Src_Cli_Cache_Layer {
+  class ArchJsonDiskCache {
+    +async clear(): any
+    +async computeKey(files: Array): any
+    +constructor(cacheDir: string)
+    +async get(key: string): any
+    +async set(key: string, archJson: ArchJSON): any
+  }
+  interface CacheEntry {
+    +archJson: ArchJSON
+    +createdAt: string
+    +version: string
+  }
+  interface CacheEntry_2 {
+    +data: T
+    +timestamp: number
+    +ttl: number
+  }
+  class CacheManager {
+    +readonly cacheDir: string
+    +async clear(): any
+    +async computeFileHash(filePath: string): any
+    +constructor(cacheDir?: string)
+    +async get(filePath: string, hash: string): any
+    +async getCacheSize(): any
+    +getCompositeKey(files: Array, configBlob: string): string
+    +getDefaultTTL(): number
+    +getStats(): CacheStats
+    +async loadCachedTestAnalysis(compositeKey: string): any
+    +async saveCachedTestAnalysis(compositeKey: string, analysis: TestAnalysis): any
+    +async set(filePath: string, hash: string, data: T, options?: CacheOptions): any
+    +setDefaultTTL(ttl: number): void
+  }
+  interface CacheOptions {
+    +ttl?: number
+  }
+  interface CacheStats {
+    +hitRate: number
+    +hits: number
+    +misses: number
+    +totalSize: number
+  }
+  interface DiagramManifest {
+    +diagrams: Array
+    +lastRun: string
+    +outputDir: string
+    +outputs?: any
+    +version: string
+  }
+  class RenderHashCache {
+    +async checkHit(mmdPath: string, mmdContent: string, options: RenderOptions): any
+    +async clearHashes(dir: string): any
+    +computeKey(mmdContent: string, options: RenderOptions): string
+    +{static} sidecarPath(mmdPath: string): string
+    +async writeHash(mmdPath: string, mmdContent: string, options: RenderOptions): any
+  }
+  interface RenderOptions {
+    +theme: string
+    +transparentBackground: boolean
+  }
+}
+package "Src Cli Cognitive Layer" as Src_Cli_Cognitive_Layer {
+  interface AssembleOptions {
+    +forceRefresh?: boolean
+  }
+  interface CcbFieldReasons {
+    +behavioral?: CcbFieldReason
+    +coverage?: CcbFieldReason
+    +git?: CcbFieldReason
+    +guidance?: CcbFieldReason
+    +structural?: CcbFieldReason
+  }
+  interface FileEntity {
+    +id: string
+    +members?: [Type]
+    +name: string
+    +type: string
+  }
+  interface MetaCcDocSignals {
+    +docVoid: boolean
+    +specPrecisionGap: boolean
+  }
+  interface MetaCcFileEntry {
+    +docVoid?: boolean
+    +specPrecisionGap?: boolean
+  }
+  interface MetaCcResponse {
+    +files?: any
+  }
+  interface CcbReadResult {
+    +bundle: CognitiveContextBundle
+    +stale: boolean
+  }
+  interface CognitiveBehavioralSignals {
+    +editCount: number
+    +readCount: number
+    +reRatio: number
+  }
+  interface CognitiveContextBundle {
+    +assembledAt: string
+    +behavioral: CognitiveBehavioralSignals
+    +documentation?: CognitiveDocumentationSignals
+    +fileHash: string
+    +fileId: string
+    +filePath: string
+    +git: CognitiveGitSignals
+    +guidance: CognitiveGuidance
+    +structural: CognitiveSummaryEntry
+  }
+  interface CognitiveDocumentationSignals {
+    +deFactoSpec: string
+    +docFreshnessGap: number
+    +docVoid: boolean
+    +freshnessWarning: string
+    +specPrecisionGap: boolean
+  }
+  interface CognitiveGitSignals {
+    +cochangeNeighbors: Array
+    +hotspotScore: number
+    +riskLevel: string
+  }
+  interface CognitiveGuidance {
+    +cognitiveLoad: number
+    +editPrecautions: Array
+    +keyInvariants: Array
+    +pattern: any
+  }
+}
+package "Src Cli Commands Layer" as Src_Cli_Commands_Layer {
+  interface DriftCheckDeps {
+    +readHistory?: [Type]
+    +resolveBaseline?: [Type]
+    +root?: string
+  }
+  interface DriftCheckResult {
+    +exitCode: any
+    +message: string
+  }
+  interface QueryOptions {
+    +archDir?: string
+    +architectureDrift?: true
+    +atlasLayer?: string
+    +attr?: Array
+    +callers?: string
+    +callersDepth?: string
+    +changeContext?: string
+    +changeRisk?: string
+    +clusterBoundary?: true
+    +cochange?: string
+    +cycles?: true
+    +depsOf?: string
+    +depth: string
+    +duplicates?: true
+    +entity?: string
+    +entityCoverage?: string
+    +file?: string
+    +format: string
+    +godPackages?: true
+    +highCoupling?: true
+    +implementersOf?: string
+    +includeTests?: true
+    +inCycles?: true
+    +intrinsicDimension?: true
+    +listScopes?: true
+    +minStatements?: string
+    +minTokens?: string
+    +orphans?: true
+    +outputScope?: string
+    +ownership?: string
+    +packageFanin?: true
+    +packageFanout?: true
+    +packageStats?: any
+    +packageStatsMinFiles?: string
+    +packageStatsMinLoc?: string
+    +packageStatsSortBy?: string
+    +packageStatsTop?: string
+    +queryFormat?: string
+    +scope?: string
+    +severity?: string
+    +subclassesOf?: string
+    +summary?: true
+    +targetType?: string
+    +testIssues?: true
+    +testMetrics?: true
+    +testPatterns?: true
+    +threshold: string
+    +top?: string
+    +type?: string
+    +usedBy?: string
+    +verbose?: boolean
+  }
+  interface ProvenanceConsistency {
+    +head?: string
+    +reason?: string
+    +status: any
+  }
+  interface ResolvedGraph {
+    +analysisSource: string
+    +language: string
+    +moduleGraph: TsModuleGraph
+    +timestamp: string
+    +workspaceRoot: string
+  }
+  interface SliceDeltaCliOptions {
+    +arch?: string
+    +json?: string
+    +observed?: string
+    +projectRoot?: string
+    +root?: string
+    +scope?: string
+    +slice?: string
+  }
+  interface SliceDeltaCliResult {
+    +exitCode: SliceDeltaExitCode
+    +report: SliceDeltaReport
+  }
+}
+package "Src Cli Errors Layer" as Src_Cli_Errors_Layer {
+  class APIError {
+    +constructor(message: string, statusCode: number)
+  }
+  interface ErrorFormatOptions {
+    +color?: boolean
+    +verbose?: boolean
+  }
+  class ErrorHandler {
+    +format(error: unknown, options?: ErrorFormatOptions): string
+  }
+  class FileError {
+    +constructor(message: string, filePath: string, operation: any)
+  }
+  class ValidationError {
+    +constructor(message: string, suggestions?: Array)
+  }
+}
+package "Src Cli Git History Layer" as Src_Cli_Git_History_Layer {
+  class GitHistoryNotFoundError {
+    +constructor(archguardDir: string)
+  }
+}
+package "Src Cli Mcp Layer" as Src_Cli_Mcp_Layer {
+  interface AnalyzeToolContext {
+    +defaultRoot: string
+    +parseWorkerPools?: ProcessParseWorkerPools
+  }
+  interface AdjacencyEdge {
+    +from: string
+    +label?: string
+    +to: string
+  }
+  interface ScopeInfoPayload {
+    +availableScopes?: [Type]
+    +generatedAt: string
+    +key: string
+    +label: string
+    +sources: Array
+    +staleness?: StalenessInfo
+    +warning?: string
+  }
+}
+package "Src Cli Mcp Tools Layer" as Src_Cli_Mcp_Tools_Layer {
+  interface DriftToolResult {
+    +breakingEntities: Array
+    +hasBreakingDrift: boolean
+    +report: DriftReport
+  }
+  interface NotEvaluated {
+    +evaluated: false
+    +hint: string
+    +reason: string
+  }
+  interface CognitiveSummaryEntryWithReasons {
+    +gitRiskReason?: GitRiskReason
+    +projectSemantics?: ProjectSemanticsStatus
+    +reason?: MissingEntityReason
+    +reasonDetail?: string
+    +resolvedName?: string
+    +testCoverageReason?: CoverageReason
+  }
+  interface MissingClassification {
+    +reason: MissingEntityReason
+    +reasonDetail: string
+    +resolvedName?: string
+  }
+  interface OtherScopeHit {
+    +matchedBy: any
+    +resolvedName: string
+    +scopeKey: string
+  }
+  interface TrendSnapshot {
+    +packages: PackageMetricsSnapshot
+    +scopeKey: string
+    +timestamp: string
+  }
+  interface PackageCycleMetric {
+    +cycleCount: number
+    +cyclesWith: Array
+  }
+  interface PackageMetricsToolEntry {
+    +cycleCount: number
+    +cyclesWith: Array
+    +fanIn: number
+    +fanOut: number
+    +packageName: string
+  }
+}
+package "Src Cli Processors Layer" as Src_Cli_Processors_Layer {
+  interface ArchJsonGetOptions {
+    +needsModuleGraph: boolean
+  }
+  interface ArchJsonProviderOptions {
+    +globalConfig: GlobalConfig
+    +parseCache?: ParseCache
+    +parserRuntime?: ParserRuntimeKind
+    +parseWorkerPool?: ParseWorkerPool
+    +projectFileCounter?: [Type]
+    +registry?: PluginRegistry
+  }
+  class ArchJsonProvider {
+    +cacheSize(): number
+    +constructor(options: ArchJsonProviderOptions)
+    +async get(diagram: DiagramConfig, opts: ArchJsonGetOptions): any
+  }
+  class DiagramOutputRouter {
+    +constructor(globalConfig: GlobalConfig, progress: ProgressReporterLike)
+    +async route(archJSON: ArchJSON, paths: OutputPaths, diagram: DiagramConfig, pool: MermaidRenderWorkerPool): any
+  }
+  class DiagramPipelineRunner {
+    +constructor(aggregator: ArchJSONAggregator, metricsCalculator: MetricsCalculator, router: DiagramOutputRouter, globalConfig: GlobalConfig, progress: ProgressReporterLike, parallelProgress?: ParallelProgressReporter)
+    +async run(diagram: DiagramConfig, rawArchJSON: ArchJSON, pool: MermaidRenderWorkerPool, parallelProgress?: ParallelProgressReporter): any
+  }
+  class DiagramProcessor {
+    +constructor(options: DiagramProcessorOptions)
+    +async generateTestCoverageHeatmap(analysis: TestAnalysis, archJson: ArchJSON, outputDir: string): any
+    +getLastArchJson(): ArchJSON
+    +getQuerySourceGroups(): QuerySourceGroup
+    +async processAll(): any
+  }
+  interface DiagramProcessorOptions {
+    +collector?: QueryScopeCollector
+    +diagrams: DiagramConfig
+    +globalConfig: GlobalConfig
+    +parseCache?: ParseCache
+    +parserRuntime?: ParserRuntimeKind
+    +parseWorkerPool?: ParseWorkerPool
+    +poolFactory?: WorkerPoolFactory
+    +progress: ProgressReporterLike
+    +registry?: PluginRegistry
+    +runner?: DiagramPipelineRunner
+  }
+  interface DerivedModuleEdge {
+    +files: Set
+    +names: Set
+  }
+  interface EdgeAccumulator {
+    +evidence: TsModuleEdgeEvidence
+    +from: string
+    +importedNames: Set
+    +strength: number
+    +to: string
+    +typeOnlyKnown: boolean
+    +typeOnlyStrength?: number
+    +valueKnown: boolean
+    +valueStrength?: number
+  }
+  interface MergedQueryView {
+    +archJson: ArchJSON
+    +crossScopeEdges: CrossScopeEdge
+    +sources: Array
+  }
+  interface NodeAccumulator {
+    +isInternal: boolean
+  }
+  class QueryScopeCollector {
+    +getLastArchJson(): ArchJSON
+    +getQuerySourceGroups(): QuerySourceGroup
+    +register(sources: Array, archJson: ArchJSON, kind: any, role?: any): void
+    +setLastArchJson(archJson: ArchJSON, groupHasPrimary: boolean): void
+  }
+  interface ResolvedTarget {
+    +mergedId: string
+    +scopeKey: string
+  }
+  interface ScopeLayout {
+    +absFileByEntityId: Map
+    +archJson: ArchJSON
+    +entityIdMap: Map
+    +key: string
+    +root: string
+  }
+  class WorkerPoolFactory {
+    +create(diagrams: DiagramConfig, globalConfig: GlobalConfig): MermaidRenderWorkerPool
+    +createParsePool(concurrency: number, selectedRuntime: ParserRuntimeKind, workspaceRoot?: string, language?: ParseWorkerLanguage): ParseWorkerPool
+  }
+}
+package "Src Cli Progress Layer" as Src_Cli_Progress_Layer {
+  class NoopReporter {
+    +fail(_message: string): void
+    +info(_message: string): void
+    +start(_message: string): void
+    +succeed(_message: string): void
+    +warn(_message: string): void
+  }
+  class ProgressReporter {
+    +constructor()
+    +fail(message: string): void
+    +getCurrentStage(): Stage
+    +getStages(): Stage
+    +getSummary(): ProgressSummary
+    +info(message: string): void
+    +printSummary(): void
+    +start(message: string): void
+    +stop(): void
+    +succeed(message: string): void
+    +update(completed: number, total: number): void
+    +warn(message: string): void
+  }
+  interface ProgressReporterLike {
+    +fail(message: string): void
+    +info(message: string): void
+    +start(message: string): void
+    +succeed(message: string): void
+    +warn(message: string): void
+  }
+  interface ProgressSummary {
+    +failureCount: number
+    +successCount: number
+    +totalDuration: number
+    +totalDurationFormatted: string
+    +warningCount: number
+  }
+  interface Stage {
+    +endTime?: number
+    +name: string
+    +progress?: [Type]
+    +startTime?: number
+    +status: any
+  }
+  class StderrReporter {
+    +fail(message: string): void
+    +info(message: string): void
+    +start(message: string): void
+    +succeed(message: string): void
+    +warn(message: string): void
+  }
+  interface DiagramProgress {
+    +name: string
+    +progress: number
+    +status: any
+  }
+  class ParallelProgressReporter {
+    +complete(name: string): void
+    +constructor(diagrams: Array)
+    +fail(name: string): void
+    +stop(): void
+    +update(name: string, progress: number, status?: string): void
+  }
+}
+package "Src Cli Query Layer" as Src_Cli_Query_Layer {
+  interface AvailableScope {
+    +entityCount: number
+    +generatedAt?: string
+    +key: string
+    +label: string
+  }
+  interface GitHeadInfo {
+    +committedAt: string
+    +sha: string
+  }
+  interface QueryContext {
+    +availableScopes: AvailableScope
+    +engine: QueryEngine
+    +extensionAccessor: ExtensionAccessor
+    +relationQueryService: RelationQueryService
+    +scopeEntry: QueryScopeEntry
+    +scopeInfo: ResolvedScopeInfo
+  }
+  interface ResolvedScopeInfo {
+    +generatedAt: string
+    +key: string
+    +label: string
+    +sources: Array
+    +staleness?: StalenessInfo
+  }
+  interface StalenessInfo {
+    +generatedAt: string
+    +head?: GitHeadInfo
+    +hint?: string
+    +status: StalenessStatus
+  }
+  interface MergedIdentity {
+    +dataKey: string
+    +entry: QueryScopeEntry
+    +previousKeys: Set
+  }
+  interface NormalizedEntry {
+    +entry: QueryScopeEntry
+    +previousKey: string
+  }
+  interface PersistQueryScopesOptions {
+    +merge?: boolean
+    +preferredGlobalScopeKey?: string
+  }
+  interface PruneQueryScopesOptions {
+    +dryRun?: boolean
+    +keys?: Array
+    +now?: Date
+    +olderThanDays?: number
+  }
+  interface PruneQueryScopesResult {
+    +missingKeys: Array
+    +remaining: QueryScopeEntry
+    +removed: QueryScopeEntry
+  }
+  interface QueryManifest {
+    +generatedAt: string
+    +globalScopeKey?: string
+    +scopes: QueryScopeEntry
+    +version: string
+  }
+  interface QuerySourceGroup {
+    +archJson: ArchJSON
+    +key: string
+    +kind: any
+    +role?: any
+    +sources: Array
+  }
+}
+package "Src Cli Utils Layer" as Src_Cli_Utils_Layer {
+  interface DiagramOptions {
+    +exclude?: Array
+    +formats?: OutputFormats
+  }
+  interface PlannedScope {
+    +label: string
+    +language: DetectedLanguage
+    +role?: QueryRole
+    +sources: Array
+  }
+  class DiagramIndexGenerator {
+    +constructor(globalConfig: GlobalConfig)
+    +async generate(results: DiagramResult): any
+  }
+  interface FileDiscoveryOptions {
+    +exclude?: Array
+    +extensions?: Array
+    +skipMissing?: boolean
+    +sources?: Array
+  }
+  class FileDiscoveryService {
+    +async countSkippedByExtension(sources: Array, exclude?: Array): any
+    +async discoverFiles(options?: FileDiscoveryOptions): any
+    +async discoverIgnoredFiles(source: string): any
+    +formatExcludeReport(): Array
+    +getExcludeReport(): ExcludeReportEntry
+  }
+  interface FitnessRelationsResult {
+    +detail: string
+    +relations: any
+    +scopeKey?: string
+  }
+  interface QueryManifestShape {
+    +globalScopeKey?: string
+    +scopes?: [Type]
+  }
+  interface FormatSelectionSources {
+    +cli?: OutputFormats
+    +diagram?: OutputFormats
+    +global?: OutputFormats
+  }
+  interface ExcludeReportEntry {
+    +count: number
+    +excludedFiles?: number
+    +rules: Array
+    +source: IgnoreSource
+  }
+  interface IgnoreRuleSet {
+    +matcher: Ignore
+    +root: string
+    +rules: Array
+    +source: IgnoreSource
+  }
+  interface OutputPathOptions {
+  }
+  class OutputPathResolver {
+    +constructor(config: [Type])
+    +async ensureDirectory(options?: ResolveOptions): any
+    +resolve(options?: ResolveOptions): PathResolution
+  }
+  interface PathResolution {
+    +baseName: string
+    +outputDir: string
+    +paths: [Type]
+  }
+  interface ResolvedPaths {
+    +dir: string
+  }
+  interface ResolveOptions {
+    +baseName?: string
+    +name?: string
+    +output?: string
+  }
+  interface LanguageCandidate {
+    +evidence: Array
+    +language: DetectedLanguage
+    +roots: Array
+    +score: number
+  }
+  interface LanguageStats {
+    +markerFiles: Set
+    +markerRoots: Map
+    +priorityFiles: number
+    +sourceRoots: Map
+    +totalFiles: number
+  }
+  class TestOutputWriter {
+    +async write(analysis: TestAnalysis, outputDir: string): any
+  }
+}
+package "Src Core Layer" as Src_Core_Layer {
+  class EntityTypeRegistry {
+    +clear(): void
+    +get(type: string): CustomEntityTypeDeclaration
+    +listCustomTypes(): Array
+    +register(decl: CustomEntityTypeDeclaration): void
+  }
+  class PluginRegistry {
+    +async detectPluginForDirectory(directoryPath: string): any
+    +getByExtension(extension: string): ILanguagePlugin
+    +getByName(name: string, version?: string): ILanguagePlugin
+    +has(name: string, version?: string): boolean
+    +listAll(): ILanguagePlugin
+    +listVersions(name: string): Array
+    +async loadFromPath(pluginPath: string): any
+    +register(plugin: ILanguagePlugin, options?: RegisterOptions): void
+    +async resolveForLanguage(language: string, packRegistry?: PackRegistry): any
+  }
+  interface RegisterOptions {
+    +overwrite?: boolean
+  }
+}
+package "Src Core Interfaces Layer" as Src_Core_Interfaces_Layer {
+  interface Dependency {
+    +isDirect: boolean
+    +name: string
+    +scope: DependencyScope
+    +source: string
+    +type: DependencyType
+    +version: string
+  }
+  interface IDependencyExtractor {
+    +extractDependencies(workspaceRoot: string): any
+  }
+  class FileSystemError {
+    +constructor(pluginName: string, operation: any, path: string, cause?: Error)
+    +readonly operation: any
+    +readonly path: string
+  }
+  class ParseError {
+    +constructor(message: string, pluginName: string, file: string, line?: number, cause?: Error)
+    +readonly file: string
+    +readonly line: number
+  }
+  class PluginConfigError {
+    +constructor(pluginName: string, message: string, field?: string, cause?: Error)
+    +readonly field: string
+  }
+  class PluginError {
+    +readonly cause: Error
+    +readonly code: string
+    +constructor(message: string, code: string, pluginName: string, cause?: Error)
+    +readonly pluginName: string
+  }
+  class PluginInitializationError {
+    +constructor(pluginName: string, message: string, cause?: Error)
+  }
+  class ToolDependencyError {
+    +constructor(pluginName: string, toolName: string, requiredVersion?: string)
+    +readonly requiredVersion: string
+    +readonly toolName: string
+  }
+  interface CustomEntityTypeDeclaration {
+    +attributes?: Array
+    +display: string
+    +mermaidShape?: any
+    +type: string
+  }
+  interface ILanguagePlugin {
+    +canHandle(targetPath: string): boolean
+    +readonly dependencyExtractor?: IDependencyExtractor
+    +dispose(): any
+    +extractTestStructure(filePath: string, code: string, patternConfig?: TestPatternConfig): RawTestFile
+    +initialize(config: PluginInitConfig): any
+    +isTestFile(filePath: string, patternConfig?: TestPatternConfig): boolean
+    +readonly metadata: PluginMetadata
+    +readonly supportedLevels: readonly Array
+    +readonly validator?: IValidator
+  }
+  interface PluginCapabilities {
+    +dependencyExtraction: boolean
+    +incrementalParsing: boolean
+    +singleFileParsing: boolean
+    +testStructureExtraction?: boolean
+    +typeInference: boolean
+  }
+  interface PluginInitConfig {
+    +cacheDir?: string
+    +goplsTimeoutMs?: number
+    +verbose?: boolean
+    +workspaceRoot: string
+  }
+  interface PluginMetadata {
+    +author: string
+    +capabilities: PluginCapabilities
+    +customEntityTypes?: CustomEntityTypeDeclaration
+    +displayName: string
+    +fileExtensions: Array
+    +minCoreVersion: string
+    +name: string
+    +repository?: string
+    +version: string
+  }
+  interface RawTestCase {
+    +assertionCount: number
+    +isSkipped: boolean
+    +name: string
+  }
+  interface RawTestFile {
+    +filePath: string
+    +frameworks: Array
+    +importedSourceFiles: Array
+    +testCases: RawTestCase
+    +testTypeHint: any
+    +totalAssertions?: number
+  }
+  interface IParserFacade {
+    +parseFiles(filePaths: Array): any
+  }
+  interface IParser {
+    +parseCode(code: string, filePath?: string): ArchJSON
+    +parseFiles(filePaths: Array): any
+    +parseProject(workspaceRoot: string, config: ParseConfig): any
+  }
+  interface ParseConfig {
+    +concurrency?: number
+    +excludePatterns: Array
+    +filePattern?: string
+    +ignorePaths?: Array
+    +includePatterns?: Array
+    +languageSpecific?: any
+    +workspaceRoot: string
+  }
+  interface IRendererFacade {
+    +generateOnly(archJson: ArchJSON, outputOptions: DiagramOutputOptions, level: string, diagramConfig?: DiagramConfig): any
+  }
+  interface DiagramOutputOptions {
+    +baseName: string
+    +outputDir: string
+    +paths: [Type]
+  }
+  interface RenderJob {
+    +diagramCode: string
+    +format: DiagramFormat
+    +name: string
+    +outputPath: [Type]
+  }
+  interface IValidator {
+    +validate(archJson: ArchJSON): ValidationResult
+  }
+  interface ValidationError_2 {
+    +code: string
+    +message: string
+    +path?: string
+    +severity: "error"
+  }
+  interface ValidationResult {
+    +durationMs: number
+    +errors: ValidationError
+    +valid: boolean
+    +warnings: ValidationWarning
+  }
+  interface ValidationWarning {
+    +code: string
+    +message: string
+    +path?: string
+    +severity: "warning"
+    +suggestion?: string
+  }
+}
+package "Src Core Pack Registry Layer" as Src_Core_Pack_Registry_Layer {
+  class PackNotFoundError {
+    +constructor(packPath: string, message?: string)
+  }
+  class PackRegistry {
+    +constructor(options?: PackRegistryOptions)
+    +async list(): any
+    +async load(packDir: string): any
+    +async resolve(language: string): any
+  }
+  interface PackRegistryOptions {
+    +builtinPacksRoot?: string
+  }
+  interface ArchitecturalPattern {
+    +description?: string
+    +name: string
+    +pattern: string
+  }
+  interface DependencyRuleSet {
+    +packageFiles: Array
+  }
+  interface DetectRule {
+    +annotationPresent?: string
+    +contentContains?: string
+    +fileMatch?: string
+  }
+  interface EntityNodeRule {
+    +abstractEntityType?: string
+    +baseClassField?: string
+    +bodyField?: string
+    +constructorNode?: string
+    +entityType: string
+    +extendsField?: string
+    +fieldNode?: string
+    +functionNode?: string
+    +implementsField?: string
+    +methodNode?: string
+    +nameField: string
+    +nodeType: string
+    +typeIdentifierNode?: string
+  }
+  interface EntryPointRule {
+    +annotation: string
+    +method?: string
+    +pathArg?: string
+    +protocol?: string
+  }
+  interface FrameworkModuleRule {
+    +annotations: Array
+    +diagramLevel: string
+  }
+  interface FrameworkRule {
+    +detect: DetectRule
+    +entryPoints: EntryPointRule
+    +modules: any
+    +name: string
+  }
+  interface ImportPatternRule {
+    +moduleGroup?: number
+    +pattern: string
+    +type: string
+  }
+  interface KnowledgePack {
+    +dependencies: DependencyRuleSet
+    +frameworks: FrameworkRule
+    +manifest: KnowledgePackManifest
+    +modules: ModuleRuleSet
+    +patterns: ArchitecturalPattern
+  }
+  interface KnowledgePackManifest {
+    +engine: string
+    +extensions: Array
+    +frameworks: Array
+    +language: string
+    +name: string
+    +repository?: string
+    +sha256?: string
+    +version: string
+  }
+  interface LoadedPack {
+    +rootPath: string
+  }
+  interface ModuleRuleSet {
+    +entityNodes: EntityNodeRule
+    +importPatterns: ImportPatternRule
+    +pathResolution: [Type]
+    +relations: RelationEmissionConfig
+  }
+  interface RelationEmissionConfig {
+    +fieldDependency: boolean
+    +implementation: boolean
+    +importDependency: boolean
+    +inheritance: boolean
+    +parameterDependency: boolean
+  }
+}
+package "Src Core Parser Runtime Layer" as Src_Core_Parser_Runtime_Layer {
+  class ParseError_2 {
+    +constructor(message: string, filePath: string, line?: number, column?: number)
+  }
+  interface ParserBackendResolver {
+    +resolveBackend(runtime?: ParserRuntimeKind): any
+    +resolveSession(language: ParserLanguage): any
+  }
+  interface ParserBackend {
+    +createSession(language: ParserLanguage): any
+    +readonly runtime: ParserRuntimeKind
+  }
+  class ParserInitializationError {
+    +constructor(language: ParserLanguage, backend: string, cause: unknown)
+  }
+  interface ParserBackendSelection {
+    +readonly backend: ParserBackend
+    +readonly diagnostic: string
+    +readonly fallbackReason?: string
+    +readonly language: ParserLanguage
+    +readonly policy: any
+    +readonly runtime: ParserRuntimeKind
+    +readonly source: ParserRuntimeChoiceSource
+  }
+  interface ParserQueryLike {
+    +matches(node: SyntaxNodeLike): any
+  }
+  interface ParserSession {
+    +dispose(): void
+    +readonly language: string
+    +parse(code: string): SyntaxTreeLike
+    +query(source: string): ParserQueryLike
+    +readonly runtime: ParserRuntimeKind
+  }
+  interface QueryCaptureLike {
+    +readonly name: string
+    +readonly node: SyntaxNodeLike
+  }
+  interface QueryMatchLike {
+    +readonly captures: QueryCaptureLike
+    +readonly pattern: number
+  }
+  interface SyntaxNodeLike {
+    +childForFieldName(name: string): SyntaxNodeLike
+    +readonly children: SyntaxNodeLike
+    +descendantsOfType(type: any): SyntaxNodeLike
+    +readonly endIndex: number
+    +readonly endPosition: SyntaxPointLike
+    +readonly id: number
+    +readonly isNamed: boolean
+    +namedChild(index: number): SyntaxNodeLike
+    +readonly namedChildCount: number
+    +readonly namedChildren: SyntaxNodeLike
+    +readonly parent: SyntaxNodeLike
+    +readonly startIndex: number
+    +readonly startPosition: SyntaxPointLike
+    +readonly text: string
+    +readonly type: string
+  }
+  interface SyntaxPointLike {
+    +readonly column: number
+    +readonly row: number
+  }
+  interface SyntaxTreeLike {
+    +dispose(): void
+    +readonly rootNode: SyntaxNodeLike
+  }
+}
+package "Src Core Query Layer" as Src_Core_Query_Layer {
+  interface ArchIndex {
+    +archJsonHash: string
+    +cycles: CycleInfo
+    +dependencies: any
+    +dependents: any
+    +fileToIds: any
+    +generatedAt: string
+    +idToFile: any
+    +idToName: any
+    +language: string
+    +nameToIds: any
+    +relationsByType: any
+    +version: string
+  }
+  class CognitiveMetrics {
+    +constructor(archJson: ArchJSON, index: ArchIndex, ext: ExtensionAccessor, structure: StructureMetrics)
+    +getSummary(): [Type]
+  }
+  class QualityMetrics {
+    +constructor(archJson: ArchJSON, ext: ExtensionAccessor)
+    +getEntityCoverage(entityId: string): [Type]
+    +getPackageCoverage(): PackageCoverage
+  }
+  interface PackageStatEntry {
+    +entityCount: number
+    +fieldCount: number
+    +fileCount: number
+    +languageStats?: [Type]
+    +loc?: number
+    +methodCount: number
+    +package: string
+    +testFileCount?: number
+  }
+  interface PackageStatMeta {
+    +dataPath: any
+    +locAvailable: boolean
+    +locBasis?: "maxEndLine"
+  }
+  interface PackageStatsResult {
+    +meta: PackageStatMeta
+    +packages: PackageStatEntry
+  }
+  class StructureMetrics {
+    +buildTestPattern(): RegExp
+    +constructor(archJson: ArchJSON, index: ArchIndex, ext: ExtensionAccessor, entityMap: Map)
+    +findHighCoupling(threshold?: number): Entity
+    +findInCycles(): Entity
+    +findOrphans(): Entity
+    +getPackageStats(depth?: number, topN?: number): PackageStatsResult
+  }
+  class ArchMetrics {
+    +constructor(archJson: ArchJSON, index: ArchIndex, extensionAccessor?: ExtensionAccessor)
+    +findHighCoupling(threshold?: number): Entity
+    +findInCycles(): Entity
+    +findOrphans(): Entity
+    +getEntityCoverage(entityId: string): [Type]
+    +getPackageCoverage(): PackageCoverage
+    +getPackageStats(depth?: number, topN?: number): PackageStatsResult
+    +getSummary(): [Type]
+  }
+  interface SerializeOptions {
+    +relationFields?: any
+    +totalRelations?: number
+    +truncated?: boolean
+  }
+  class EntityQueryService {
+    +constructor(archJson: ArchJSON, index: ArchIndex)
+    +findByAttr(key: string, value?: any): Entity
+    +findByType(entityType: string): Entity
+    +findByTypeAndAttr(entityType: string, attrKey?: string, attrValue?: any): Entity
+    +findEntity(name: string): Entity
+    +getById(id: string): Entity
+    +getFileEntities(filePath: string): Entity
+  }
+  class ExtensionAccessor {
+    +constructor(archJson: ArchJSON)
+    +getAtlasLayer(layer: K): GoAtlasLayers
+    +getAtlasLayers(): GoAtlasLayers
+    +getEntityIds(): Array
+    +getRelations(): any
+    +getTestAnalysis(): TestAnalysis
+    +getTsModuleGraph(): TsModuleGraph
+    +hasAtlasExtension(): boolean
+    +hasTestAnalysis(): boolean
+  }
+  interface CrossScopeEdge {
+    +from: string
+    +fromScope: string
+    +source: string
+    +target: string
+    +to: string
+    +toScope: string
+  }
+  interface EdgeListEntity {
+    +id: string
+    +methods: [Type]
+    +name: string
+    +sourceFile: string
+    +type: string
+  }
+  interface EdgeListOutput {
+    +entities: EdgeListEntity
+    +relations: Partial[]
+    +totalRelations?: number
+    +truncated?: boolean
+  }
+  interface EdgeListRelation {
+    +from: string
+    +to: string
+    +type: string
+  }
+  interface EntitySummary {
+    +fieldCount: number
+    +file: string
+    +id: string
+    +methodCount: number
+    +name: string
+    +type: string
+    +visibility: string
+  }
+  interface PackageCycle {
+    +edges?: PackageCycleEdgeEvidence
+    +modules: Array
+    +size: number
+  }
+  interface PackageCycleEdgeEvidence {
+    +file: string
+    +from: string
+    +line: number
+    +specifier: string
+    +to: string
+  }
+  interface PackageCyclesResult {
+    +bridges?: PackageEdgeDeletionImpact
+    +cycles: PackageCycle
+    +edgeDeletions?: PackageEdgeDeletionImpact
+    +evaluated: boolean
+    +granularity: "package"
+    +maxScc?: number
+    +reason?: string
+  }
+  interface PackageEdgeDeletionImpact {
+    +delta: number
+    +from: string
+    +maxSccAfter: number
+    +maxSccBefore: number
+    +specifier: string
+    +to: string
+  }
+  class QueryEngine {
+    +applyOutputOptions(entities: Entity, options?: QueryMethodOptions): Entity
+    +constructor(options: QueryEngineOptions)
+    +findByAttr(key: string, value?: any, options?: QueryMethodOptions): Entity
+    +findByType(entityType: string, options?: QueryMethodOptions): Entity
+    +findByTypeAndAttr(entityType: string, attrKey?: string, attrValue?: any, options?: QueryMethodOptions): Entity
+    +findEntity(name: string, options?: QueryMethodOptions): Entity
+    +findHighCoupling(threshold?: number): Entity
+    +findInCycles(): Entity
+    +findOrphans(): Entity
+    +getCrossScopeEdges(): any
+    +getCycles(): CycleInfo
+    +getEntityCoverage(entityId: string): [Type]
+    +getFileEntities(filePath: string, options?: QueryMethodOptions): Entity
+    +getPackageCoverage(): PackageCoverage
+    +getPackageCycles(): PackageCyclesResult
+    +getPackageStats(depth?: number, topN?: number): PackageStatsResult
+    +getScopeEntry(): QueryScopeEntry
+    +getSummary(): [Type]
+    +readonly relationQueryService: RelationQueryService
+    +toSummary(entity: Entity): EntitySummary
+  }
+  interface QueryEngineOptions {
+    +archIndex: ArchIndex
+    +archJson: ArchJSON
+    +crossScopeEdges?: any
+    +scopeEntry: QueryScopeEntry
+  }
+  interface QueryMethodOptions {
+    +anchorNames?: readonly Array
+    +outputScope?: OutputScope
+    +queryFormat?: QueryOutputFormat
+    +relationFields?: any
+    +topN?: number
+  }
+  class RelationQueryService {
+    +constructor(archJson: ArchJSON, index: ArchIndex, entityQueryService: EntityQueryService)
+    +findCallers(entityName: string, depth?: number): [Type]
+    +findImplementers(interfaceName: string): Entity
+    +findSubclasses(className: string): Entity
+    +getDependencies(entityName: string, depth?: number): Entity
+    +getDependents(entityName: string, depth?: number): Entity
+  }
+}
+package "Src Core Rule Engine Layer" as Src_Core_Rule_Engine_Layer {
+  class RuleBasedLanguagePlugin {
+    +canHandle(targetPath: string): boolean
+    +constructor(pack: LoadedPack, resolver?: ParserBackendResolver)
+    +dispose(): any
+    +async initialize(config: PluginInitConfig): any
+    +readonly metadata: PluginMetadata
+    +parseCode(code: string, filePath?: string): ArchJSON
+    +async parseFiles(filePaths: Array): any
+    +async parseProject(workspaceRoot: string, config: ParseConfig): any
+    +readonly supportedLevels: readonly ["package", "class"]
+  }
+  class RuleEngine {
+    +analyzeFile(code: string, filePath: string, moduleIndex?: ReadonlySet): RuleEngineFileResult
+    +constructor(pack: LoadedPack, session: ParserSession, options?: RuleEngineOptions)
+    +async detectFramework(projectRoot: string): any
+    +extractEntities(code: string, filePath: string): Entity
+    +extractFromTree(rootNode: SyntaxNodeLike, filePath: string, code: string, moduleIndex?: ReadonlySet): RuleEngineFileResult
+    +extractImportRelations(code: string, filePath: string, moduleIndex?: ReadonlySet): Relation
+    +extractRelations(code: string, filePath: string, moduleIndex?: ReadonlySet): Relation
+    +moduleIdFor(filePath: string): string
+    +parse(code: string): SyntaxTreeLike
+  }
+  interface RuleEngineFileResult {
+    +entities: Entity
+    +relations: Relation
+  }
+  interface RuleEngineOptions {
+    +workspaceRoot?: string
+  }
+}
+package "Src Mermaid Layer" as Src_Mermaid_Layer {
+  class MermaidAutoRepair {
+    +constructor(parseValidator: MermaidParseValidator)
+    +async repair(mermaidCode: string, _errors: ValidationError): any
+    +async repairBestEffort(mermaidCode: string): any
+  }
+  class CommentGenerator {
+    +generateAll(config: DiagramConfig): string
+    +generateHeader(config: DiagramConfig): string
+    +generatePatternComments(config: DiagramConfig): string
+    +generateProcessComments(config: DiagramConfig): string
+    +generateUsageComments(config: DiagramConfig): string
+    +generateVisibleTitle(config: DiagramConfig): string
+  }
+  class CppPackageFlowchartGenerator {
+    +generate(archJSON: ArchJSON): string
+  }
+  class MermaidDiagramGenerator {
+    +constructor(config: GlobalConfig, progress?: IProgressReporter)
+    +async generateAndRender(archJson: ArchJSON, outputOptions: DiagramOutputOptions, level: DetailLevel, diagramConfig?: DiagramConfig): any
+    +async generateOnly(archJson: ArchJSON, outputOptions: DiagramOutputOptions, level: DetailLevel, diagramConfig?: DiagramConfig): any
+    +{static} async renderJobsInParallel(jobs: RenderJob, concurrency: number, progress?: IProgressReporter): any
+  }
+  class ValidatedMermaidGenerator {
+    +constructor(archJson: ArchJSON, options: [Type], diagramConfig?: DiagramConfig)
+    +generate(): string
+    +generateClassDiagrams(maxNodesPerDiagram: number): [Type]
+  }
+  class HeuristicGrouper {
+    +constructor(config?: any)
+    +group(archJson: ArchJSON): GroupingDecision
+  }
+  interface IProgressReporter {
+    +fail(message: string): void
+    +info(message: string): void
+    +start(message: string): void
+    +succeed(message: string): void
+    +warn(message: string): void
+  }
+  class NoopProgressReporter {
+    +fail(_message: string): void
+    +info(_message: string): void
+    +start(_message: string): void
+    +succeed(_message: string): void
+    +warn(_message: string): void
+  }
+  class MermaidRenderWorkerPool {
+    +constructor(poolSize: number, initData: WorkerInitData)
+    +render(job: any): any
+    +start(): void
+    +async terminate(): any
+  }
+  interface RenderJob_2 {
+    +jobId: string
+    +mermaidCode: string
+  }
+  interface RenderResult {
+    +error?: string
+    +jobId: string
+    +success: boolean
+    +svg?: string
+  }
+  interface WorkerInitData {
+    +maxTextSize: number
+    +theme: string
+    +themeVariables?: any
+    +transparentBackground: boolean
+  }
+  class IsomorphicMermaidRenderer {
+    +constructor(options?: any)
+    +async convertSVGToPNG(svg: string, outputPath: string): any
+    +getOptions(): MermaidRendererOptions
+    +async renderAndSave(mermaidCode: string, paths: MermaidOutputPaths): any
+    +async renderPNG(mermaidCode: string, outputPath: string): any
+    +async renderSVG(mermaidCode: string): any
+    +async renderSVGRaw(mermaidCode: string): any
+    +setOptions(options: any): void
+  }
+  class TestCoverageRenderer {
+    +render(analysis: TestAnalysis, archJson: ArchJSON): string
+  }
+  interface TreeNode {
+    +children: Array
+    +moduleNode: TsModuleNode
+    +virtualId?: string
+  }
+  interface TsModuleGraphRenderOptions {
+    +architecturalLayers?: any
+  }
+  interface GrouperConfig {
+    +customRules?: GroupingRule
+    +maxEntitiesPerPackage?: number
+    +maxPackages?: number
+    +strategy: GrouperStrategy
+  }
+  interface GroupingDecision {
+    +layout: LayoutDecision
+    +packages: PackageGroup
+  }
+  interface GroupingRule {
+    +packageName: string
+    +pattern: RegExp
+    +priority?: number
+  }
+  interface LayoutDecision {
+    +direction: any
+    +reasoning: string
+  }
+  interface LLMGrouperResponse {
+    +layout: LayoutDecision
+    +packages: PackageGroup
+    +reasoning: string
+  }
+  interface MermaidGeneratorOptions {
+    +grouping: GroupingDecision
+    +includePrivate?: boolean
+    +includeProtected?: boolean
+    +level: MermaidDetailLevel
+    +maxDepth?: number
+    +theme?: MermaidTheme
+  }
+  interface MermaidOutputPaths {
+    +mmd: string
+    +png: string
+    +svg: string
+  }
+  interface MermaidRendererOptions {
+    +backgroundColor?: string
+    +format: any
+    +height?: number
+    +theme?: MermaidTheme
+    +width?: number
+  }
+  interface MermaidTheme {
+    +name?: any
+    +variables?: any
+  }
+  interface PackageGroup {
+    +entities: Array
+    +name: string
+    +path?: Array
+    +reasoning?: string
+  }
+  interface ParseValidationResult {
+    +errors: ValidationError
+    +valid: boolean
+    +warnings: ValidationWarning
+  }
+  interface QualityMetrics_2 {
+    +completeness: number
+    +complexity: number
+    +consistency: number
+    +readability: number
+  }
+  interface QualitySuggestion {
+    +action?: string
+    +impact: any
+    +message: string
+    +type: any
+  }
+  interface QualityValidationResult {
+    +metrics: QualityMetrics
+    +score: number
+    +suggestions: QualitySuggestion
+    +valid: boolean
+  }
+  interface RenderIssue {
+    +message: string
+    +severity: any
+    +type: any
+  }
+  interface RenderValidationResult {
+    +canRender: boolean
+    +issues: RenderIssue
+    +valid: boolean
+  }
+  interface StructuralIssue {
+    +details?: [Type]
+    +entity?: string
+    +message: string
+    +type: any
+  }
+  interface StructuralValidationResult {
+    +issues: StructuralIssue
+    +valid: boolean
+  }
+  interface ValidationError_3 {
+    +code?: string
+    +column?: number
+    +line?: number
+    +message: string
+  }
+  interface ValidationFullResult {
+    +overallValid: boolean
+    +stages: ValidationStage
+  }
+  interface ValidationPipelineResult {
+    +overall: [Type]
+    +parse: ParseValidationResult
+    +quality: QualityValidationResult
+    +render: RenderValidationResult
+    +structural: StructuralValidationResult
+  }
+  interface ValidationWarning_2 {
+    +line?: number
+    +message: string
+    +suggestion?: string
+  }
+  class MermaidValidationPipeline {
+    +constructor(_config?: unknown)
+    +generateReport(result: ValidationFullResult): string
+    +getParseValidator(): MermaidParseValidator
+    +summarize(result: ValidationPipelineResult): string
+    +async validate(mermaidCode: string, archJson: ArchJSON): any
+    +async validateFull(mermaidCode: string, archJson: ArchJSON): any
+  }
+  class MermaidParseValidator {
+    +constructor()
+    +async validate(mermaidCode: string): any
+  }
+  class QualityValidator {
+    +validate(mermaidCode: string, archJson: ArchJSON): QualityValidationResult
+  }
+  class RenderValidator {
+    +validate(mermaidCode: string): RenderValidationResult
+  }
+  class StructuralValidator {
+    +validate(mermaidCode: string, archJson: ArchJSON): StructuralValidationResult
+  }
+}
+package "Src Parser Layer" as Src_Parser_Layer {
+  class ArchJSONAggregator {
+    +aggregate(archJSON: ArchJSON, level: DetailLevel): ArchJSON
+  }
+  abstract class BaseExtractor {
+    +constructor()
+  }
+  class CallEdgeExtractor {
+    +constructor(project: Project, entities: Entity, workspaceRoot: string, options?: CallEdgeExtractorOptions)
+    +extractAll(): Relation
+    +getStats(): any
+  }
+  interface CallEdgeExtractorOptions {
+    +verbose?: boolean
+  }
+  interface CallEdgeStats {
+    +callSitesInSourceEntities: number
+    +callSitesTotal: number
+    +checkerErrors: number
+    +edgesEmitted: number
+    +skippedClassMemberContext: number
+    +skippedClassPropertyArrow: number
+    +skippedConstructor: number
+    +skippedMissingTargetMethod: number
+    +skippedModuleTopLevel: number
+    +skippedNestedFunction: number
+    +skippedNonExportedFunction: number
+    +skippedObjectLiteralMethod: number
+    +skippedUnresolvedTarget: number
+    +skippedUnsupportedContext: number
+  }
+  interface CallSource {
+    +entityId: string
+    +sourceMethod: string
+  }
+  class ClassExtractor {
+    +extract(code: string, filePath?: string): Entity
+  }
+  class EnumExtractor {
+    +extract(code: string, filePath?: string): Entity
+    +extractEnum(enumDecl: EnumDeclaration, filePath: string): Entity
+  }
+  interface FunctionEntitySource {
+    +declarationNode: any
+    +functionNode: any
+    +id: string
+    +name: string
+  }
+  class FunctionExtractor {
+    +collectEntitySources(sourceFile: SourceFile, relativeFilePath: string): FunctionEntitySource
+    +extract(sourceFile: SourceFile, relativeFilePath: string): Entity
+  }
+  interface FunctionFingerprint {
+    +endLine: number
+    +file: string
+    +hash: string
+    +kind: FunctionFingerprintKind
+    +name: string
+    +startLine: number
+    +statementCount: number
+    +tokenCount: number
+  }
+  interface NormalizedBody {
+    +statementCount: number
+    +tokens: Array
+  }
+  class InterfaceExtractor {
+    +extract(code: string, filePath?: string): Entity
+    +extractInterface(interfaceDecl: InterfaceDeclaration, filePath: string): Entity
+  }
+  class MetricsCalculator {
+    +calculate(archJSON: ArchJSON, level: DetailLevel): ArchJSONMetrics
+  }
+  interface CompletionEvent {
+    +errorCount: number
+    +parseTime: number
+    +successCount: number
+    +totalFiles: number
+  }
+  interface FileCompleteEvent {
+    +entityCount: number
+    +file: string
+    +relationCount: number
+  }
+  class ParallelParser {
+    +constructor(options?: ParallelParserOptions)
+    +getConcurrency(): number
+    +getContinueOnError(): boolean
+    +async parseFiles(filePaths: Array): any
+    +async parseFilesWithMetrics(filePaths: Array): any
+  }
+  interface ParallelParserOptions {
+    +concurrency?: number
+    +continueOnError?: boolean
+    +parseCache?: ParseCache
+    +parserRuntime?: ParserRuntimeKind
+    +workerPool?: ParseWorkerPool
+    +workerThreshold?: number
+    +workspaceRoot?: string
+  }
+  interface ParsingMetrics {
+    +fileCount: number
+    +filesPerSecond: number
+    +memoryUsage: [Type]
+    +parseTime: number
+    +result: ArchJSON
+  }
+  interface ProgressEvent {
+    +completed: number
+    +percentage: number
+    +total: number
+  }
+  class ParseCache {
+    +clear(): void
+    +getOrParse(filePath: string, content: string, parse: [Type]): ArchJSON
+  }
+  interface ParseJob {
+    +code: string
+    +filePath: string
+    +jobId: string
+    +kind: "file"
+  }
+  interface ParseProjectJob {
+    +config: ParseConfig
+    +jobId: string
+    +kind: "project"
+    +workspaceRoot: string
+  }
+  interface ParseResult {
+    +archJson?: ArchJSON
+    +error?: string
+    +jobId: string
+    +success: boolean
+  }
+  interface ParseWorkerInitData {
+    +backendResolverModule?: string
+    +language: ParseWorkerLanguage
+    +runtime: ParserRuntimeKind
+    +workspaceRoot?: string
+  }
+  class ParseWorkerPool {
+    +constructor(poolSize: number, initData: ParseWorkerInitData)
+    +parse(job: any): any
+    +parseProject(job: any): any
+    +start(): void
+    +async terminate(): any
+  }
+  interface ParseWorkerPoolRequest {
+    +concurrency?: number
+    +language: ParseWorkerLanguage
+    +runtime: ParserRuntimeKind
+    +workspaceRoot?: string
+  }
+  class ProcessParseWorkerPools {
+    +get(request: ParseWorkerPoolRequest): ParseWorkerPool
+    +async terminate(): any
+  }
+  class RelationExtractor {
+    +extract(code: string, filePath?: string): Array
+    +extractFromSourceFile(sourceFile: SourceFile): Array
+  }
+  class TypeScriptParser {
+    +constructor(workspaceRoot?: string)
+    +parseCode(code: string, filePath?: string): ArchJSON
+    +parseProject(rootDir: string, pattern?: string, externalProject?: Project, excludePatterns?: Array, options?: [Type]): ArchJSON
+    +toJSON(archJson: ArchJSON, pretty?: boolean): string
+  }
+}
+package "Src Plantuml Layer" as Src_Plantuml_Layer {
+  interface PlantUmlEntityOptions {
+    +aliases?: ReadonlyMap
+    +includePrivate: boolean
+    +includeProtected: boolean
+    +withMembers: boolean
+  }
+  class PlantUmlGenerator {
+    +constructor(archJson: ArchJSON, options: PlantUmlGeneratorOptions)
+    +generate(): string
+  }
+  interface PlantUmlGeneratorOptions {
+    +grouping: GroupingDecision
+    +includePrivate?: boolean
+    +includeProtected?: boolean
+    +level: DetailLevel
+  }
+  interface ParsedDeclaration {
+    +alias: string
+    +displayName: string
+  }
+  interface PlantUmlStructuralIssue {
+    +endpoint?: string
+    +line?: number
+    +message: string
+    +type: PlantUmlStructuralIssueType
+  }
+  interface PlantUmlStructuralValidationResult {
+    +invalidGenericDeclarations: Array
+    +issues: PlantUmlStructuralIssue
+    +undefinedEndpoints: Array
+    +valid: boolean
+  }
+  class PlantUmlStructuralValidator {
+    +validate(puml: string, _archJson?: ArchJSON): PlantUmlStructuralValidationResult
+  }
+}
+package "Src Plugins Cpp Layer" as Src_Plugins_Cpp_Layer {
+  class ArchJsonMapper {
+    +mapEntities(classes: MergedCppEntity, enums: RawEnum, functions: RawFunction, workspaceRoot: string): Entity
+    +mapRelations(classes: MergedCppEntity, allEntities: Entity, workspaceRoot?: string): Relation
+  }
+  class CppTypeExtractor {
+    +classifyFieldRelation(rawType: string): any
+    +extractTypes(rawType: string): Array
+  }
+  class DependencyExtractor {
+    +async extractDependencies(workspaceRoot: string): any
+  }
+  class CppPlugin {
+    +canHandle(targetPath: string): boolean
+    +constructor(parserBackend: ParserBackend)
+    +readonly dependencyExtractor: IDependencyExtractor
+    +async dispose(): any
+    +extractTestStructure(filePath: string, code: string, patternConfig?: TestPatternConfig): RawTestFile
+    +async initialize(_config: PluginInitConfig): any
+    +isTestFile(filePath: string, patternConfig?: TestPatternConfig): boolean
+    +readonly metadata: PluginMetadata
+    +parseCode(code: string, filePath?: string): ArchJSON
+    +async parseProject(workspaceRoot: string, config: ParseConfig): any
+    +readonly supportedLevels: readonly ["package", "class"]
+  }
+  interface ErrorSupplement {
+    +classes: RawClass
+    +enums: RawEnum
+    +functions: RawFunction
+  }
+  class TreeSitterBridge {
+    +constructor(parser: ParserSession)
+    +parseCode(code: string, filePath: string): RawCppFile
+  }
+  interface CppRawData {
+    +files: RawCppFile
+    +moduleRoot: string
+  }
+  interface MergedCppEntity {
+    +declarationFile: string
+    +implementationFile?: string
+  }
+  interface RawClass {
+    +bases: [Type]
+    +endLine: number
+    +fields: RawField
+    +kind: any
+    +methods: RawMethod
+    +name: string
+    +qualifiedName: string
+    +sourceFile: string
+    +startLine: number
+    +templateParams?: Array
+  }
+  interface RawCppFile {
+    +classes: RawClass
+    +enums: RawEnum
+    +filePath: string
+    +functions: RawFunction
+    +includes: Array
+    +namespace: string
+  }
+  interface RawEnum {
+    +endLine: number
+    +isScoped: boolean
+    +members: Array
+    +name: string
+    +qualifiedName: string
+    +sourceFile: string
+    +startLine: number
+  }
+  interface RawField {
+    +fieldType: string
+    +isStatic: boolean
+    +name: string
+    +visibility: any
+  }
+  interface RawFunction {
+    +endLine: number
+    +isStatic: boolean
+    +name: string
+    +parameters: [Type]
+    +qualifiedName: string
+    +returnType: string
+    +sourceFile: string
+    +startLine: number
+  }
+  interface RawMethod {
+    +isConst: boolean
+    +isPure: boolean
+    +isStatic: boolean
+    +isVirtual: boolean
+    +name: string
+    +parameters: [Type]
+    +returnType: string
+    +sourceFile: string
+    +startLine: number
+    +visibility: any
+  }
+}
+package "Src Plugins Cpp Builders Layer" as Src_Plugins_Cpp_Builders_Layer {
+  class ClassBuilder {
+    +extractMembers(bodyNode: SyntaxNodeLike, sourceFile: string, defaultVisibility?: Visibility): [Type]
+    +extractMethods(bodyNode: SyntaxNodeLike, sourceFile: string, defaultVisibility?: Visibility): RawMethod
+  }
+  class HeaderMerger {
+    +merge(files: RawCppFile): MergedCppEntity
+  }
+}
+package "Src Plugins Cpp Mappers Layer" as Src_Plugins_Cpp_Mappers_Layer {
+  class CppClassMapper {
+    +constructor(query: ParserQueryLike, classBuilder: ClassBuilder, fieldMapper: CppFieldMapper)
+  }
+  class CppEnumMapper {
+  }
+  class CppFieldMapper {
+    +constructor(query: ParserQueryLike)
+    +extractFromBody(bodyNode: SyntaxNodeLike, filePath: string, defaultVis: Visibility): RawField
+  }
+  class CppFuncMapper {
+  }
+  class CppIncludeMapper {
+  }
+}
+package "Src Plugins Golang Layer" as Src_Plugins_Golang_Layer {
+  class ArchJsonMapper_2 {
+    +mapCallRelations(flowGraph: FlowGraph): Relation
+    +mapEntities(packages: GoRawPackage): Entity
+    +mapMissingInterfaceEntities(entities: Entity, relations: Relation, packages: GoRawPackage): Entity
+    +mapRelations(packages: GoRawPackage, implementations: InferredImplementation, moduleName?: string): Relation
+  }
+  class DependencyExtractor_2 {
+    +async extractDependencies(workspaceRoot: string): any
+  }
+  interface GoModInfo {
+    +dependencies: Dependency
+    +goVersion: string
+    +module: string
+  }
+  class GoAtlasAdapter {
+    +constructor(rawDataProvider: IGoRawDataProvider, atlasCoordinator: GoAtlasCoordinator)
+    +async generateAtlas(rootPath: string, options?: AtlasGenerationOptions): any
+    +async renderLayer(atlas: GoAtlasExtension, layer?: AtlasLayer, format?: RenderFormat): any
+  }
+  class GoAtlasCoordinator {
+    +async buildAtlasFromRawData(rootPath: string, rawData: GoRawData, options?: AtlasGenerationOptions, startTime?: number): any
+    +constructor()
+    +readonly goModResolver: GoModResolver
+    +async renderLayer(atlas: GoAtlasExtension, layer?: AtlasLayer, format?: RenderFormat): any
+  }
+  class GoParseCoordinator {
+    +async buildArchJson(rawData: GoRawData, workspaceRoot: string): object
+    +constructor(resolver: GoplsInterfaceResolver, parserBackend?: ParserBackend)
+    +dispose(): void
+    +async initializeParser(): any
+    +async initModuleName(workspaceRoot: string): any
+    +mapCallRelations(flowGraph: FlowGraph): Relation
+    +parseCodeToArchJson(code: string, filePath: string, cachedModuleName: string): ArchJSON
+    +async parseFileListToArchJson(filePaths: Array, cachedModuleName: string): any
+    +async parseToRawData(workspaceRoot: string, config: ParseConfig): any
+  }
+  class GoTestAnalyzer {
+    +constructor(cachedModuleName?: string)
+    +extractTestStructure(filePath: string, code: string, patternConfig?: TestPatternConfig): RawTestFile
+    +isTestFile(filePath: string, patternConfig?: TestPatternConfig): boolean
+    +updateModuleName(moduleName: string): void
+  }
+  class GoplsClient {
+    +constructor(goplsPath?: string, timeout?: number, budgetMs?: number)
+    +async dispose(): any
+    +async getImplementations(typeName: string, filePath: string, line: number): any
+    +async getTypeInfo(symbol: string, filePath: string, line: number): any
+    +async initialize(workspaceRoot: string, budgetMs?: number): any
+    +isInitialized(): boolean
+  }
+  class GoplsPoisonedError {
+    +constructor(message: string)
+  }
+  class GoplsTimeoutError {
+    +readonly budgetExceeded: boolean
+    +constructor(message: string, opts?: [Type])
+    +readonly stage: string
+  }
+  interface HoverResponse {
+    +contents: any
+  }
+  interface ImplementationResult {
+    +filePath: string
+    +line: number
+    +structName: string
+  }
+  interface Location {
+    +range: [Type]
+    +uri: string
+  }
+  interface LSPMessage {
+    +error?: [Type]
+    +id?: number
+    +jsonrpc: "2.0"
+    +method?: string
+    +params?: unknown
+    +result?: unknown
+  }
+  interface TypeInfo {
+    +kind: string
+    +name: string
+    +signature?: string
+  }
+  class GoplsInterfaceResolver {
+    +constructor(options?: GoplsResolverOptions)
+    +async dispose(): any
+    +getDegradedReason(): string
+    +async initialize(workspaceRoot: string): any
+    +isDegraded(): boolean
+    +isGoplsAvailable(): boolean
+    +async resolve(structs: Array, interfaces: Array): any
+    +resolveSync(structs: Array, interfaces: Array): InferredImplementation
+  }
+  interface GoplsResolverOptions {
+    +budgetMs?: number
+    +goplsPath?: string
+    +timeoutMs?: number
+    +warn?: [Type]
+  }
+  class GoPlugin {
+    +canHandle(targetPath: string): boolean
+    +constructor(parserBackend: ParserBackend)
+    +readonly dependencyExtractor: DependencyExtractor
+    +async dispose(): any
+    +extractTestStructure(filePath: string, code: string, patternConfig?: TestPatternConfig): RawTestFile
+    +async generateAtlas(rootPath: string, options?: AtlasGenerationOptions): any
+    +async initialize(config: PluginInitConfig): any
+    +isTestFile(filePath: string, patternConfig?: TestPatternConfig): boolean
+    +readonly metadata: PluginMetadata
+    +parseCode(code: string, filePath?: string): ArchJSON
+    +async parseFiles(filePaths: Array): any
+    +async parseProject(workspaceRoot: string, config: ParseConfig): any
+    +async parseToRawData(workspaceRoot: string, config: ParseConfig): any
+    +async renderLayer(atlas: GoAtlasExtension, layer?: AtlasLayer, format?: RenderFormat): any
+    +readonly supportedLevels: any
+  }
+  interface IGoAtlas {
+    +generateAtlas(rootPath: string, options?: AtlasGenerationOptions): any
+    +renderLayer(atlas: GoAtlasExtension, layer: AtlasLayer, format: RenderFormat): any
+  }
+  class InterfaceMatcher {
+    +buildMethodSet(struct: GoRawStruct, structMap: Map, visited?: Set, isRoot?: boolean): MethodSet
+    +matchImplicitImplementations(structs: GoRawStruct, interfaces: GoRawInterface): InferredImplementation
+    +matchImplicitImplementationsWithEmbedding(structs: GoRawStruct, interfaces: GoRawInterface, structMap: Map): InferredImplementation
+    +async matchWithGopls(structs: GoRawStruct, interfaces: GoRawInterface, goplsClient: GoplsClient): any
+  }
+  interface GoAnalysisScopePlan {
+    +excludePatterns: Array
+    +includePatterns: Array
+    +workspaceRoot: string
+  }
+  class TreeSitterBridge_2 {
+    +constructor(parser: ParserSession)
+    +parseCode(code: string, filePath: string, options?: TreeSitterParseOptions): GoRawPackage
+  }
+  interface EmbeddedTypeRef {
+    +isPointer: boolean
+    +location: GoSourceLocation
+    +name: string
+  }
+  interface GoCallExpr {
+    +args?: Array
+    +functionName: string
+    +location: GoSourceLocation
+    +packageName?: string
+    +receiverType?: string
+  }
+  interface GoChannelOp {
+    +channelName: string
+    +location: GoSourceLocation
+    +operation: any
+  }
+  interface GoField {
+    +exported: boolean
+    +location: GoSourceLocation
+    +name: string
+    +tag?: string
+    +type: string
+  }
+  interface GoFunction {
+    +body?: GoFunctionBody
+    +exported: boolean
+    +location: GoSourceLocation
+    +name: string
+    +packageName: string
+    +parameters: GoField
+    +returnTypes: Array
+  }
+  interface GoFunctionBody {
+    +calls: GoCallExpr
+    +channelOps: GoChannelOp
+    +goSpawns: GoSpawnStmt
+  }
+  interface GoImport {
+    +alias?: string
+    +location: GoSourceLocation
+    +path: string
+    +type?: any
+  }
+  interface GoMethod {
+    +body?: GoFunctionBody
+    +exported: boolean
+    +location: GoSourceLocation
+    +name: string
+    +parameters: GoField
+    +receiver?: string
+    +receiverType?: string
+    +returnTypes: Array
+  }
+  interface GoRawData {
+    +implementations?: InferredImplementation
+    +moduleName: string
+    +moduleRoot: string
+    +packages: GoRawPackage
+  }
+  interface GoRawInterface {
+    +embeddedInterfaces: Array
+    +exported: boolean
+    +location: GoSourceLocation
+    +methods: GoMethod
+    +name: string
+    +packageName: string
+  }
+  interface GoRawPackage {
+    +dirPath: string
+    +fullName: string
+    +functions: GoFunction
+    +id: string
+    +imports: GoImport
+    +interfaces: GoRawInterface
+    +name: string
+    +orphanedMethods?: GoMethod
+    +sourceFiles: Array
+    +structs: GoRawStruct
+  }
+  interface GoRawStruct {
+    +embeddedTypeRefs?: EmbeddedTypeRef
+    +embeddedTypes: Array
+    +exported: boolean
+    +fields: GoField
+    +location: GoSourceLocation
+    +methods: GoMethod
+    +name: string
+    +packageName: string
+  }
+  interface GoSourceLocation {
+    +endColumn?: number
+    +endLine: number
+    +file: string
+    +startColumn?: number
+    +startLine: number
+  }
+  interface GoSpawnStmt {
+    +call: GoCallExpr
+    +location: GoSourceLocation
+  }
+  interface IGoRawDataProvider {
+    +parseToRawData(workspaceRoot: string, config: ParseConfig): any
+  }
+  interface InferredImplementation {
+    +confidence: number
+    +interfaceName: string
+    +interfacePackageId: string
+    +matchedMethods: Array
+    +source: any
+    +structName: string
+    +structPackageId: string
+  }
+  interface MethodSet {
+    +pointerMethodSet: Map
+    +valueMethodSet: Map
+  }
+  interface MethodSignature {
+    +name: string
+    +normalizedSignature: string
+  }
+  interface TreeSitterParseOptions {
+    +extractBodies?: boolean
+    +forceExtractFunctions?: Array
+    +selectiveExtraction?: boolean
+  }
+}
+package "Src Plugins Golang Atlas Layer" as Src_Plugins_Golang_Atlas_Layer {
+  class BehaviorAnalyzer {
+    +async buildCapabilityGraph(rawData: GoRawData, options?: CapabilityBuildOptions): any
+    +async buildFlowGraph(rawData: GoRawData, options?: FlowBuildOptions): any
+    +async buildGoroutineTopology(rawData: GoRawData, _options?: any): any
+    +async buildPackageGraph(rawData: GoRawData): any
+    +constructor(goModResolver: GoModResolver)
+  }
+  class FrameworkDetector {
+    +detect(moduleInfo: ModuleInfo, rawData: GoRawData): DetectedFrameworks
+  }
+  interface GoModRequire {
+    +indirect: boolean
+    +path: string
+    +version: string
+  }
+  class GoModResolver {
+    +classifyImport(importPath: string): any
+    +getModuleInfo(): ModuleInfo
+    +getModuleName(): string
+    +async resolveProject(workspaceRoot: string): any
+  }
+  interface ModuleInfo {
+    +goModPath: string
+    +moduleName: string
+    +moduleRoot: string
+    +requires: GoModRequire
+  }
+  interface AtlasConfig {
+    +capabilityMode?: any
+    +customFrameworks?: CustomFrameworkConfig
+    +enabled?: boolean
+    +entryPointPattern?: string
+    +entryPoints?: ManualEntryPoint
+    +excludePatterns?: Array
+    +excludeTests?: boolean
+    +followIndirectCalls?: boolean
+    +functionBodyStrategy?: any
+    +includeTests?: boolean
+    +layers?: AtlasLayer
+    +protocols?: Array
+  }
+  interface AtlasGenerationOptions {
+    +capabilityMode?: any
+    +customFrameworks?: CustomFrameworkConfig
+    +entryPointPattern?: string
+    +entryPoints?: ManualEntryPoint
+    +excludePatterns?: Array
+    +excludeTests?: boolean
+    +followIndirectCalls?: boolean
+    +functionBodyStrategy?: any
+    +includePatterns?: Array
+    +includeTests?: boolean
+    +protocols?: Array
+    +selectiveExtraction?: [Type]
+  }
+  interface CustomCallPattern {
+    +handlerArgIndex?: number
+    +method?: string
+    +methodSuffix?: string
+    +pathArgIndex?: number
+    +receiverContains?: string
+    +topicArgIndex?: number
+  }
+  interface CustomFrameworkConfig {
+    +name: string
+    +patterns: CustomCallPattern
+    +protocol: string
+  }
+  interface FlowBuildOptions {
+    +customFrameworks?: CustomFrameworkConfig
+    +detectedFrameworks: DetectedFrameworks
+    +entryPointPattern?: string
+    +entryPoints?: ManualEntryPoint
+    +followIndirectCalls?: boolean
+    +maxCallDepth?: number
+    +protocols?: Array
+  }
+  interface ManualEntryPoint {
+    +function: string
+    +protocol: string
+  }
+  interface RenderResult_2 {
+    +content: string
+    +format: RenderFormat
+    +layer: AtlasLayer
+  }
+}
+package "Src Plugins Golang Atlas Builders Layer" as Src_Plugins_Golang_Atlas_Builders_Layer {
+  interface CapabilityBuildOptions {
+    +minPackageStructs?: number
+    +mode?: any
+  }
+  class CapabilityGraphBuilder {
+    +build(rawData: GoRawData, options?: CapabilityBuildOptions): any
+  }
+  interface CallPattern {
+    +handlerArgIndex?: number
+    +httpMethod?: HttpMethod
+    +method?: string
+    +methodSuffix?: string
+    +protocol: string
+    +receiverContains?: string
+  }
+  class FlowGraphBuilder {
+    +build(rawData: GoRawData, options?: FlowBuildOptions): any
+  }
+  class GoroutineTopologyBuilder {
+    +build(rawData: GoRawData): any
+  }
+  interface IAtlasBuilder {
+    +build(rawData: GoRawData, options?: any): any
+  }
+  class PackageGraphBuilder {
+    +build(rawData: GoRawData): any
+    +constructor(goModResolver: GoModResolver)
+  }
+}
+package "Src Plugins Golang Atlas Renderers Layer" as Src_Plugins_Golang_Atlas_Renderers_Layer {
+  class AtlasRenderer {
+    +render(atlas: GoAtlasExtension, layer: AtlasLayer, format: RenderFormat): any
+  }
+  class MermaidTemplates {
+    +{static} computePackageEdgeTiers(strengths: Array): Map
+    +{static} renderCapabilityGraph(graph: CapabilityGraph): string
+    +{static} renderFlowGraph(graph: FlowGraph, format?: any): string
+    +{static} renderGoroutineTopology(topology: GoroutineTopology): string
+    +{static} renderPackageGraph(graph: PackageGraph): string
+  }
+  interface GroupNode {
+    +children: GroupNode
+    +nodeIds: Array
+    +prefix: string
+  }
+  interface PkgTreeNode {
+    +children: PkgTreeNode
+    +isVirtual: boolean
+    +pkg: string
+  }
+}
+package "Src Plugins Golang Builders Layer" as Src_Plugins_Golang_Builders_Layer {
+  class FunctionBuilder {
+    +constructor()
+    +extractFunctions(filePath: string, rootNode: SyntaxNodeLike, code: string, packageName: string, options?: TreeSitterParseOptions): GoFunction
+    +extractMethods(filePath: string, rootNode: SyntaxNodeLike, code: string, structs: GoRawStruct, options?: TreeSitterParseOptions): MethodExtractionResult
+    +shouldExtractBody(blockNode: SyntaxNodeLike, code: string): boolean
+  }
+  interface MethodExtractionResult {
+    +orphanedMethods: GoMethod
+  }
+  class GoroutineBuilder {
+    +extract(filePath: string, block: SyntaxNodeLike, code: string): GoFunctionBody
+  }
+  class InterfaceBuilder {
+    +extract(filePath: string, rootNode: SyntaxNodeLike, code: string, packageName: string): GoRawInterface
+    +extractParametersFromElem(node: SyntaxNodeLike, code: string, filePath: string): GoField
+    +extractReturnTypesFromElem(node: SyntaxNodeLike, code: string): Array
+  }
+  class NodeUtils {
+    +{static} isExported(name: string): boolean
+    +{static} nodeText(node: SyntaxNodeLike, code: string): string
+    +{static} nodeToLocation(node: SyntaxNodeLike, filePath: string): GoSourceLocation
+  }
+  class StructBuilder {
+    +extract(filePath: string, rootNode: SyntaxNodeLike, code: string, packageName: string): StructBuilderResult
+  }
+  interface StructBuilderResult {
+    +interfaces: GoRawInterface
+    +structs: GoRawStruct
+  }
+}
+package "Src Plugins Java Layer" as Src_Plugins_Java_Layer {
+  class ArchJsonMapper_3 {
+    +mapCallRelations(packages: JavaRawPackage, entityNameSet: Set): Relation
+    +mapEntities(packages: JavaRawPackage): Entity
+    +mapRelations(packages: JavaRawPackage): Relation
+    +reconcileInheritanceTargets(entities: Entity, relations: Relation): Relation
+  }
+  class DependencyExtractor_3 {
+    +async extractDependencies(workspaceRoot: string): any
+    +async extractFromGradle(gradlePath: string): any
+    +async extractFromMaven(pomPath: string): any
+  }
+  class JavaPlugin {
+    +canHandle(targetPath: string): boolean
+    +constructor(parserBackend: ParserBackend)
+    +async dispose(): any
+    +extractTestStructure(filePath: string, code: string, _patternConfig?: TestPatternConfig): RawTestFile
+    +async initialize(_config: PluginInitConfig): any
+    +isTestFile(filePath: string): boolean
+    +readonly metadata: PluginMetadata
+    +parseCode(code: string, filePath?: string): ArchJSON
+    +async parseFiles(filePaths: Array): any
+    +async parseProject(workspaceRoot: string, config: ParseConfig): any
+    +readonly supportedLevels: readonly ["package", "class", "method"]
+  }
+  class MavenCrossModuleParser {
+    +async parse(workspaceRoot: string): any
+  }
+  interface ModuleDependency {
+    +from: string
+    +to: string
+  }
+  class TreeSitterBridge_3 {
+    +constructor(parser: ParserSession)
+    +parseCode(code: string, filePath: string): JavaRawPackage
+  }
+  interface JavaRawAnnotation {
+    +arguments?: any
+    +name: string
+  }
+  interface JavaRawCallSite {
+    +callerMethod: string
+    +methodName: string
+    +receiverName: string
+    +receiverType?: string
+  }
+  interface JavaRawClass {
+    +annotations: JavaRawAnnotation
+    +constructors: JavaRawConstructor
+    +endLine: number
+    +fields: JavaRawField
+    +filePath: string
+    +interfaces: Array
+    +isAbstract: boolean
+    +methods: JavaRawMethod
+    +modifiers: Array
+    +name: string
+    +packageName: string
+    +startLine: number
+    +superClass?: string
+  }
+  interface JavaRawConstructor {
+    +annotations: JavaRawAnnotation
+    +modifiers: Array
+    +parameters: JavaRawParameter
+  }
+  interface JavaRawData {
+    +packages: JavaRawPackage
+  }
+  interface JavaRawEnum {
+    +endLine: number
+    +filePath: string
+    +modifiers: Array
+    +name: string
+    +packageName: string
+    +startLine: number
+    +values: Array
+  }
+  interface JavaRawField {
+    +annotations: JavaRawAnnotation
+    +defaultValue?: string
+    +modifiers: Array
+    +name: string
+    +type: string
+  }
+  interface JavaRawInterface {
+    +annotations: JavaRawAnnotation
+    +endLine: number
+    +extends: Array
+    +filePath: string
+    +methods: JavaRawMethod
+    +modifiers: Array
+    +name: string
+    +packageName: string
+    +startLine: number
+  }
+  interface JavaRawMethod {
+    +annotations: JavaRawAnnotation
+    +callSites?: JavaRawCallSite
+    +isAbstract: boolean
+    +modifiers: Array
+    +name: string
+    +parameters: JavaRawParameter
+    +returnType: string
+  }
+  interface JavaRawPackage {
+    +classes: JavaRawClass
+    +enums: JavaRawEnum
+    +interfaces: JavaRawInterface
+    +name: string
+  }
+  interface JavaRawParameter {
+    +annotations?: JavaRawAnnotation
+    +name: string
+    +type: string
+  }
+  interface JavaSourceLocation {
+    +endColumn?: number
+    +endLine: number
+    +file: string
+    +startColumn?: number
+    +startLine: number
+  }
+}
+package "Src Plugins Kotlin Layer" as Src_Plugins_Kotlin_Layer {
+  class ArchJsonMapper_4 {
+    +map(files: RawKotlinFile, _moduleRoot: string, workspaceRoot: string): ArchJSON
+    +mapEntities(files: RawKotlinFile): Entity
+    +mapRelations(files: RawKotlinFile, allEntities: Entity): Relation
+  }
+  interface KotlinDependency {
+    +artifact?: string
+    +gradleScope?: string
+    +group?: string
+  }
+  class KotlinDependencyExtractor {
+    +async extractDependencies(workspaceRoot: string): any
+    +async extractFromFile(filePath: string): any
+    +parseContent(content: string): KotlinDependency
+    +readonly type: "gradle-kts"
+  }
+  class KotlinPlugin {
+    +canHandle(targetPath: string): boolean
+    +constructor(parserBackend: ParserBackend)
+    +readonly dependencyExtractor: IDependencyExtractor
+    +async dispose(): any
+    +extractTestStructure(filePath: string, code: string, patternConfig?: TestPatternConfig): RawTestFile
+    +async initialize(config: PluginInitConfig): any
+    +isTestFile(filePath: string, patternConfig?: TestPatternConfig): boolean
+    +readonly metadata: PluginMetadata
+    +parseCode(code: string, filePath?: string): ArchJSON
+    +async parseFiles(filePaths: Array): any
+    +async parseProject(workspaceRoot: string, config: ParseConfig): any
+    +readonly supportedLevels: readonly ["package", "class"]
+  }
+  class KotlinTypeExtractor {
+    +classifyFieldRelation(_rawType: string): "composition"
+    +extractTypes(rawType: string): Array
+  }
+  class TreeSitterBridge_4 {
+    +constructor(parser: ParserSession)
+    +parseCode(code: string, filePath: string): RawKotlinFile
+  }
+  interface RawKotlinClass {
+    +decorators: Array
+    +endLine: number
+    +filePath: string
+    +kind: KotlinClassKind
+    +members: RawKotlinMember
+    +name: string
+    +packageName: string
+    +startLine: number
+    +superTypes: Array
+    +visibility: KotlinVisibility
+  }
+  interface RawKotlinFile {
+    +classes: RawKotlinClass
+    +filePath: string
+    +functions: RawKotlinFunction
+    +imports: RawKotlinImport
+    +packageName: string
+  }
+  interface RawKotlinFunction {
+    +decorators: Array
+    +endLine: number
+    +filePath: string
+    +isComposable: boolean
+    +name: string
+    +packageName: string
+    +paramTypes: Array
+    +returnType?: string
+    +startLine: number
+    +visibility: KotlinVisibility
+  }
+  interface RawKotlinImport {
+    +alias?: string
+    +path: string
+  }
+  interface RawKotlinMember {
+    +decorators: Array
+    +endLine: number
+    +isStatic: boolean
+    +kind: any
+    +name: string
+    +startLine: number
+    +type?: string
+    +visibility: KotlinVisibility
+  }
+}
+package "Src Plugins Kotlin Builders Layer" as Src_Plugins_Kotlin_Builders_Layer {
+  class ClassBuilder_2 {
+    +extractClasses(rootNode: SyntaxNodeLike, packageName: string, filePath: string): RawKotlinClass
+  }
+  class FunctionBuilder_2 {
+    +extractTopLevelFunctions(rootNode: SyntaxNodeLike, packageName: string, filePath: string): RawKotlinFunction
+  }
+  class ImportResolver {
+    +isInternal(importPath: string, moduleRoot: string): boolean
+    +toRelativePath(importPath: string, moduleRoot: string): string
+  }
+}
+package "Src Plugins Python Layer" as Src_Plugins_Python_Layer {
+  class ArchJsonMapper_5 {
+    +mapCallRelations(modules: PythonRawModule, entityFieldNames: Set): Relation
+    +mapModule(module: PythonRawModule, workspaceRoot?: string, modulePathIndex?: Map, seenDeps?: Set): [Type]
+    +mapModules(modules: PythonRawModule, workspaceRoot?: string, importRelations?: ImportRelation): ArchJSON
+  }
+  class DependencyExtractor_4 {
+    +async extractDependencies(workspaceRoot: string): any
+  }
+  interface ImportRelation {
+    +sourceModuleId: string
+    +targetModuleId: string
+  }
+  class PythonImportExtractor {
+    +extract(imports: PythonRawImport, currentModuleId: string, knownModuleIds: Set): ImportRelation
+  }
+  class PythonPlugin {
+    +canHandle(targetPath: string): boolean
+    +constructor(parserBackend: ParserBackend)
+    +readonly dependencyExtractor: DependencyExtractor
+    +async dispose(): any
+    +extractTestStructure(filePath: string, code: string, patternConfig?: TestPatternConfig): RawTestFile
+    +async initialize(_config: PluginInitConfig): any
+    +isTestFile(filePath: string, patternConfig?: TestPatternConfig): boolean
+    +readonly metadata: PluginMetadata
+    +parseCode(code: string, filePath?: string): ArchJSON
+    +async parseFiles(filePaths: Array, workspaceRoot?: string): any
+    +async parseProject(workspaceRoot: string, config: ParseConfig): any
+    +readonly supportedLevels: readonly ["package", "class", "method"]
+  }
+  class TreeSitterBridge_5 {
+    +constructor(parser: ParserSession)
+    +parseCode(code: string, filePath: string): PythonRawModule
+  }
+  interface PythonRawAttribute {
+    +isPrivate: boolean
+    +name: string
+    +type?: string
+  }
+  interface PythonRawCallSite {
+    +callerMethod: string
+    +methodName: string
+    +receiverField: string
+  }
+  interface PythonRawClass {
+    +baseClasses: Array
+    +classAttributes: PythonRawAttribute
+    +decorators: PythonRawDecorator
+    +docstring?: string
+    +endLine: number
+    +filePath: string
+    +methods: PythonRawMethod
+    +moduleName: string
+    +name: string
+    +properties: PythonRawProperty
+    +startLine: number
+  }
+  interface PythonRawData {
+    +modules: PythonRawModule
+  }
+  interface PythonRawDecorator {
+    +arguments?: Array
+    +name: string
+  }
+  interface PythonRawFunction {
+    +decorators: PythonRawDecorator
+    +docstring?: string
+    +endLine: number
+    +filePath: string
+    +isAsync: boolean
+    +moduleName: string
+    +name: string
+    +parameters: PythonRawParameter
+    +returnType?: string
+    +startLine: number
+  }
+  interface PythonRawImport {
+    +alias?: string
+    +items?: [Type]
+    +module: string
+  }
+  interface PythonRawMethod {
+    +callSites?: PythonRawCallSite
+    +decorators: PythonRawDecorator
+    +docstring?: string
+    +endLine: number
+    +isAsync: boolean
+    +isClassMethod: boolean
+    +isPrivate: boolean
+    +isProperty: boolean
+    +isStaticMethod: boolean
+    +name: string
+    +parameters: PythonRawParameter
+    +returnType?: string
+    +startLine: number
+  }
+  interface PythonRawModule {
+    +classes: PythonRawClass
+    +filePath: string
+    +functions: PythonRawFunction
+    +imports: PythonRawImport
+    +name: string
+  }
+  interface PythonRawParameter {
+    +defaultValue?: string
+    +isKwArgs: boolean
+    +isVarArgs: boolean
+    +name: string
+    +type?: string
+  }
+  interface PythonRawProperty {
+    +decorators: PythonRawDecorator
+    +name: string
+    +type?: string
+  }
+  interface PythonSourceLocation {
+    +endColumn?: number
+    +endLine: number
+    +file: string
+    +startColumn?: number
+    +startLine: number
+  }
+}
+package "Src Plugins Shared Layer" as Src_Plugins_Shared_Layer {
+  interface CaptureGroup {
+  }
+  abstract class CaptureMapper {
+    +constructor(query: ParserQueryLike)
+    +runQuery(root: SyntaxNodeLike, filePath: string): Array
+  }
+  abstract class BaseArchJsonMapper {
+  }
+  interface NativeModuleLoaders {
+    +loadGrammar(language: ParserLanguage): unknown
+    +loadRuntime(): NativeParserConstructorLike
+  }
+  interface NativeParser {
+    +delete?: [Type]
+    +parse(code: string): NativeTree
+    +setLanguage(language: unknown): void
+  }
+  class NativeParserBackend {
+    +constructor(options?: NativeParserBackendOptions)
+    +async createSession(language: ParserLanguage): any
+    +readonly runtime: "native"
+  }
+  interface NativeParserBackendOptions {
+    +loaders?: NativeModuleLoaders
+  }
+  interface NativeParserConstructorLike {
+    +Query?: [Type]
+  }
+  interface NativeParserLike {
+    +delete?: [Type]
+    +parse(code: string): [Type]
+    +setLanguage(language: unknown): void
+  }
+  class NativeParserSession {
+    +constructor(language: ParserLanguage, parser: NativeParser, grammar: unknown, QueryCtor?: NativeQueryConstructor)
+    +dispose(): void
+    +parse(code: string): SyntaxTreeLike
+    +query(source: string): ParserQueryLike
+    +readonly runtime: "native"
+  }
+  interface NativeQueryConstructor {
+  }
+  interface NativeTree {
+    +delete?: [Type]
+    +rootNode: SyntaxNodeLike
+  }
+  interface ParserConstructor {
+    +Query?: NativeQueryConstructor
+  }
+  interface SelectParserBackendOptions {
+    +nativeLoaders?: NativeModuleLoaders
+    +nativeModuleRoot?: string
+    +onDiagnostic?: [Type]
+    +policy?: any
+    +policySource?: any
+  }
+  interface QueryCompiler {
+    +query(source: string): ParserQueryLike
+  }
+  class QueryLoader {
+    +constructor(queryDir: string, session: QueryCompiler)
+    +load(name: string): ParserQueryLike
+    +loadAll(): QuerySet
+  }
+  class WasmParserBackend {
+    +constructor(options?: WasmParserBackendOptions)
+    +async createSession(language: ParserLanguage): any
+    +readonly runtime: "wasm"
+  }
+  interface WasmParserBackendOptions {
+    +assetsDir?: string
+  }
+  class WasmParserSession {
+    +constructor(language: ParserLanguage, parser: WtsParser, grammar: WtsLanguage)
+    +dispose(): void
+    +parse(code: string): SyntaxTreeLike
+    +query(source: string): ParserQueryLike
+    +readonly runtime: "wasm"
+  }
+  interface WasmRuntimeCache {
+    +readonly languagePromises: Map
+    +modulePromise?: any
+  }
+  interface WtsLanguage {
+    +delete(): void
+    +query(source: string): ParserQueryLike
+  }
+  interface WtsModule {
+    +Language: [Type]
+    +Parser: WtsParserModule
+  }
+  interface WtsParser {
+    +delete(): void
+    +parse(code: string): WtsTree
+    +setLanguage(language: WtsLanguage): void
+  }
+  interface WtsParserModule {
+    +init(options?: [Type]): any
+  }
+  interface WtsTree {
+    +delete(): void
+    +readonly rootNode: SyntaxNodeLike
+  }
+}
+package "Src Plugins Typescript Layer" as Src_Plugins_Typescript_Layer {
+  class TypeScriptPlugin {
+    +canHandle(targetPath: string): boolean
+    +readonly dependencyExtractor: IDependencyExtractor
+    +async dispose(): any
+    +extractTestStructure(filePath: string, code: string, patternConfig?: TestPatternConfig): RawTestFile
+    +async initialize(_config: PluginInitConfig): any
+    +isTestFile(filePath: string, patternConfig?: TestPatternConfig): boolean
+    +readonly metadata: PluginMetadata
+    +parseCode(code: string, filePath?: string): ArchJSON
+    +async parseFiles(filePaths: Array): any
+    +async parseProject(workspaceRoot: string, config: ParseConfig): any
+    +readonly supportedLevels: readonly ["package", "class", "method"]
+    +readonly validator: IValidator
+  }
+  class TypeScriptAnalyzer {
+    +analyze(projectRoot: string, sourceFiles: Array, entities: any): TsAnalysis
+  }
+}
+package "Src Plugins Typescript Builders Layer" as Src_Plugins_Typescript_Builders_Layer {
+  interface AliasConfig {
+    +baseUrl: string
+    +paths: any
+  }
+  interface EdgeAccumulator_2 {
+    +evidence: TsModuleEdgeEvidence
+    +importedNames: Set
+    +strength: number
+    +typeOnlyStrength: number
+    +valueStrength: number
+  }
+  class ModuleGraphBuilder {
+    +build(projectRoot: string, sourceFiles: Array, entities: any): TsModuleGraph
+  }
+}
+package "Src Types Layer" as Src_Types_Layer {
+  interface CognitiveSummaryEntry {
+    +entityId?: string
+    +fieldCount?: number
+    +found: boolean
+    +gitRiskLevel?: string
+    +inDegree?: number
+    +methodCount?: number
+    +name: string
+    +outDegree?: number
+    +testCoverageRatio?: number
+    +topDependencies?: [Type]
+    +topDependents?: [Type]
+  }
+  interface CLIOptions {
+    +archHealth?: boolean
+    +atlasCapabilityMode?: string
+    +atlasEntryPattern?: string
+    +atlasIncludeTests?: boolean
+    +atlasLayers?: string
+    +atlasNoTests?: boolean
+    +atlasProtocols?: string
+    +atlasStrategy?: string
+    +cache?: boolean
+    +cacheDir?: string
+    +cliArgs?: string
+    +cliCommand?: string
+    +concurrency?: number
+    +config?: string
+    +diagrams?: Array
+    +driftBase?: string
+    +driftThreshold?: string
+    +exclude?: Array
+    +formats?: OutputFormats
+    +gim?: boolean
+    +gitMaxCommits?: number
+    +gitSinceDays?: number
+    +includeGit?: boolean
+    +includeTests?: boolean
+    +lang?: string
+    +level?: any
+    +mermaidRenderer?: any
+    +mermaidTheme?: any
+    +name?: string
+    +outputDir?: string
+    +sources?: Array
+    +testsOnly?: boolean
+    +testSources?: Array
+    +verbose?: boolean
+    +workDir?: string
+  }
+  interface AnnotationConfig {
+    +enableComments?: boolean
+    +enableVisibleTitle?: boolean
+    +highlightPatterns?: boolean
+    +includeUsageExample?: boolean
+    +showExternalDeps?: boolean
+    +titlePosition?: any
+    +visibleTitleSections?: any
+  }
+  interface ArchitecturalDecision {
+    +alternatives?: Array
+    +decision: string
+    +rationale: string
+    +topic: string
+  }
+  interface ClassAnnotation {
+    +className: string
+    +note?: string
+    +responsibility?: string
+    +stereotypes?: Array
+  }
+  interface ClassHighlightConfig {
+    +annotateClasses?: ClassAnnotation
+    +highlightClasses?: Array
+    +visibility?: [Type]
+  }
+  interface DesignInfo {
+    +architectureStyle?: any
+    +decisions?: ArchitecturalDecision
+    +patterns?: DesignPatternInfo
+    +principles?: Array
+  }
+  interface DesignPatternInfo {
+    +category: PatternCategory
+    +codeExample?: string
+    +description: string
+    +name: string
+    +participants: Array
+  }
+  interface DiagramConfig {
+    +annotations?: AnnotationConfig
+    +classes?: ClassHighlightConfig
+    +description?: string
+    +design?: DesignInfo
+    +exclude?: Array
+    +formats?: OutputFormats
+    +language?: string
+    +languageSpecific?: any
+    +level: DetailLevel
+    +metadata?: DiagramMetadata
+    +name: string
+    +process?: ProcessInfo
+    +queryRole?: any
+    +sources: Array
+  }
+  interface DiagramMetadata {
+    +input?: [Type]
+    +output?: [Type]
+    +primaryActors?: Array
+    +purpose?: string
+    +subtitle?: string
+    +title?: string
+  }
+  interface ProcessInfo {
+    +dataFlow?: string
+    +keyDependencies?: Array
+    +stageList?: ProcessStage
+    +stages?: number
+  }
+  interface ProcessStage {
+    +description: string
+    +name: string
+    +namespace?: string
+    +order: number
+    +patterns?: Array
+  }
+  interface ArchGuardConfig {
+    +diagrams: DiagramConfig
+  }
+  interface GlobalConfig {
+    +atlas?: [Type]
+    +cache: [Type]
+    +cli: [Type]
+    +concurrency: number
+    +exclude: Array
+    +fitness?: FitnessConfig
+    +formats: OutputFormats
+    +maxNodesPerDiagram?: number
+    +mermaid?: MermaidConfig
+    +nativeModuleRoot?: string
+    +outputDir: string
+    +parserRuntime?: any
+    +projectSemantics?: any
+    +verbose: boolean
+    +workDir?: string
+  }
+  interface MermaidConfig {
+    +renderer?: any
+    +theme?: any
+    +transparentBackground?: boolean
+  }
+  interface DiagramResult {
+    +error?: string
+    +metrics?: ArchJSONMetrics
+    +name: string
+    +outputs?: Array
+    +paths?: [Type]
+    +stats?: [Type]
+    +success: boolean
+  }
+  interface DependencyConstraintRule {
+    +from: string
+    +message: string
+    +to: string
+    +type: "no-dependency"
+  }
+  interface FitnessConfig {
+    +failOnViolation: boolean
+    +rules: FitnessRule
+  }
+  interface GimLossRule {
+    +loss: GimLossType
+    +message: string
+    +op: ComparisonOp
+    +type: "gim-loss"
+    +value: number
+  }
+  interface MetricThresholdRule {
+    +message: string
+    +metric: string
+    +op: ComparisonOp
+    +type?: "metric"
+    +value: number
+  }
+  interface RuleResult {
+    +actual?: any
+    +detail?: string
+    +evaluated?: boolean
+    +passed: boolean
+    +rule: FitnessRule
+  }
+  interface CochangeEdge {
+    +jointChangeCount: number
+    +strength: number
+    +target: string
+    +windowCoverage: number
+  }
+  interface ContributorSummary {
+    +commitCount: number
+    +email: string
+    +share: number
+  }
+  interface FileHistoryMetrics {
+    +activeDays: number
+    +addedLines: number
+    +authorCount: number
+    +commitCount: number
+    +commitShas?: Array
+    +contributorShas?: any
+    +currentlyExists?: boolean
+    +deletedLines: number
+    +lastChangedAt: string
+    +packagePath: string
+    +path: string
+    +primaryOwner: string
+    +primaryOwnerShare: number
+    +riskFactors: RiskFactors
+    +topCochangeNeighbors: CochangeEdge
+    +topContributors?: ContributorSummary
+  }
+  interface GitHistoryArtifacts {
+    +fileMetrics: FileHistoryMetrics
+    +manifest: GitHistoryManifest
+    +packageMetrics: PackageHistoryMetrics
+  }
+  interface GitHistoryManifest {
+    +analyzedBranch: string
+    +generatedAt: string
+    +granularities: any
+    +headRef: string
+    +includeMerges: boolean
+    +keyRoot?: string
+    +maxCommits: number
+    +packageDepth?: number
+    +pathFilters?: Array
+    +sinceDays: number
+    +totalCommits: number
+    +truncated?: boolean
+    +version: any
+    +windowEnd?: string
+    +windowStart?: string
+  }
+  interface PackageHistoryMetrics {
+    +activeDays: number
+    +addedLines: number
+    +authorCount: number
+    +commitCount: number
+    +deletedLines: number
+    +lastChangedAt: string
+    +path: string
+    +primaryOwner: string
+    +primaryOwnerShare: number
+    +riskFactors: RiskFactors
+    +topCochangeNeighbors: CochangeEdge
+    +topContributors?: ContributorSummary
+  }
+  interface RiskFactors {
+    +authorCount: number
+    +churn: number
+    +cochangeBreadth: number
+    +ownerConcentration: number
+    +recency: number
+  }
+  interface ArchJSON {
+    +readonly entities: any
+    +extensions?: ArchJSONExtensions
+    +readonly language: SupportedLanguage
+    +metadata?: any
+    +metrics?: ArchJSONMetrics
+    +metricVector?: MetricVector
+    +modules?: Module
+    +readonly relations: any
+    +readonly sourceFiles: readonly Array
+    +readonly timestamp: string
+    +readonly version: string
+    +readonly workspaceRoot?: string
+  }
+  interface ArchJSONMetrics {
+    +cycles?: CycleInfo
+    +entityCount: number
+    +fileStats?: FileStats
+    +inferredRelationRatio: number
+    +level: DetailLevel
+    +relationCount: number
+    +relationTypeBreakdown: any
+    +stronglyConnectedComponents: number
+  }
+  interface CycleInfo {
+    +files: Array
+    +memberNames: Array
+    +members: Array
+    +size: number
+  }
+  interface Decorator {
+    +arguments?: any
+    +name: string
+  }
+  interface Entity {
+    +attributes?: any
+    +decorators?: Decorator
+    +extends?: Array
+    +genericParams?: Array
+    +readonly id: string
+    +implements?: Array
+    +isAbstract?: boolean
+    +isConst?: boolean
+    +members: Member
+    +readonly name: string
+    +sourceLocation: SourceLocation
+    +readonly type: string
+    +readonly visibility: Visibility
+  }
+  interface FileStats {
+    +cycleCount: number
+    +entityCount: number
+    +fieldCount: number
+    +file: string
+    +inDegree: number
+    +loc: number
+    +methodCount: number
+    +outDegree: number
+  }
+  interface Member {
+    +decorators?: Decorator
+    +defaultValue?: string
+    +fieldType?: string
+    +isAbstract?: boolean
+    +isAsync?: boolean
+    +isOptional?: boolean
+    +isReadonly?: boolean
+    +isStatic?: boolean
+    +readonly name: string
+    +parameters?: Parameter
+    +returnType?: string
+    +readonly type: MemberType
+    +readonly visibility: Visibility
+  }
+  interface Module {
+    +entities: Array
+    +name: string
+    +submodules?: Module
+  }
+  interface Parameter {
+    +defaultValue?: string
+    +isOptional?: boolean
+    +name: string
+    +type: string
+  }
+  interface Relation {
+    +callType?: any
+    +confidence?: number
+    +readonly id: string
+    +inferenceSource?: any
+    +readonly source: string
+    +sourceMethod?: string
+    +readonly target: string
+    +targetMethod?: string
+    +readonly type: RelationType
+  }
+  interface SourceLocation_2 {
+    +readonly endLine: number
+    +readonly file: string
+    +readonly startLine: number
+  }
+  interface MetricVector {
+    +entityCoverageRatio?: number
+    +giniInDegree: number
+    +giniPackageSize: number
+    +inferredRelationRatio: number
+    +maxInDegree: number
+    +maxOutDegree: number
+    +maxPackageSize: number
+    +packageCount: number
+    +relationTypeBreakdown: any
+    +sccCount: number
+    +schemaVersion: 1
+    +totalEntities: number
+    +totalRelations: number
+  }
+  interface QueryScopeEntry {
+    +entityCount: number
+    +generatedAt?: string
+    +hasAtlasExtension: boolean
+    +key: string
+    +kind: any
+    +label: string
+    +language: string
+    +relationCount: number
+    +role?: any
+    +sources: Array
+  }
+}
+package "Src Types Extensions Layer" as Src_Types_Extensions_Layer {
+  interface CallChain {
+    +calls: CallEdge
+    +entryPoint: string
+    +errorPath?: CallEdge
+    +id: string
+  }
+  interface CallEdge {
+    +confidence: number
+    +from: string
+    +to: string
+    +type: any
+  }
+  interface CapabilityGraph {
+    +concreteUsageRisks?: ConcreteUsageRisk
+    +edges: CapabilityRelation
+    +nodes: CapabilityNode
+  }
+  interface CapabilityNode {
+    +exported: boolean
+    +fanIn?: number
+    +fanOut?: number
+    +fieldCount?: number
+    +id: string
+    +isHotspotAdded?: boolean
+    +isPackageHotspot?: boolean
+    +methodCount?: number
+    +name: string
+    +package: string
+    +type: any
+  }
+  interface CapabilityRelation {
+    +concreteUsage?: boolean
+    +confidence: number
+    +context?: [Type]
+    +id: string
+    +source: string
+    +target: string
+    +type: any
+  }
+  interface ChannelEdge {
+    +edgeType: any
+    +from: string
+    +to: string
+  }
+  interface ChannelInfo {
+    +bufferSize?: number
+    +direction: any
+    +id: string
+    +location: [Type]
+    +name: string
+    +type: string
+  }
+  interface ConcreteUsageRisk {
+    +concreteType: string
+    +fieldType: string
+    +location: string
+    +owner: string
+  }
+  interface EntryPoint {
+    +framework: string
+    +handler: string
+    +id: string
+    +location: [Type]
+    +method?: HttpMethod
+    +middleware: Array
+    +package?: string
+    +path: string
+    +protocol: string
+  }
+  interface FlowGraph {
+    +callChains: CallChain
+    +entryPoints: EntryPoint
+  }
+  interface GoAtlasExtension {
+    +layers: GoAtlasLayers
+    +metadata: GoAtlasMetadata
+    +version: string
+  }
+  interface GoAtlasLayers {
+    +capability?: CapabilityGraph
+    +flow?: FlowGraph
+    +goroutine?: GoroutineTopology
+    +package?: PackageGraph
+  }
+  interface GoAtlasMetadata {
+    +completeness: [Type]
+    +generatedAt: string
+    +generationStrategy: [Type]
+    +performance: [Type]
+    +warnings?: Array
+  }
+  interface GoroutineLifecycleSummary {
+    +cancellationCheckAvailable: boolean
+    +cancellationMechanism?: any
+    +hasCancellationCheck?: boolean
+    +nodeId: string
+    +orphan: boolean
+    +receivesContext: boolean
+    +spawnTargetName: string
+  }
+  interface GoroutineNode {
+    +id: string
+    +location: [Type]
+    +name: string
+    +package: string
+    +pattern?: GoroutinePattern
+    +spawnType?: any
+    +type: any
+  }
+  interface GoroutineTopology {
+    +channelEdges: ChannelEdge
+    +channels: ChannelInfo
+    +edges: SpawnRelation
+    +lifecycle?: GoroutineLifecycleSummary
+    +nodes: GoroutineNode
+  }
+  interface PackageCycle_2 {
+    +packages: Array
+    +severity: any
+  }
+  interface PackageDependency {
+    +source: string
+    +strength: number
+    +target: string
+    +transitive?: boolean
+  }
+  interface PackageGraph {
+    +cycles: PackageCycle
+    +edges: PackageDependency
+    +nodes: PackageNode
+  }
+  interface PackageNode {
+    +fileCount: number
+    +id: string
+    +name: string
+    +stats?: PackageStats
+    +type: any
+  }
+  interface PackageStats {
+    +functions: number
+    +interfaces: number
+    +structs: number
+  }
+  interface SpawnRelation {
+    +from: string
+    +spawnType: any
+    +to: string
+  }
+  interface ArchJSONExtensions {
+    +goAtlas?: GoAtlasExtension
+    +projectSemantics?: ProjectSemantics
+    +testAnalysis?: TestAnalysis
+    +tsAnalysis?: TsAnalysis
+  }
+  interface ProjectSemantics {
+    +_dirTreeHash?: string
+    +_generatedAt?: string
+    +additionalTestPatterns: Array
+    +architecturalLayers?: any
+    +barrelFiles: Array
+    +confidence: number
+    +customAssertionPatterns: Array
+    +nonProductionPatterns: Array
+    +suggestedDepth?: number
+    +version: "1.0"
+  }
+  interface ProjectSemanticsInput {
+    +additionalTestPatterns?: Array
+    +architecturalLayers?: any
+    +barrelFiles?: Array
+    +customAssertionPatterns?: Array
+    +nonProductionPatterns?: Array
+    +suggestedDepth?: number
+  }
+  interface CoverageLink {
+    +coverageScore: number
+    +coveredByTestIds: Array
+    +sourceEntityId: string
+  }
+  interface DetectedTestPatterns {
+    +detectedFrameworks: [Type]
+    +notes: Array
+    +suggestedPatternConfig: TestPatternConfig
+  }
+  interface PackageCoverage {
+    +coverageRatio: number
+    +coveredEntities: number
+    +package: string
+    +testFileIds: Array
+    +totalEntities: number
+  }
+  interface TestAnalysis {
+    +coverageMap: CoverageLink
+    +discovery?: TestDiscoveryInfo
+    +issues: TestIssue
+    +metrics: TestMetrics
+    +patternConfigSource: any
+    +testFiles: TestFileInfo
+    +version: string
+  }
+  interface TestDiscoveryInfo {
+    +globs?: Array
+    +roots: Array
+    +testSources?: Array
+    +workspaceRoot: string
+  }
+  interface TestFileInfo {
+    +assertionCount: number
+    +assertionDensity: number
+    +coveredEntityIds: Array
+    +filePath: string
+    +frameworks: Array
+    +id: string
+    +skipCount: number
+    +testCaseCount: number
+    +testType: any
+  }
+  interface TestIssue {
+    +message: string
+    +severity: any
+    +suggestion?: string
+    +testFileId: string
+    +type: any
+  }
+  interface TestMetrics {
+    +assertionDensity: number
+    +byType: any
+    +entityCoverageRatio: number
+    +issueCount: any
+    +skipRatio: number
+    +totalTestFiles: number
+  }
+  interface TestPatternConfig {
+    +assertionPatterns?: Array
+    +customAssertionRegexes?: Array
+    +skipPatterns?: Array
+    +testCasePatterns?: Array
+    +testFileGlobs?: Array
+    +typeClassificationRules?: [Type]
+  }
+  interface TsAnalysis {
+    +moduleGraph?: TsModuleGraph
+    +version: string
+  }
+  interface TsModuleCycle {
+    +edges?: TsModuleCycleEdgeEvidence
+    +modules: Array
+    +severity: any
+  }
+  interface TsModuleCycleEdgeEvidence {
+    +file: string
+    +from: string
+    +line: number
+    +specifier: string
+    +to: string
+  }
+  interface TsModuleDependency {
+    +evidence?: TsModuleEdgeEvidence
+    +from: string
+    +importedNames: Array
+    +strength: number
+    +to: string
+    +typeOnlyStrength?: number
+    +valueStrength?: number
+  }
+  interface TsModuleEdgeEvidence {
+    +file: string
+    +kind: TsModuleEdgeKind
+    +line: number
+    +specifier: string
+  }
+  interface TsModuleGraph {
+    +cycles: TsModuleCycle
+    +edges: TsModuleDependency
+    +nodes: TsModuleNode
+    +unevaluatedDynamicImports?: number
+    +unresolved?: TsModuleUnresolvedRef
+  }
+  interface TsModuleNode {
+    +fileCount: number
+    +id: string
+    +name: string
+    +stats: [Type]
+    +type: any
+  }
+  interface TsModuleUnresolvedRef {
+    +from: string
+    +specifier: string
+  }
+}
+package "Src Utils Layer" as Src_Utils_Layer {
+  interface CLIDetectionResult {
+    +available: boolean
+    +error?: string
+    +version?: string
+  }
+  interface PathAliasConfig {
+    +baseUrl: string
+    +paths: any
+  }
+}
+package "Templates Plugin Template Src Layer" as Templates_Plugin_Template_Src_Layer {
+  class MyLanguagePlugin {
+    +canHandle(targetPath: string): boolean
+    +async dispose(): any
+    +async initialize(config: PluginInitConfig): any
+    +readonly metadata: PluginMetadata
+    +parseCode(code: string, filePath?: string): ArchJSON
+    +async parseFiles(filePaths: Array): any
+    +async parseProject(workspaceRoot: string, config: ParseConfig): any
+  }
+  interface ParsedUnit {
+    +extends?: Array
+    +implements?: Array
+    +location: SourceLocation
+    +members: Array
+    +name: string
+    +type: any
+  }
+}
+package "Tests Fixtures Cross Language 01 Simple Class Layer" as Tests_Fixtures_Cross_Language_01_Simple_Class_Layer {
+  class User {
+    +constructor(id: string, name: string)
+    +getName(): string
+    +name: string
+    +setId(newId: string): void
+  }
+}
+package "Tests Fixtures Cross Language 02 Interface Implementation Layer" as Tests_Fixtures_Cross_Language_02_Interface_Implementation_Layer {
+  class InMemoryRepository {
+    +constructor()
+    +findById(id: string): string
+    +save(id: string, data: string): void
+  }
+  interface IRepository {
+    +findById(id: string): string
+    +save(id: string, data: string): void
+  }
+}
+package "Tests Fixtures Cross Language 03 Composition Layer" as Tests_Fixtures_Cross_Language_03_Composition_Layer {
+  class Address {
+    +city: string
+    +constructor(street: string, city: string)
+    +getFullAddress(): string
+    +street: string
+  }
+  class Person {
+    +address: Address
+    +constructor(name: string, address: Address)
+    +getPersonInfo(): string
+    +name: string
+  }
+}
+package "Tests Fixtures Cross Language 04 Inheritance Layer" as Tests_Fixtures_Cross_Language_04_Inheritance_Layer {
+  class Animal {
+    +age: number
+    +constructor(name: string, age: number)
+    +makeSound(): string
+    +name: string
+  }
+  class Dog {
+    +breed: string
+    +constructor(name: string, age: number, breed: string)
+    +fetch(): string
+    +makeSound(): string
+  }
+}
+package "Tests Fixtures Mock Plugin Layer" as Tests_Fixtures_Mock_Plugin_Layer {
+  class MockPlugin {
+    +canHandle(targetPath: string): boolean
+    +async dispose(): any
+    +async initialize(config: PluginInitConfig): any
+    +readonly metadata: PluginMetadata
+    +parseCode(code: string, filePath?: string): ArchJSON
+    +async parseFiles(filePaths: Array): any
+    +async parseProject(workspaceRoot: string, _config: ParseConfig): any
+  }
+}
+package "Tests Fixtures Plantuml Src Layer" as Tests_Fixtures_Plantuml_Src_Layer {
+  abstract class BaseEntity {
+    +{abstract} getId(): string
+  }
+  enum Role {
+    +Admin
+    +Member
+  }
+  interface Timestamped {
+    +createdAt: Date
+  }
+  class "Money$" as Money_ {
+    +amount: number
+  }
+  class UserProfile {
+    +createdAt: Date
+    +display(): string
+    +getId(): string
+    +money(): Wallet
+    +role: Role
+  }
+  class Wallet {
+    +balance: number
+  }
+}
+package "Tests Fixtures Typescript Plugin Layer" as Tests_Fixtures_Typescript_Plugin_Layer {
+  class SimpleClass {
+    +constructor(value: string)
+    +getValue(): string
+    +setValue(newValue: string): void
+  }
+}
+package "Tests Poc Mermaid Poc Layer" as Tests_Poc_Mermaid_Poc_Layer {
+  interface TestResult {
+    +duration: number
+    +error?: string
+    +name: string
+    +output?: string
+    +passed: boolean
+  }
+  interface ErrorTestResult {
+    +actualError?: string
+    +duration: number
+    +errorClear: boolean
+    +errorDetected: boolean
+    +expectedError: string
+    +name: string
+  }
+}
+EnrichedPackageNode --|> PackageNode
+FlaggedGodPackage --|> GodPackageMetrics
+DuplicateAnalysis *-- DuplicateGroup
+DuplicateAnalysis *-- DuplicateManifest
+DuplicateGroup *-- DuplicateMember
+DuplicateManifest *-- DuplicateOptions
+DirectionHint *-- DirectionSignal
+CommitRecord *-- FileChange
+GitLogWindow *-- CommitRecord
+RiskInput *-- CochangeEdge
+ChangeContextResult *-- AnalyzedWindow
+ChangeContextResult *-- CochangeEdge
+ChangeRiskResult *-- RiskFactors
+CochangeResult *-- AnalyzedWindow
+CochangeResult *-- CochangeEdge
+EvidencePackResult *-- EvidencePackEntry
+EvidencePackResult *-- EvidencePackNotFound
+HistoryQuery *-- LoadedHistoryData
+HistoryQuery ..> AnalyzedWindow
+HistoryQuery ..> ChangeContextResult
+HistoryQuery ..> ChangeRiskResult
+HistoryQuery ..> CochangeResult
+HistoryQuery ..> EvidencePackResult
+HistoryQuery ..> HistoryTargetNotFoundError
+HistoryQuery ..> OwnershipResult
+OwnershipResult *-- AnalyzedWindow
+OwnershipResult *-- OwnershipContributor
+LoadedHistoryData *-- FileHistoryMetrics
+LoadedHistoryData *-- GitHistoryManifest
+LoadedHistoryData *-- PackageHistoryMetrics
+BoundaryAlignmentScorer ..> ClusterBoundaryOptions
+BoundaryAlignmentScorer ..> PackageBASScore
+ClusterBoundaryAnalyzer ..> ClusterBoundaryOptions
+ClusterBoundaryAnalyzer ..> ClusterBoundaryReport
+ClusterBoundaryAnalyzer ..> ClusterSummary
+ClusterBoundaryAnalyzer ..> CrossDomainFusion
+ClusterBoundaryAnalyzer ..> PackageBASScore
+ClusterBoundaryAnalyzer ..> SplitPackageIssue
+DriftCalculator ..> DriftOptions
+DriftCalculator ..> DriftReport
+DriftCalculator ..> DriftSnapshot
+EntityAligner ..> AlignmentResult
+KMeansClusterer ..> KMeansOptions
+KMeansClusterer ..> KMeansResult
+AppendSnapshotResult *-- IntrinsicDimensionResult
+ArchHealthHistory *-- IntrinsicDimensionResult
+ClusterBoundaryReport *-- ClusterSummary
+ClusterBoundaryReport *-- CrossDomainFusion
+ClusterBoundaryReport *-- PackageBASScore
+ClusterBoundaryReport *-- SplitPackageIssue
+DriftReport *-- EntityDrift
+MetricsHistoryEntry *-- PackageMetricsSnapshot
+ProjectSemanticsPreflight *-- ProjectSemanticsInput
+LiteralDispersionSmell *-- SourceLocation
+ShapeSmellAnalysis *-- ShapeSmellManifest
+ShapeSmellAnalysis *-- ShapeSmellResult
+ShapeSmellResult *-- LiteralDispersionSmell
+SimulateRefactorSliceInput *-- RefactorSliceDeclaration
+SimulateRefactorSliceInput *-- TsModuleGraph
+SliceDeltaComputed *-- SliceDeltaAddedEdge
+SliceDeltaComputed *-- SliceDeltaRemovedEdge
+SliceDeltaComputed *-- SliceDeltaStrengthenedEdge
+SliceDeltaComputed *-- SliceDeltaSyntheticNode
+SliceDeltaComputed *-- SliceDeltaWhyLeft
+SliceDeltaDeclaredConsumer *-- SliceConsumer
+SliceDeltaEvaluatedReport *-- SliceDeltaAccountingEntry
+SliceDeltaEvaluatedReport *-- SliceDeltaAffectedConsumer
+SliceDeltaEvaluatedReport *-- SliceDeltaComputed
+SliceDeltaEvaluatedReport *-- SliceDeltaCurrent
+SliceDeltaEvaluatedReport *-- SliceDeltaDeclaredConsumer
+SliceDeltaEvaluatedReport *-- SliceDeltaGuards
+SliceDeltaEvaluatedReport *-- SliceDeltaNegativeControl
+SliceDeltaEvaluatedReport *-- SliceDeltaPredictionComparison
+SliceDeltaEvaluatedReport *-- SliceDeltaUnknowns
+SliceDeltaNegativeControl *-- SliceEdge
+SliceDeltaPredictionComparison *-- SliceDeltaComparison
+SliceDeltaUnknowns *-- SliceDeltaUnresolvedAliasRef
+SlicePreflightEvaluatedReport *-- SlicePreflightBlocking
+SlicePreflightEvaluatedReport *-- SlicePreflightDestinationVerdict
+SlicePreflightEvaluatedReport *-- SlicePreflightEdgeObligation
+SlicePreflightEvaluatedReport *-- SlicePreflightOutgoingEdge
+SlicePreflightInput *-- TsModuleGraph
+SlicePreflightMoveGroup *-- SlicePreflightSymbolMove
+MetricDiffResult *-- MetricDiffEntry
+MetricSnapshot *-- MetricVector
+TestAnalyzer *-- TestCoverageMapper
+TestAnalyzer *-- TestIssueDetector
+TestAnalyzer ..> ILanguagePlugin
+TestAnalyzer ..> RawTestFile
+TestAnalyzer ..> CoverageLink
+TestAnalyzer ..> TestAnalysis
+TestAnalyzer ..> TestFileInfo
+TestAnalyzer ..> TestIssue
+TestAnalyzer ..> TestMetrics
+TestAnalyzer ..> TestPatternConfig
+TestAnalyzer ..> ArchJSON
+TestAnalyzer ..> TestAnalyzerOptions
+TestAnalyzerOptions *-- ProjectSemantics
+TestAnalyzerOptions *-- TestPatternConfig
+TestCoverageMapper ..> CoverageLink
+TestCoverageMapper ..> TestFileInfo
+TestCoverageMapper ..> ArchJSON
+TestIssueDetector ..> CoverageLink
+TestIssueDetector ..> TestFileInfo
+TestIssueDetector ..> TestIssue
+ArchHealthOutcome *-- IntrinsicDimensionResult
+RunAnalysisOptions *-- ProgressReporterLike
+RunAnalysisOptions *-- ProcessParseWorkerPools
+RunAnalysisResult *-- ArchHealthOutcome
+RunAnalysisResult *-- ArchJSON
+ArchJsonDiskCache ..> ArchJSON
+CacheEntry *-- ArchJSON
+CacheManager *-- CacheStats
+CacheManager ..> CacheOptions
+CacheManager ..> CacheStats
+CacheManager ..> TestAnalysis
+RenderHashCache ..> RenderOptions
+MetaCcResponse *-- MetaCcFileEntry
+CcbReadResult *-- CognitiveContextBundle
+CognitiveContextBundle *-- CognitiveBehavioralSignals
+CognitiveContextBundle *-- CognitiveDocumentationSignals
+CognitiveContextBundle *-- CognitiveGitSignals
+CognitiveContextBundle *-- CognitiveGuidance
+CognitiveContextBundle *-- CognitiveSummaryEntry
+ResolvedGraph *-- TsModuleGraph
+ConfigLoader ..> FileConfig
+ErrorHandler ..> APIError
+ErrorHandler ..> ErrorFormatOptions
+ErrorHandler ..> FileError
+ErrorHandler ..> ValidationError
+AnalyzeToolContext *-- ProcessParseWorkerPools
+ScopeInfoPayload *-- StalenessInfo
+DriftToolResult *-- DriftReport
+CognitiveSummaryEntryWithReasons --|> CognitiveSummaryEntry
+MetricsHistoryWriter ..> MetricsHistoryScopeInfo
+MetricsHistoryWriter ..> PackageMetricsSnapshot
+ArchJsonProviderOptions *-- PluginRegistry
+ArchJsonProviderOptions *-- ParseCache
+ArchJsonProviderOptions *-- ParseWorkerPool
+ArchJsonProvider *-- ArchJsonDiskCache
+ArchJsonProvider *-- ArchJsonProviderOptions
+ArchJsonProvider *-- FileDiscoveryService
+ArchJsonProvider *-- PluginRegistry
+ArchJsonProvider *-- ParseCache
+ArchJsonProvider *-- ParseWorkerPool
+ArchJsonProvider *-- ArchJSON
+ArchJsonProvider ..> ParseConfig
+ArchJsonProvider ..> ArchJsonGetOptions
+ArchJsonProvider ..> SelectParserBackendOptions
+ArchJsonProvider ..> ArchJSON
+DiagramOutputRouter *-- RenderHashCache
+DiagramOutputRouter *-- ProgressReporterLike
+DiagramOutputRouter ..> IsomorphicMermaidRenderer
+DiagramOutputRouter ..> RenderOptions
+DiagramOutputRouter ..> MermaidRenderWorkerPool
+DiagramOutputRouter ..> MermaidRendererOptions
+DiagramOutputRouter ..> ArchJSON
+DiagramPipelineRunner *-- DiagramOutputRouter
+DiagramPipelineRunner *-- ProgressReporterLike
+DiagramPipelineRunner *-- ParallelProgressReporter
+DiagramPipelineRunner *-- ArchJSONAggregator
+DiagramPipelineRunner *-- MetricsCalculator
+DiagramPipelineRunner ..> ParallelProgressReporter
+DiagramPipelineRunner ..> MermaidRenderWorkerPool
+DiagramPipelineRunner ..> ArchJSON
+DiagramProcessor *-- DiagramProcessorOptions
+DiagramProcessor *-- ArchJsonProvider
+DiagramProcessor *-- DiagramOutputRouter
+DiagramProcessor *-- DiagramPipelineRunner
+DiagramProcessor *-- QueryScopeCollector
+DiagramProcessor *-- WorkerPoolFactory
+DiagramProcessor *-- ProgressReporterLike
+DiagramProcessor *-- ParallelProgressReporter
+DiagramProcessor ..> QuerySourceGroup
+DiagramProcessor ..> MermaidRenderWorkerPool
+DiagramProcessor ..> DiagramResult
+DiagramProcessor ..> TestAnalysis
+DiagramProcessor ..> ArchJSON
+DiagramProcessorOptions *-- DiagramPipelineRunner
+DiagramProcessorOptions *-- QueryScopeCollector
+DiagramProcessorOptions *-- WorkerPoolFactory
+DiagramProcessorOptions *-- ProgressReporterLike
+DiagramProcessorOptions *-- PluginRegistry
+DiagramProcessorOptions *-- ParseCache
+DiagramProcessorOptions *-- ParseWorkerPool
+EdgeAccumulator *-- TsModuleEdgeEvidence
+MergedQueryView *-- CrossScopeEdge
+MergedQueryView *-- ArchJSON
+NodeAccumulator --|> TsModuleNode
+QueryScopeCollector *-- QuerySourceGroup
+QueryScopeCollector *-- ArchJSON
+QueryScopeCollector ..> QuerySourceGroup
+QueryScopeCollector ..> ArchJSON
+ScopeLayout *-- ArchJSON
+WorkerPoolFactory ..> MermaidRenderWorkerPool
+WorkerPoolFactory ..> ParseWorkerPool
+NoopReporter ..|> ProgressReporterLike
+ProgressReporter *-- Stage
+ProgressReporter ..> ProgressSummary
+ProgressReporter ..> Stage
+ProgressReporter ..|> ProgressReporterLike
+StderrReporter ..|> ProgressReporterLike
+QueryContext *-- AvailableScope
+QueryContext *-- ResolvedScopeInfo
+QueryContext *-- ExtensionAccessor
+QueryContext *-- RelationQueryService
+ResolvedScopeInfo *-- StalenessInfo
+StalenessInfo *-- GitHeadInfo
+QueryManifest *-- QueryScopeEntry
+QuerySourceGroup *-- ArchJSON
+Config *-- CLIConfig
+DiagramIndexGenerator ..> ArchJSONMetrics
+FileDiscoveryService *-- ExcludeReportEntry
+FileDiscoveryService ..> FileDiscoveryOptions
+FileDiscoveryService ..> ExcludeReportEntry
+OutputPathOptions --|> ResolveOptions
+OutputPathResolver ..> PathResolution
+OutputPathResolver ..> ResolveOptions
+ResolvedPaths --|> PathResolution
+TestOutputWriter ..> TestAnalysis
+EntityTypeRegistry *-- CustomEntityTypeDeclaration
+EntityTypeRegistry ..> CustomEntityTypeDeclaration
+FileSystemError --|> PluginError
+ParseError --|> PluginError
+PluginConfigError --|> PluginError
+PluginInitializationError --|> PluginError
+ToolDependencyError --|> PluginError
+ILanguagePlugin *-- PluginMetadata
+ILanguagePlugin *-- IDependencyExtractor
+ILanguagePlugin *-- IValidator
+ILanguagePlugin --|> IParser
+PluginMetadata *-- CustomEntityTypeDeclaration
+PluginMetadata *-- PluginCapabilities
+RawTestFile *-- RawTestCase
+ValidationResult *-- ValidationError
+ValidationResult *-- ValidationWarning
+PackRegistry *-- PackRegistryOptions
+PackRegistry ..> LoadedPack
+FrameworkRule *-- DetectRule
+FrameworkRule *-- EntryPointRule
+FrameworkRule *-- FrameworkModuleRule
+KnowledgePack *-- ArchitecturalPattern
+KnowledgePack *-- DependencyRuleSet
+KnowledgePack *-- FrameworkRule
+KnowledgePack *-- KnowledgePackManifest
+KnowledgePack *-- ModuleRuleSet
+LoadedPack --|> KnowledgePack
+ModuleRuleSet *-- EntityNodeRule
+ModuleRuleSet *-- ImportPatternRule
+ModuleRuleSet *-- RelationEmissionConfig
+ParserBackendSelection *-- ParserBackend
+QueryCaptureLike *-- SyntaxNodeLike
+QueryMatchLike *-- QueryCaptureLike
+SyntaxNodeLike *-- SyntaxPointLike
+SyntaxTreeLike *-- SyntaxNodeLike
+PluginRegistry ..> RegisterOptions
+PluginRegistry ..> PackRegistry
+ArchIndex *-- CycleInfo
+CognitiveMetrics *-- ArchIndex
+CognitiveMetrics *-- StructureMetrics
+CognitiveMetrics *-- ExtensionAccessor
+CognitiveMetrics *-- ArchJSON
+QualityMetrics *-- ExtensionAccessor
+QualityMetrics *-- ArchJSON
+QualityMetrics ..> PackageCoverage
+PackageStatsResult *-- PackageStatEntry
+PackageStatsResult *-- PackageStatMeta
+StructureMetrics *-- ArchIndex
+StructureMetrics *-- ExtensionAccessor
+StructureMetrics *-- ArchJSON
+StructureMetrics *-- Entity
+StructureMetrics ..> PackageStatsResult
+StructureMetrics ..> Entity
+ArchMetrics *-- ArchIndex
+ArchMetrics *-- CognitiveMetrics
+ArchMetrics *-- QualityMetrics
+ArchMetrics *-- StructureMetrics
+ArchMetrics *-- ExtensionAccessor
+ArchMetrics *-- ArchJSON
+ArchMetrics ..> PackageStatsResult
+ArchMetrics ..> PackageCoverage
+ArchMetrics ..> Entity
+EntityQueryService *-- ArchIndex
+EntityQueryService *-- ArchJSON
+EntityQueryService *-- Entity
+EntityQueryService ..> Entity
+ExtensionAccessor *-- ArchJSON
+ExtensionAccessor ..> GoAtlasLayers
+ExtensionAccessor ..> TestAnalysis
+ExtensionAccessor ..> TsModuleGraph
+EdgeListOutput *-- EdgeListEntity
+EdgeListOutput *-- EdgeListRelation
+PackageCycle *-- PackageCycleEdgeEvidence
+PackageCyclesResult *-- PackageCycle
+PackageCyclesResult *-- PackageEdgeDeletionImpact
+QueryEngine *-- QueryEngineOptions
+QueryEngine *-- ArchIndex
+QueryEngine *-- ArchMetrics
+QueryEngine *-- EntityQueryService
+QueryEngine *-- ExtensionAccessor
+QueryEngine *-- RelationQueryService
+QueryEngine *-- ArchJSON
+QueryEngine *-- QueryScopeEntry
+QueryEngine ..> EntitySummary
+QueryEngine ..> PackageCyclesResult
+QueryEngine ..> PackageStatsResult
+QueryEngine ..> QueryMethodOptions
+QueryEngine ..> PackageCoverage
+QueryEngine ..> TsModuleGraph
+QueryEngine ..> CycleInfo
+QueryEngine ..> Entity
+QueryEngine ..> QueryScopeEntry
+QueryEngineOptions *-- ArchIndex
+QueryEngineOptions *-- ArchJSON
+QueryEngineOptions *-- QueryScopeEntry
+RelationQueryService *-- ArchIndex
+RelationQueryService *-- EntityQueryService
+RelationQueryService *-- ArchJSON
+RelationQueryService ..> Entity
+RuleBasedLanguagePlugin *-- PluginMetadata
+RuleBasedLanguagePlugin *-- LoadedPack
+RuleBasedLanguagePlugin *-- ParserBackendResolver
+RuleBasedLanguagePlugin *-- ParserSession
+RuleBasedLanguagePlugin *-- RuleEngine
+RuleBasedLanguagePlugin ..> PluginInitConfig
+RuleBasedLanguagePlugin ..> ParseConfig
+RuleBasedLanguagePlugin ..> ArchJSON
+RuleBasedLanguagePlugin ..|> ILanguagePlugin
+RuleEngine *-- RuleEngineOptions
+RuleEngine *-- LoadedPack
+RuleEngine *-- ParserSession
+RuleEngine ..> RuleEngineFileResult
+RuleEngine ..> EntityNodeRule
+RuleEngine ..> SyntaxNodeLike
+RuleEngine ..> SyntaxTreeLike
+RuleEngine ..> Decorator
+RuleEngine ..> Entity
+RuleEngine ..> Member
+RuleEngine ..> Parameter
+RuleEngine ..> Relation
+RuleEngineFileResult *-- Entity
+RuleEngineFileResult *-- Relation
+MermaidAutoRepair *-- MermaidParseValidator
+MermaidAutoRepair ..> ValidationError_3
+CppPackageFlowchartGenerator ..> ArchJSON
+MermaidDiagramGenerator *-- IProgressReporter
+MermaidDiagramGenerator ..> DiagramOutputOptions
+MermaidDiagramGenerator ..> RenderJob
+MermaidDiagramGenerator ..> IProgressReporter
+MermaidDiagramGenerator ..> MermaidRendererOptions
+MermaidDiagramGenerator ..> ArchJSON
+MermaidDiagramGenerator ..|> IRendererFacade
+ValidatedMermaidGenerator *-- CommentGenerator
+ValidatedMermaidGenerator *-- MermaidGeneratorOptions
+ValidatedMermaidGenerator *-- ArchJSON
+ValidatedMermaidGenerator ..> PackageGroup
+HeuristicGrouper *-- GrouperConfig
+HeuristicGrouper ..> GroupingDecision
+HeuristicGrouper ..> LayoutDecision
+HeuristicGrouper ..> PackageGroup
+HeuristicGrouper ..> ArchJSON
+NoopProgressReporter ..|> IProgressReporter
+MermaidRenderWorkerPool *-- WorkerInitData
+MermaidRenderWorkerPool ..> RenderJob
+MermaidRenderWorkerPool ..> RenderResult
+IsomorphicMermaidRenderer *-- MermaidRendererOptions
+IsomorphicMermaidRenderer ..> MermaidOutputPaths
+IsomorphicMermaidRenderer ..> MermaidRendererOptions
+TestCoverageRenderer ..> TestAnalysis
+TestCoverageRenderer ..> ArchJSON
+TreeNode *-- TsModuleNode
+GrouperConfig *-- GroupingRule
+GroupingDecision *-- LayoutDecision
+GroupingDecision *-- PackageGroup
+LLMGrouperResponse *-- LayoutDecision
+LLMGrouperResponse *-- PackageGroup
+MermaidGeneratorOptions *-- GroupingDecision
+MermaidGeneratorOptions *-- MermaidTheme
+MermaidRendererOptions *-- MermaidTheme
+ParseValidationResult *-- ValidationError
+ParseValidationResult *-- ValidationWarning
+QualityValidationResult *-- QualityMetrics
+QualityValidationResult *-- QualitySuggestion
+RenderValidationResult *-- RenderIssue
+StructuralValidationResult *-- StructuralIssue
+ValidationPipelineResult *-- ParseValidationResult
+ValidationPipelineResult *-- QualityValidationResult
+ValidationPipelineResult *-- RenderValidationResult
+ValidationPipelineResult *-- StructuralValidationResult
+MermaidValidationPipeline *-- MermaidParseValidator
+MermaidValidationPipeline *-- QualityValidator
+MermaidValidationPipeline *-- RenderValidator
+MermaidValidationPipeline *-- StructuralValidator
+MermaidValidationPipeline ..> ValidationFullResult
+MermaidValidationPipeline ..> ValidationPipelineResult
+MermaidValidationPipeline ..> MermaidParseValidator
+MermaidValidationPipeline ..> ArchJSON
+MermaidParseValidator ..> ParseValidationResult
+MermaidParseValidator ..> ValidationError_3
+MermaidParseValidator ..> ValidationWarning_2
+QualityValidator ..> QualityMetrics_2
+QualityValidator ..> QualitySuggestion
+QualityValidator ..> QualityValidationResult
+QualityValidator ..> ArchJSON
+RenderValidator ..> RenderIssue
+RenderValidator ..> RenderValidationResult
+StructuralValidator ..> StructuralIssue
+StructuralValidator ..> StructuralValidationResult
+StructuralValidator ..> ArchJSON
+ArchJSONAggregator ..> ArchJSON
+ArchJSONAggregator ..> Entity
+ArchJSONAggregator ..> Relation
+CallEdgeExtractor *-- CallEdgeExtractorOptions
+CallEdgeExtractor *-- CallEdgeStats
+CallEdgeExtractor *-- FunctionExtractor
+CallEdgeExtractor *-- Entity
+CallEdgeExtractor ..> CallEdgeStats
+CallEdgeExtractor ..> CallSource
+CallEdgeExtractor ..> Relation
+ClassExtractor ..> Entity
+ClassExtractor ..> Member
+ClassExtractor ..> Parameter
+ClassExtractor --|> BaseExtractor
+EnumExtractor ..> Entity
+EnumExtractor ..> Member
+EnumExtractor --|> BaseExtractor
+FunctionExtractor ..> FunctionEntitySource
+FunctionExtractor ..> Entity
+FunctionExtractor ..> Member
+InterfaceExtractor ..> Entity
+InterfaceExtractor ..> Member
+InterfaceExtractor ..> Parameter
+InterfaceExtractor --|> BaseExtractor
+MetricsCalculator ..> ArchJSON
+MetricsCalculator ..> ArchJSONMetrics
+MetricsCalculator ..> CycleInfo
+MetricsCalculator ..> FileStats
+ParallelParser *-- ParallelParserOptions
+ParallelParser *-- ParseCache
+ParallelParser *-- ParseWorkerPool
+ParallelParser ..> ArchJSON
+ParallelParser ..> ParsingMetrics
+ParallelParser ..> ParseWorkerPool
+ParallelParser ..|> IParserFacade
+ParallelParserOptions *-- ParseCache
+ParallelParserOptions *-- ParseWorkerPool
+ParsingMetrics *-- ArchJSON
+ParseCache *-- ArchJSON
+ParseCache ..> ArchJSON
+ParseProjectJob *-- ParseConfig
+ParseResult *-- ArchJSON
+ParseWorkerPool *-- ParseWorkerInitData
+ParseWorkerPool ..> ParseJob
+ParseWorkerPool ..> ParseProjectJob
+ParseWorkerPool ..> ParseResult
+ProcessParseWorkerPools *-- ParseWorkerPool
+ProcessParseWorkerPools ..> ParseWorkerPoolRequest
+ProcessParseWorkerPools ..> ParseWorkerPool
+RelationExtractor ..> Relation
+RelationExtractor --|> BaseExtractor
+TypeScriptParser *-- ClassExtractor
+TypeScriptParser *-- EnumExtractor
+TypeScriptParser *-- FunctionExtractor
+TypeScriptParser *-- InterfaceExtractor
+TypeScriptParser *-- RelationExtractor
+TypeScriptParser ..> ArchJSON
+TypeScriptParser ..> Entity
+TypeScriptParser ..> Relation
+PlantUmlGenerator *-- PlantUmlGeneratorOptions
+PlantUmlGenerator *-- ArchJSON
+PlantUmlGenerator ..> PlantUmlEntityOptions
+PlantUmlGeneratorOptions *-- GroupingDecision
+PlantUmlStructuralValidationResult *-- PlantUmlStructuralIssue
+PlantUmlStructuralValidator ..> PlantUmlStructuralIssue
+PlantUmlStructuralValidator ..> PlantUmlStructuralValidationResult
+PlantUmlStructuralValidator ..> ArchJSON
+ArchJsonMapper ..> MergedCppEntity
+ArchJsonMapper ..> RawEnum
+ArchJsonMapper ..> RawField
+ArchJsonMapper ..> RawFunction
+ArchJsonMapper ..> RawMethod
+ArchJsonMapper ..> Entity
+ArchJsonMapper ..> Member
+ArchJsonMapper ..> Relation
+ArchJsonMapper --|> BaseArchJsonMapper
+ClassBuilder ..> RawField
+ClassBuilder ..> RawMethod
+HeaderMerger ..> MergedCppEntity
+HeaderMerger ..> RawClass
+HeaderMerger ..> RawCppFile
+DependencyExtractor ..> Dependency
+DependencyExtractor ..|> IDependencyExtractor
+CppPlugin *-- IDependencyExtractor
+CppPlugin *-- PluginMetadata
+CppPlugin *-- ArchJsonMapper
+CppPlugin *-- HeaderMerger
+CppPlugin *-- TreeSitterBridge
+CppPlugin ..> PluginInitConfig
+CppPlugin ..> RawTestFile
+CppPlugin ..> ParseConfig
+CppPlugin ..> TestPatternConfig
+CppPlugin ..> ArchJSON
+CppPlugin ..|> ILanguagePlugin
+CppClassMapper *-- ClassBuilder
+CppClassMapper *-- CppFieldMapper
+CppClassMapper ..> RawClass
+CppClassMapper ..> CaptureGroup
+CppClassMapper --|> CaptureMapper
+CppEnumMapper ..> RawEnum
+CppEnumMapper ..> CaptureGroup
+CppEnumMapper --|> CaptureMapper
+CppFieldMapper ..> RawField
+CppFieldMapper ..> CaptureGroup
+CppFieldMapper --|> CaptureMapper
+CppFuncMapper ..> RawFunction
+CppFuncMapper ..> CaptureGroup
+CppFuncMapper --|> CaptureMapper
+CppIncludeMapper ..> CaptureGroup
+CppIncludeMapper --|> CaptureMapper
+ErrorSupplement *-- RawClass
+ErrorSupplement *-- RawEnum
+ErrorSupplement *-- RawFunction
+TreeSitterBridge *-- CppClassMapper
+TreeSitterBridge *-- CppEnumMapper
+TreeSitterBridge *-- CppFuncMapper
+TreeSitterBridge *-- CppIncludeMapper
+TreeSitterBridge ..> ErrorSupplement
+TreeSitterBridge ..> RawCppFile
+CppRawData *-- RawCppFile
+MergedCppEntity --|> RawClass
+RawClass *-- RawField
+RawClass *-- RawMethod
+RawCppFile *-- RawClass
+RawCppFile *-- RawEnum
+RawCppFile *-- RawFunction
+ArchJsonMapper_2 ..> GoRawInterface
+ArchJsonMapper_2 ..> GoRawPackage
+ArchJsonMapper_2 ..> GoRawStruct
+ArchJsonMapper_2 ..> InferredImplementation
+ArchJsonMapper_2 ..> FlowGraph
+ArchJsonMapper_2 ..> Entity
+ArchJsonMapper_2 ..> Relation
+ArchJsonMapper_2 --|> BaseArchJsonMapper
+BehaviorAnalyzer *-- GoModResolver
+BehaviorAnalyzer ..> CapabilityBuildOptions
+BehaviorAnalyzer ..> AtlasGenerationOptions
+BehaviorAnalyzer ..> FlowBuildOptions
+BehaviorAnalyzer ..> GoRawData
+CapabilityGraphBuilder ..> CapabilityBuildOptions
+CapabilityGraphBuilder ..> GoRawData
+CapabilityGraphBuilder ..|> IAtlasBuilder
+FlowGraphBuilder ..> FlowBuildOptions
+FlowGraphBuilder ..> GoCallExpr
+FlowGraphBuilder ..> GoField
+FlowGraphBuilder ..> GoRawData
+FlowGraphBuilder ..> GoRawPackage
+FlowGraphBuilder ..|> IAtlasBuilder
+GoroutineTopologyBuilder ..> GoFunctionBody
+GoroutineTopologyBuilder ..> GoRawData
+GoroutineTopologyBuilder ..> GoRawPackage
+GoroutineTopologyBuilder ..> GoSpawnStmt
+GoroutineTopologyBuilder ..|> IAtlasBuilder
+PackageGraphBuilder *-- GoModResolver
+PackageGraphBuilder ..> GoRawData
+PackageGraphBuilder ..> GoRawPackage
+PackageGraphBuilder ..|> IAtlasBuilder
+FrameworkDetector ..> ModuleInfo
+FrameworkDetector ..> GoMethod
+FrameworkDetector ..> GoRawData
+GoModResolver *-- ModuleInfo
+GoModResolver ..> GoModRequire
+GoModResolver ..> ModuleInfo
+ModuleInfo *-- GoModRequire
+AtlasRenderer ..> GoAtlasExtension
+AtlasRenderer ..> RenderResult_2
+AtlasConfig *-- CustomFrameworkConfig
+AtlasConfig *-- ManualEntryPoint
+AtlasGenerationOptions *-- CustomFrameworkConfig
+AtlasGenerationOptions *-- ManualEntryPoint
+CustomFrameworkConfig *-- CustomCallPattern
+FlowBuildOptions *-- CustomFrameworkConfig
+FlowBuildOptions *-- ManualEntryPoint
+FunctionBuilder *-- GoroutineBuilder
+FunctionBuilder ..> MethodExtractionResult
+FunctionBuilder ..> GoField
+FunctionBuilder ..> GoFunction
+FunctionBuilder ..> GoFunctionBody
+FunctionBuilder ..> GoMethod
+FunctionBuilder ..> GoRawStruct
+FunctionBuilder ..> TreeSitterParseOptions
+MethodExtractionResult *-- GoMethod
+GoroutineBuilder ..> GoCallExpr
+GoroutineBuilder ..> GoChannelOp
+GoroutineBuilder ..> GoFunctionBody
+GoroutineBuilder ..> GoSpawnStmt
+InterfaceBuilder ..> GoField
+InterfaceBuilder ..> GoRawInterface
+NodeUtils ..> GoSourceLocation
+StructBuilder *-- InterfaceBuilder
+StructBuilder ..> GoRawStruct
+StructBuilder ..> StructBuilderResult
+StructBuilderResult *-- GoRawInterface
+StructBuilderResult *-- GoRawStruct
+DependencyExtractor_2 ..> GoModInfo
+DependencyExtractor_2 ..> Dependency
+DependencyExtractor_2 ..|> IDependencyExtractor
+GoModInfo *-- Dependency
+GoAtlasAdapter *-- GoAtlasCoordinator
+GoAtlasAdapter *-- IGoRawDataProvider
+GoAtlasAdapter ..> GoAtlasExtension
+GoAtlasAdapter ..> AtlasGenerationOptions
+GoAtlasAdapter ..> RenderResult_2
+GoAtlasCoordinator *-- BehaviorAnalyzer
+GoAtlasCoordinator *-- GoModResolver
+GoAtlasCoordinator *-- AtlasRenderer
+GoAtlasCoordinator ..> GoAtlasExtension
+GoAtlasCoordinator ..> AtlasGenerationOptions
+GoAtlasCoordinator ..> RenderResult_2
+GoAtlasCoordinator ..> GoRawData
+GoParseCoordinator *-- ArchJsonMapper_2
+GoParseCoordinator *-- GoplsInterfaceResolver
+GoParseCoordinator *-- TreeSitterBridge_2
+GoParseCoordinator ..> ParseConfig
+GoParseCoordinator ..> GoRawData
+GoParseCoordinator ..> FlowGraph
+GoParseCoordinator ..> ArchJSON
+GoParseCoordinator ..> Relation
+GoTestAnalyzer ..> RawTestFile
+GoTestAnalyzer ..> TestPatternConfig
+GoplsClient ..> ImplementationResult
+GoplsClient ..> LSPMessage
+GoplsClient ..> TypeInfo
+GoplsInterfaceResolver *-- GoplsResolverOptions
+GoplsInterfaceResolver *-- GoplsClient
+GoplsInterfaceResolver *-- InterfaceMatcher
+GoplsInterfaceResolver ..> InferredImplementation
+GoPlugin *-- PluginMetadata
+GoPlugin *-- DependencyExtractor_2
+GoPlugin *-- GoAtlasAdapter
+GoPlugin *-- GoAtlasCoordinator
+GoPlugin *-- GoParseCoordinator
+GoPlugin *-- GoTestAnalyzer
+GoPlugin *-- GoplsInterfaceResolver
+GoPlugin ..> GoAtlasExtension
+GoPlugin ..> PluginInitConfig
+GoPlugin ..> RawTestFile
+GoPlugin ..> ParseConfig
+GoPlugin ..> AtlasGenerationOptions
+GoPlugin ..> RenderResult_2
+GoPlugin ..> TestPatternConfig
+GoPlugin ..> ArchJSON
+GoPlugin ..|> IGoAtlas
+GoPlugin ..|> ILanguagePlugin
+InterfaceMatcher ..> GoplsClient
+InterfaceMatcher ..> GoRawInterface
+InterfaceMatcher ..> GoRawStruct
+InterfaceMatcher ..> InferredImplementation
+InterfaceMatcher ..> MethodSet
+InterfaceMatcher ..> MethodSignature
+TreeSitterBridge_2 *-- FunctionBuilder
+TreeSitterBridge_2 *-- StructBuilder
+TreeSitterBridge_2 ..> GoImport
+TreeSitterBridge_2 ..> GoRawPackage
+TreeSitterBridge_2 ..> TreeSitterParseOptions
+EmbeddedTypeRef *-- GoSourceLocation
+GoCallExpr *-- GoSourceLocation
+GoChannelOp *-- GoSourceLocation
+GoField *-- GoSourceLocation
+GoFunction *-- GoField
+GoFunction *-- GoFunctionBody
+GoFunction *-- GoSourceLocation
+GoFunctionBody *-- GoCallExpr
+GoFunctionBody *-- GoChannelOp
+GoFunctionBody *-- GoSpawnStmt
+GoImport *-- GoSourceLocation
+GoMethod *-- GoField
+GoMethod *-- GoFunctionBody
+GoMethod *-- GoSourceLocation
+GoRawData *-- GoRawPackage
+GoRawData *-- InferredImplementation
+GoRawInterface *-- GoMethod
+GoRawInterface *-- GoSourceLocation
+GoRawPackage *-- GoFunction
+GoRawPackage *-- GoImport
+GoRawPackage *-- GoMethod
+GoRawPackage *-- GoRawInterface
+GoRawPackage *-- GoRawStruct
+GoRawStruct *-- EmbeddedTypeRef
+GoRawStruct *-- GoField
+GoRawStruct *-- GoMethod
+GoRawStruct *-- GoSourceLocation
+GoSpawnStmt *-- GoCallExpr
+GoSpawnStmt *-- GoSourceLocation
+MethodSet *-- MethodSignature
+ArchJsonMapper_3 ..> JavaRawClass
+ArchJsonMapper_3 ..> JavaRawEnum
+ArchJsonMapper_3 ..> JavaRawInterface
+ArchJsonMapper_3 ..> JavaRawPackage
+ArchJsonMapper_3 ..> Entity
+ArchJsonMapper_3 ..> Relation
+ArchJsonMapper_3 --|> BaseArchJsonMapper
+DependencyExtractor_3 ..> Dependency
+DependencyExtractor_3 ..|> IDependencyExtractor
+JavaPlugin *-- PluginMetadata
+JavaPlugin *-- ArchJsonMapper_3
+JavaPlugin *-- DependencyExtractor_3
+JavaPlugin *-- TreeSitterBridge_3
+JavaPlugin ..> PluginInitConfig
+JavaPlugin ..> RawTestFile
+JavaPlugin ..> ParseConfig
+JavaPlugin ..> TestPatternConfig
+JavaPlugin ..> ArchJSON
+JavaPlugin ..|> ILanguagePlugin
+MavenCrossModuleParser ..> ModuleDependency
+TreeSitterBridge_3 ..> JavaRawAnnotation
+TreeSitterBridge_3 ..> JavaRawCallSite
+TreeSitterBridge_3 ..> JavaRawClass
+TreeSitterBridge_3 ..> JavaRawConstructor
+TreeSitterBridge_3 ..> JavaRawEnum
+TreeSitterBridge_3 ..> JavaRawField
+TreeSitterBridge_3 ..> JavaRawInterface
+TreeSitterBridge_3 ..> JavaRawMethod
+TreeSitterBridge_3 ..> JavaRawPackage
+TreeSitterBridge_3 ..> JavaRawParameter
+JavaRawClass *-- JavaRawAnnotation
+JavaRawClass *-- JavaRawConstructor
+JavaRawClass *-- JavaRawField
+JavaRawClass *-- JavaRawMethod
+JavaRawConstructor *-- JavaRawAnnotation
+JavaRawConstructor *-- JavaRawParameter
+JavaRawData *-- JavaRawPackage
+JavaRawField *-- JavaRawAnnotation
+JavaRawInterface *-- JavaRawAnnotation
+JavaRawInterface *-- JavaRawMethod
+JavaRawMethod *-- JavaRawAnnotation
+JavaRawMethod *-- JavaRawCallSite
+JavaRawMethod *-- JavaRawParameter
+JavaRawPackage *-- JavaRawClass
+JavaRawPackage *-- JavaRawEnum
+JavaRawPackage *-- JavaRawInterface
+JavaRawParameter *-- JavaRawAnnotation
+ArchJsonMapper_4 *-- KotlinTypeExtractor
+ArchJsonMapper_4 ..> RawKotlinFile
+ArchJsonMapper_4 ..> RawKotlinMember
+ArchJsonMapper_4 ..> ArchJSON
+ArchJsonMapper_4 ..> Entity
+ArchJsonMapper_4 ..> Member
+ArchJsonMapper_4 ..> Relation
+ArchJsonMapper_4 --|> BaseArchJsonMapper
+ClassBuilder_2 ..> RawKotlinClass
+ClassBuilder_2 ..> RawKotlinMember
+FunctionBuilder_2 ..> RawKotlinFunction
+KotlinDependency --|> Dependency
+KotlinDependencyExtractor ..> KotlinDependency
+KotlinDependencyExtractor ..|> IDependencyExtractor
+KotlinPlugin *-- IDependencyExtractor
+KotlinPlugin *-- PluginMetadata
+KotlinPlugin *-- ArchJsonMapper_4
+KotlinPlugin *-- TreeSitterBridge_4
+KotlinPlugin ..> PluginInitConfig
+KotlinPlugin ..> RawTestFile
+KotlinPlugin ..> ParseConfig
+KotlinPlugin ..> TestPatternConfig
+KotlinPlugin ..> ArchJSON
+KotlinPlugin ..|> ILanguagePlugin
+TreeSitterBridge_4 *-- ClassBuilder_2
+TreeSitterBridge_4 *-- FunctionBuilder_2
+TreeSitterBridge_4 ..> RawKotlinFile
+TreeSitterBridge_4 ..> RawKotlinImport
+RawKotlinClass *-- RawKotlinMember
+RawKotlinFile *-- RawKotlinClass
+RawKotlinFile *-- RawKotlinFunction
+RawKotlinFile *-- RawKotlinImport
+ArchJsonMapper_5 ..> ImportRelation
+ArchJsonMapper_5 ..> PythonRawAttribute
+ArchJsonMapper_5 ..> PythonRawClass
+ArchJsonMapper_5 ..> PythonRawFunction
+ArchJsonMapper_5 ..> PythonRawImport
+ArchJsonMapper_5 ..> PythonRawMethod
+ArchJsonMapper_5 ..> PythonRawModule
+ArchJsonMapper_5 ..> PythonRawParameter
+ArchJsonMapper_5 ..> ArchJSON
+ArchJsonMapper_5 ..> Entity
+ArchJsonMapper_5 ..> Member
+ArchJsonMapper_5 ..> Parameter
+ArchJsonMapper_5 ..> Relation
+ArchJsonMapper_5 --|> BaseArchJsonMapper
+DependencyExtractor_4 ..> Dependency
+DependencyExtractor_4 ..|> IDependencyExtractor
+PythonImportExtractor ..> ImportRelation
+PythonImportExtractor ..> PythonRawImport
+PythonPlugin *-- PluginMetadata
+PythonPlugin *-- ArchJsonMapper_5
+PythonPlugin *-- DependencyExtractor_4
+PythonPlugin *-- TreeSitterBridge_5
+PythonPlugin ..> PluginInitConfig
+PythonPlugin ..> RawTestFile
+PythonPlugin ..> ParseConfig
+PythonPlugin ..> ImportRelation
+PythonPlugin ..> PythonRawModule
+PythonPlugin ..> ArchJSON
+PythonPlugin ..|> ILanguagePlugin
+TreeSitterBridge_5 ..> PythonRawAttribute
+TreeSitterBridge_5 ..> PythonRawCallSite
+TreeSitterBridge_5 ..> PythonRawClass
+TreeSitterBridge_5 ..> PythonRawDecorator
+TreeSitterBridge_5 ..> PythonRawFunction
+TreeSitterBridge_5 ..> PythonRawImport
+TreeSitterBridge_5 ..> PythonRawMethod
+TreeSitterBridge_5 ..> PythonRawModule
+TreeSitterBridge_5 ..> PythonRawParameter
+PythonRawClass *-- PythonRawAttribute
+PythonRawClass *-- PythonRawDecorator
+PythonRawClass *-- PythonRawMethod
+PythonRawClass *-- PythonRawProperty
+PythonRawData *-- PythonRawModule
+PythonRawFunction *-- PythonRawDecorator
+PythonRawFunction *-- PythonRawParameter
+PythonRawMethod *-- PythonRawCallSite
+PythonRawMethod *-- PythonRawDecorator
+PythonRawMethod *-- PythonRawParameter
+PythonRawModule *-- PythonRawClass
+PythonRawModule *-- PythonRawFunction
+PythonRawModule *-- PythonRawImport
+PythonRawProperty *-- PythonRawDecorator
+CaptureMapper ..> CaptureGroup
+BaseArchJsonMapper ..> Entity
+BaseArchJsonMapper ..> Parameter
+BaseArchJsonMapper ..> Relation
+BaseArchJsonMapper ..> SourceLocation_2
+NativeParserBackend *-- NativeModuleLoaders
+NativeParserBackend *-- NativeParserBackendOptions
+NativeParserBackendOptions *-- NativeModuleLoaders
+NativeParserSession *-- NativeParser
+NativeParserSession *-- NativeQueryConstructor
+NativeTree *-- SyntaxNodeLike
+ParserConstructor *-- NativeQueryConstructor
+SelectParserBackendOptions *-- NativeModuleLoaders
+QueryLoader *-- QueryCompiler
+WasmParserBackend *-- WasmParserBackendOptions
+WasmParserBackend *-- WasmRuntimeCache
+WasmParserBackend ..> WtsLanguage
+WasmParserBackend ..> WtsModule
+WasmParserSession *-- WtsLanguage
+WasmParserSession *-- WtsParser
+WasmRuntimeCache *-- WtsModule
+WtsModule *-- WtsParserModule
+EdgeAccumulator_2 *-- TsModuleEdgeEvidence
+ModuleGraphBuilder ..> AliasConfig
+ModuleGraphBuilder ..> TsModuleCycle
+ModuleGraphBuilder ..> TsModuleDependency
+ModuleGraphBuilder ..> TsModuleGraph
+TypeScriptPlugin *-- IDependencyExtractor
+TypeScriptPlugin *-- PluginMetadata
+TypeScriptPlugin *-- IValidator
+TypeScriptPlugin *-- ParallelParser
+TypeScriptPlugin *-- TypeScriptParser
+TypeScriptPlugin ..> Dependency
+TypeScriptPlugin ..> PluginInitConfig
+TypeScriptPlugin ..> RawTestFile
+TypeScriptPlugin ..> ParseConfig
+TypeScriptPlugin ..> ValidationResult
+TypeScriptPlugin ..> TestPatternConfig
+TypeScriptPlugin ..> ArchJSON
+TypeScriptPlugin ..|> ILanguagePlugin
+TypeScriptAnalyzer *-- ModuleGraphBuilder
+TypeScriptAnalyzer ..> TsAnalysis
+ClassHighlightConfig *-- ClassAnnotation
+DesignInfo *-- ArchitecturalDecision
+DesignInfo *-- DesignPatternInfo
+DiagramConfig *-- AnnotationConfig
+DiagramConfig *-- ClassHighlightConfig
+DiagramConfig *-- DesignInfo
+DiagramConfig *-- DiagramMetadata
+DiagramConfig *-- ProcessInfo
+ProcessInfo *-- ProcessStage
+ArchGuardConfig *-- DiagramConfig
+ArchGuardConfig --|> GlobalConfig
+GlobalConfig *-- MermaidConfig
+GlobalConfig *-- ProjectSemantics
+GlobalConfig *-- FitnessConfig
+DiagramResult *-- ArchJSONMetrics
+CallChain *-- CallEdge
+CapabilityGraph *-- CapabilityNode
+CapabilityGraph *-- CapabilityRelation
+CapabilityGraph *-- ConcreteUsageRisk
+FlowGraph *-- CallChain
+FlowGraph *-- EntryPoint
+GoAtlasExtension *-- GoAtlasLayers
+GoAtlasExtension *-- GoAtlasMetadata
+GoAtlasLayers *-- CapabilityGraph
+GoAtlasLayers *-- FlowGraph
+GoAtlasLayers *-- GoroutineTopology
+GoAtlasLayers *-- PackageGraph
+GoroutineTopology *-- ChannelEdge
+GoroutineTopology *-- ChannelInfo
+GoroutineTopology *-- GoroutineLifecycleSummary
+GoroutineTopology *-- GoroutineNode
+GoroutineTopology *-- SpawnRelation
+PackageGraph *-- PackageCycle
+PackageGraph *-- PackageDependency
+PackageGraph *-- PackageNode
+PackageNode *-- PackageStats
+ArchJSONExtensions *-- GoAtlasExtension
+ArchJSONExtensions *-- ProjectSemantics
+ArchJSONExtensions *-- TestAnalysis
+ArchJSONExtensions *-- TsAnalysis
+DetectedTestPatterns *-- TestPatternConfig
+TestAnalysis *-- CoverageLink
+TestAnalysis *-- TestDiscoveryInfo
+TestAnalysis *-- TestFileInfo
+TestAnalysis *-- TestIssue
+TestAnalysis *-- TestMetrics
+TsAnalysis *-- TsModuleGraph
+TsModuleCycle *-- TsModuleCycleEdgeEvidence
+TsModuleDependency *-- TsModuleEdgeEvidence
+TsModuleGraph *-- TsModuleCycle
+TsModuleGraph *-- TsModuleDependency
+TsModuleGraph *-- TsModuleNode
+TsModuleGraph *-- TsModuleUnresolvedRef
+FileHistoryMetrics *-- CochangeEdge
+FileHistoryMetrics *-- ContributorSummary
+FileHistoryMetrics *-- RiskFactors
+GitHistoryArtifacts *-- FileHistoryMetrics
+GitHistoryArtifacts *-- GitHistoryManifest
+GitHistoryArtifacts *-- PackageHistoryMetrics
+PackageHistoryMetrics *-- CochangeEdge
+PackageHistoryMetrics *-- ContributorSummary
+PackageHistoryMetrics *-- RiskFactors
+ArchJSON *-- ArchJSONExtensions
+ArchJSON *-- ArchJSONMetrics
+ArchJSON *-- MetricVector
+ArchJSON *-- Module
+ArchJSONMetrics *-- CycleInfo
+ArchJSONMetrics *-- FileStats
+Entity *-- Decorator
+Entity *-- Member
+Entity *-- SourceLocation
+Member *-- Decorator
+Member *-- Parameter
+MyLanguagePlugin ..> ParsedUnit
+MyLanguagePlugin ..|> ILanguagePlugin
+InMemoryRepository ..|> IRepository
+Person *-- Address
+Dog --|> Animal
+MockPlugin ..> ArchJSON
+UserProfile *-- Role
+UserProfile ..> Wallet
+UserProfile ..|> Timestamped
+UserProfile --|> BaseEntity
+@enduml

@@ -72,3 +72,46 @@ preference**:
 prefer marginally shorter edges over the orthogonal guarantee. On the
 transformed package graph the three routers now agree on crossings (138) and
 differ only in total edge length and aspect ratio.
+
+## Cross-package routing and large graphs
+
+Measured on archguard's real `all-classes.puml` (660 entities / 950 relations /
+56 packages), fixture at `tests/fixtures/all-classes.puml`.
+
+**Cross-package edges fell back to diagonals.** Under `elk.hierarchyHandling:
+INHERIT`, ELK returns no routing section for an edge between a package's child
+and a node outside the package (a stub in a single-package view), so
+`edgePoints` drew a straight line. The engine now uses `INCLUDE_CHILDREN`
+whenever any edge crosses a container boundary (package↔package *or*
+package↔top-level). `Src_Mermaid_Layer`: 24 diagonal cross edges → 0,
+`edgeNodeIntersections` 82 → 0.
+
+**A single hierarchical run cannot stay proportioned.** `INCLUDE_CHILDREN` is
+one layered run, so it flattens packages into strips (and layered wrapping is
+not available across a hierarchy). When the result's aspect ratio leaves
+0.2–3, or the pixel count exceeds 40 MP, or the model has more than 250
+entities, the engine uses the compound layout (`src/layout/compound.ts`):
+
+1. each top-level package is laid out alone (layered, packed to ~1.6:1; a flat
+   block that comes out wider than 2.2:1 — or any flat block of a >250-entity
+   graph — is rect-packed instead);
+2. blocks are placed as fixed-size nodes — layered for ≤12 blocks, rectpacking
+   above that;
+3. every edge that ELK did not route is drawn by the lattice A* router in
+   `src/layout/grid-router.ts` (axis-aligned, bend- and shared-lane-penalised,
+   clear of every node box).
+
+| metric (all-classes, ELK) | before | after |
+| --- | --- | --- |
+| canvas | 13455 × 79369 | 13245 × 6800 |
+| pixels | 1068 MP | 90 MP |
+| aspect ratio | 0.17 | 1.95 |
+| edgeCrossings | 9027 | 4658 |
+| edgeNodeIntersections | — | 0 |
+| nonOrthogonalEdgeCount | — | 0 |
+| areaUtilization | 0.022 | 0.266 |
+
+All 56 package views: `nonOrthogonalEdgeCount` 0, `edgeNodeIntersections`
+total 0, aspect ratios within 0.69–2.98 (previously 7 outside 0.25–4).
+`scripts/render-samples.mjs` skips the PNG (and the Chrome text re-measure) for
+canvases above 100 MP and logs it.

@@ -274,6 +274,7 @@ describe('computeLayoutMetrics', () => {
     expect(m).toEqual({
       edgeCrossings: 0,
       edgeNodeIntersections: 0,
+      nonOrthogonalEdgeCount: 0,
       totalEdgeLength: 0,
       areaUtilization: 0,
       aspectRatio: 0,
@@ -282,5 +283,47 @@ describe('computeLayoutMetrics', () => {
       overlappingEdgeLength: 0,
       hubArrowStack: 0,
     });
+  });
+
+  it('counts edges that contain a diagonal segment as non-orthogonal', () => {
+    const model: PlantUmlModel = {
+      diagramType: 'class',
+      entities: [entity('A'), entity('B'), entity('C')],
+      relations: [
+        { source: 'A', target: 'B', type: 'association' },
+        { source: 'A', target: 'C', type: 'association' },
+      ],
+      packages: [],
+    };
+    const layout: LayoutResult = {
+      nodes: [
+        { id: 'A', x: 0, y: 0, width: 100, height: 50 },
+        { id: 'B', x: 200, y: 0, width: 100, height: 50 },
+        { id: 'C', x: 200, y: 200, width: 100, height: 50 },
+      ],
+      edges: [
+        {
+          id: 'rel-0',
+          source: 'A',
+          target: 'B',
+          points: [
+            { x: 100, y: 25 },
+            { x: 200, y: 25 },
+          ],
+        },
+        {
+          id: 'rel-1',
+          source: 'A',
+          target: 'C',
+          points: [
+            { x: 50, y: 50 },
+            { x: 250, y: 200 },
+          ],
+        },
+      ],
+      width: 300,
+      height: 250,
+    };
+    expect(computeLayoutMetrics(model, layout).nonOrthogonalEdgeCount).toBe(1);
   });
 });

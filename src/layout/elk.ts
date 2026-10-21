@@ -21,17 +21,18 @@
  *   edges share an in/out side and spread across distinct ports instead of
  *   piling onto one point.
  *
- * Cross-package edges would otherwise come back from ELK without any routing
- * section (the `INHERIT` hierarchy mode leaves them unresolved), so when the
- * model contains edges that cross *between two different packages* the engine
- * switches that layout to `INCLUDE_CHILDREN` — that is what lets ELK route
- * those edges around unrelated boxes and keeps `edgeNodeIntersections` at zero.
+ * Edges that cross a container boundary (package↔package, or package↔top-level
+ * stub) would otherwise come back from ELK without any routing section (the
+ * `INHERIT` hierarchy mode leaves them unresolved, and they degrade to straight
+ * diagonals), so when the model contains such edges the engine switches that
+ * layout to `INCLUDE_CHILDREN`, which routes them around unrelated boxes.
  *
- * A package↔top-level edge (e.g. a single-package view whose neighbours are
- * top-level stubs) deliberately does *not* switch the hierarchy handling:
- * `INCLUDE_CHILDREN` flattens a package with disconnected children into a
- * single-row strip instead of a packed grid, which is exactly the failure the
- * Tests Layer view used to show (`package-pkg-Tests_Layer` at aspect 14.9).
+ * `INCLUDE_CHILDREN` is one layered run over the whole nested graph, so it can
+ * flatten a package into a strip or stack a big graph into a sliver. When the
+ * result is badly proportioned (or the graph is very large) the engine falls
+ * back to the compound layout in [[./compound]]: each top-level package is laid
+ * out as its own block, blocks are packed, and cross-block edges are routed by
+ * the grid router in [[./grid-router]].
  */
 
 import ELKDefault from 'elkjs';
@@ -60,6 +61,7 @@ import {
   estimateEntitySize,
 } from '../layout.js';
 import { measureTextWidth } from '../text-measure.js';
+import { compoundLayout } from './compound.js';
 
 // elkjs ships a `typeof import(...)` default-export type under NodeNext; pin the
 // real constructor shape so `new` type-checks and the layout result stays typed.
@@ -68,6 +70,23 @@ const ElkConstructor = ELKDefault as unknown as new (
 ) => ElkInstance;
 
 const PACKAGE_PREFIX = 'pkg::';
+
+/**
+ * Entity count above which the single hierarchical ELK run is skipped in favour
+ * of the compound layout (per-package blocks + packing + grid routing).
+ */
+const COMPOUND_ENTITY_THRESHOLD = 250;
+/** Aspect ratio band and pixel budget a single hierarchical run must stay inside. */
+const MAX_ASPECT = 3;
+/** Stacked semantic layers are legitimately tall; only a sliver is rejected. */
+const MIN_ASPECT = 0.2;
+const MAX_PIXELS = 40e6;
+
+function isProportionate(layout: LayoutResult): boolean {
+  if (layout.height <= 0 || layout.width <= 0) return true;
+  const aspect = layout.width / layout.height;
+  return aspect <= MAX_ASPECT && aspect >= MIN_ASPECT && layout.width * layout.height <= MAX_PIXELS;
+}
 
 /** Edge routing strategies, evaluated in docs/layout-routing-eval.md. */
 export type EdgeRoutingMode = 'ORTHOGONAL' | 'POLYLINE' | 'SPLINES';
@@ -187,9 +206,27 @@ export class ElkLayoutEngine implements LayoutEngine {
   async layout(model: PlantUmlModel): Promise<LayoutResult> {
     const layers = this.resolveLayerOrder(model);
     const partitions = this.assignPartitions(model, layers);
-    const partitionsActive = layers.length > 0;
-    const includeChildren = this.hasCrossPackageEdge(model);
+    // Very large graphs skip the single hierarchical run: it cannot keep the
+    // canvas proportioned, so it would only be thrown away.
+    if (model.entities.length <= COMPOUND_ENTITY_THRESHOLD) {
+      const flat = await this.hierarchicalLayout(model, layers, partitions);
+      if (isProportionate(flat)) return flat;
+    }
+    return compoundLayout(this.elk, model, {
+      edgeRouting: this.options.edgeRouting ?? 'ORTHOGONAL',
+      dense: model.entities.length > COMPOUND_ENTITY_THRESHOLD,
+      partitions: layers.length > 0 ? partitions : new Map(),
+    });
+  }
 
+  /** One ELK run over the whole nested graph (`INCLUDE_CHILDREN`). */
+  private async hierarchicalLayout(
+    model: PlantUmlModel,
+    layers: string[],
+    partitions: Map<string, number>,
+  ): Promise<LayoutResult> {
+    const partitionsActive = layers.length > 0;
+    
     const children = this.buildChildren(model, partitions);
     const edges: ElkExtendedEdge[] = model.relations.map((relation, i) => ({
       id: `rel-${i}`,
@@ -218,7 +255,11 @@ export class ElkLayoutEngine implements LayoutEngine {
       'elk.layered.nodePlacement.strategy': 'INTERACTIVE',
     };
     if (partitionsActive) layoutOptions['elk.partitioning.activate'] = 'true';
-    if (includeChildren) layoutOptions['elk.hierarchyHandling'] = 'INCLUDE_CHILDREN';
+    // Every edge that crosses a container boundary (package↔package or
+    // package↔top-level stub) needs INCLUDE_CHILDREN to get a routing section.
+    if (this.hasContainerCrossingEdge(model)) {
+      layoutOptions['elk.hierarchyHandling'] = 'INCLUDE_CHILDREN';
+    }
     if (this.options.mergeEdges) layoutOptions['elk.layered.mergeEdges'] = 'true';
 
     const graph: ElkNode = {
@@ -293,17 +334,10 @@ export class ElkLayoutEngine implements LayoutEngine {
     return partitions;
   }
 
-  /** True when any relation connects entities in two *different* packages. */
-  private hasCrossPackageEdge(model: PlantUmlModel): boolean {
+  /** True when any relation connects entities that live in different containers. */
+  private hasContainerCrossingEdge(model: PlantUmlModel): boolean {
     const packageOf = new Map(model.entities.map((e) => [e.id, e.packageId]));
-    for (const relation of model.relations) {
-      const sourcePkg = packageOf.get(relation.source);
-      const targetPkg = packageOf.get(relation.target);
-      if (sourcePkg !== undefined && targetPkg !== undefined && sourcePkg !== targetPkg) {
-        return true;
-      }
-    }
-    return false;
+    return model.relations.some((r) => packageOf.get(r.source) !== packageOf.get(r.target));
   }
 
   private buildChildren(model: PlantUmlModel, partitions: Map<string, number>): ElkNode[] {
