@@ -1,6 +1,6 @@
 {
   "name": "@yalehwang/plantuml-js",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Pure-TypeScript PlantUML class diagram renderer (MIT)",
   "type": "module",
   "license": "MIT",
