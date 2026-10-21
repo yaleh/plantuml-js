@@ -38,3 +38,11 @@ extra:
 - src/index.ts
 - tests/measure-svg-text.test.ts (new)
 - tests/harness-pipeline.test.ts (new)
+
+## Blocker
+
+**2026-10-21T18:13:34.768Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 0/4，剩余未勾 4）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：fcb4cc4f-7bd7-4f3d-aa70-434ff54d3c5e
