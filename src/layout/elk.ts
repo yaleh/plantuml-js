@@ -51,6 +51,7 @@ import { clipPackageEndpoints } from './package-endpoints.js';
 import { mapElkResult } from './elk-result.js';
 import { spreadParallelLanes } from './lane-spread.js';
 import { mergeFanoutTrunks } from './fanout-trunk.js';
+import { runStrategies, type LayoutStrategy } from './strategy.js';
 
 // elkjs ships a `typeof import(...)` default-export type under NodeNext; pin the
 // real constructor shape so `new` type-checks and the layout result stays typed.
@@ -142,6 +143,25 @@ export interface ElkLayoutOptions {
    * desktop panel or 9/16 for a portrait phone. Default 1.6.
    */
   aspectRatio?: number;
+  /**
+   * Extra layout strategies tried, in order, before the built-in decision
+   * chain; the first to return a result wins (see [[./strategy]]).
+   */
+  strategies?: LayoutStrategy[];
+}
+
+/** One raw layout plus whether the compound layout placed orbiting stubs in it. */
+interface RawLayout {
+  layout: LayoutResult;
+  orbited: boolean;
+}
+
+/** Per-run knobs threaded through the layout calls (not engine state). */
+interface RunOptions {
+  /** Stub orbit variant to use. */
+  orbit?: StubOrbit;
+  /** Skip the router's rip-up passes (while stub orbits are only being compared). */
+  quick?: boolean;
 }
 
 
@@ -159,69 +179,57 @@ export class ElkLayoutEngine implements LayoutEngine {
         model,
         spreadParallelLanes(clipPackageEndpoints(model, alignIsolatedFrames(model, alignRows(model, raw)))),
       );
-    if (!model.entities.some((e) => e.stub)) return finish(await this.layoutRaw(model));
+    if (!model.entities.some((e) => e.stub)) return finish((await this.layoutRaw(model)).layout);
     // Where the orbiting stubs sit decides how the router weaves their edges
     // through the frame; the outcome is chaotic enough that a handful of
     // orbits is tried and the least cluttered picture kept. The trials skip the
     // router's rip-up passes (the slow part); only the winner is routed in full.
-    this.quickRouting = true;
+    const first = await this.layoutRaw(model, { quick: true });
+    if (!first.orbited) return finish(first.layout);
+    let bestCost = stubViewCost(model, finish(first.layout));
     let bestOrbit: StubOrbit | undefined;
-    try {
-      const first = finish(await this.layoutRaw(model));
-      if (!this.stubsOrbited) {
-        this.quickRouting = false;
-        return first;
+    for (const orbit of STUB_ORBITS) {
+      if (bestCost <= STUB_GOOD_ENOUGH) break;
+      const trial = await this.layoutRaw(model, { orbit, quick: true });
+      const cost = stubViewCost(model, finish(trial.layout));
+      if (cost < bestCost) {
+        bestCost = cost;
+        bestOrbit = orbit;
       }
-      let bestCost = stubViewCost(model, first);
-      for (const orbit of STUB_ORBITS) {
-        if (bestCost <= STUB_GOOD_ENOUGH) break;
-        const cost = stubViewCost(model, finish(await this.layoutRaw(model, orbit)));
-        if (cost < bestCost) {
-          bestCost = cost;
-          bestOrbit = orbit;
-        }
-      }
-    } finally {
-      this.quickRouting = false;
     }
-    return finish(await this.layoutRaw(model, bestOrbit));
+    return finish((await this.layoutRaw(model, { orbit: bestOrbit })).layout);
   }
 
-  /** Skip the router's rip-up passes (set while stub orbits are only being compared). */
-  private quickRouting = false;
-
-  /** Set by the compound strategy when it placed stub nodes (so orbit variants can differ). */
-  private stubsOrbited = false;
-  private orbit: StubOrbit | undefined;
-
-  private async layoutRaw(model: PlantUmlModel, orbit?: StubOrbit): Promise<LayoutResult> {
-    this.stubsOrbited = false;
-    this.orbit = orbit;
+  private async layoutRaw(model: PlantUmlModel, run: RunOptions = {}): Promise<RawLayout> {
     const layers = resolveLayerOrder(model, this.options.layerOrder);
     const partitions = assignPartitions(model, layers);
+    const injected = await runStrategies(this.options.strategies, model, { layers, partitions });
+    if (injected !== undefined) return { layout: injected, orbited: false };
     // Very large graphs skip the single hierarchical run: it cannot keep the
     // canvas proportioned, so it would only be thrown away.
     // A package-less graph has no blocks to pack: compound would degenerate into
     // one block per entity, so it always takes the layered run.
     let flat: LayoutResult | undefined;
+    const raw = (layout: LayoutResult): RawLayout => ({ layout, orbited: false });
     const target = this.options.aspectRatio;
-    if (target !== undefined && target > 0) return this.layoutToward(model, layers, partitions, target);
+    if (target !== undefined && target > 0) return this.layoutToward(model, layers, partitions, target, run);
     if (model.entities.length <= COMPOUND_ENTITY_THRESHOLD || model.packages.length === 0) {
       flat = await this.hierarchicalLayout(model, layers, partitions);
-      if (isProportionate(flat) && flat.width <= MAX_WIDTH && !this.isGappyMidScale(model, flat)) return flat;
+      if (isProportionate(flat) && flat.width <= MAX_WIDTH && !this.isGappyMidScale(model, flat)) return raw(flat);
       if (model.packages.length === 0 && model.entities.length > COMPOUND_ENTITY_THRESHOLD) {
-        return isProportionate(flat) ? flat : (await this.compound(model, layers, partitions));
+        return isProportionate(flat) ? raw(flat) : this.compound(model, layers, partitions, run);
       }
     }
-    const compound = await this.compound(model, layers, partitions);
-    if (flat !== undefined && this.isGappyMidScale(model, flat) && isProportionate(flat) && !isColumn(compound)
-      && computeMaxEmptyBlockRatio(compound) >= computeMaxEmptyBlockRatio(flat)) return flat;
+    const compound = await this.compound(model, layers, partitions, run);
+    const packed = compound.layout;
+    if (flat !== undefined && this.isGappyMidScale(model, flat) && isProportionate(flat) && !isColumn(packed)
+      && computeMaxEmptyBlockRatio(packed) >= computeMaxEmptyBlockRatio(flat)) return raw(flat);
     // A flat run kept only for being too wide gives way to the compound layout
     // when that one fits the width budget without degenerating into a tall
     // sliver; otherwise the wide-but-balanced flat run is the better picture.
     // A flat run that degenerated into a single column (aspect under the
     // preferred minimum) is never worth keeping over the packed blocks.
-    if (flat !== undefined && isProportionate(flat) && !isNarrowEnough(compound) && !isColumn(flat)) return flat;
+    if (flat !== undefined && isProportionate(flat) && !isNarrowEnough(packed) && !isColumn(flat)) return raw(flat);
     return compound;
   }
 
@@ -243,23 +251,26 @@ export class ElkLayoutEngine implements LayoutEngine {
     layers: string[],
     partitions: Map<string, number>,
     target: number,
-  ): Promise<LayoutResult> {
-    const candidates: LayoutResult[] = [await this.compound(model, layers, partitions)];
+    run: RunOptions,
+  ): Promise<RawLayout> {
+    const compound = await this.compound(model, layers, partitions, run);
+    const candidates: LayoutResult[] = [compound.layout];
     if (model.entities.length <= COMPOUND_ENTITY_THRESHOLD || model.packages.length === 0) {
       candidates.push(await this.hierarchicalLayout(model, layers, partitions));
     }
     const miss = (l: LayoutResult): number =>
       l.width > 0 && l.height > 0 ? Math.abs(Math.log(l.width / l.height / target)) : 0;
-    return candidates.reduce((best, c) => (miss(c) < miss(best) ? c : best));
+    const winner = candidates.reduce((best, c) => (miss(c) < miss(best) ? c : best));
+    return { layout: winner, orbited: true };
   }
 
   private async compound(
     model: PlantUmlModel,
     layers: string[],
     partitions: Map<string, number>,
-  ): Promise<LayoutResult> {
+    { orbit, quick }: RunOptions,
+  ): Promise<RawLayout> {
     const dense = model.entities.length > COMPOUND_ENTITY_THRESHOLD;
-    this.stubsOrbited = true;
     const run = (rectPackDense: boolean): Promise<LayoutResult> =>
       compoundLayout(this.elk, model, {
         edgeRouting: this.options.edgeRouting ?? 'ORTHOGONAL',
@@ -267,14 +278,16 @@ export class ElkLayoutEngine implements LayoutEngine {
         dense,
         rectPackDense,
         partitions: layers.length > 0 ? partitions : new Map(),
-        stubOrbit: this.orbit,
-        ripupPasses: this.quickRouting ? 0 : undefined,
+        stubOrbit: orbit,
+        ripupPasses: quick ? 0 : undefined,
       });
     const ordered = await run(false);
     // Dependency-ordered rows cost canvas on very large graphs; past the budget
     // fall back to the tighter (order-blind) rect packing.
-    if (dense && ordered.width * ordered.height > COMPOUND_AREA_BUDGET) return run(true);
-    return ordered;
+    if (dense && ordered.width * ordered.height > COMPOUND_AREA_BUDGET) {
+      return { layout: await run(true), orbited: true };
+    }
+    return { layout: ordered, orbited: true };
   }
 
   /** One ELK run over the whole nested graph (`INCLUDE_CHILDREN`). */

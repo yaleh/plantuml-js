@@ -1,7 +1,7 @@
 ---
 id: gap-elk-layout-strategy-extension-point
 title: 给 ElkLayoutEngine 定布局策略扩展点：新策略经注入加入而非改类，并清除实例草稿状态
-status: ready
+status: done
 labels:
   - gap
   - layout
