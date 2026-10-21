@@ -22,8 +22,10 @@ import {
   EdgeLayout,
   PackageLayout,
   Point,
+  PACKAGE_LABEL,
   estimateEntitySize,
 } from '../layout.js';
+import { measureTextWidth } from '../text-measure.js';
 
 // elkjs ships a `typeof import(...)` default-export type under NodeNext; pin the
 // real constructor shape so `new` type-checks and the layout result stays typed.
@@ -52,6 +54,13 @@ export class ElkLayoutEngine implements LayoutEngine {
         'elk.edgeRouting': 'ORTHOGONAL',
         'elk.spacing.nodeNode': '40',
         'elk.layered.spacing.nodeNodeBetweenLayers': '60',
+        // Soft targets: pack disconnected components into a balanced rectangle
+        // instead of a long horizontal strip. (hierarchyHandling is deliberately
+        // left at its default — INCLUDE_CHILDREN was measured to widen the class
+        // fixture to aspect 8.6 and the package fixture to 2.9 without reducing
+        // edge crossings in elkjs 0.12.)
+        'elk.aspectRatio': '1.6',
+        'elk.separateConnectedComponents': 'true',
       },
       children,
       edges,
@@ -86,7 +95,21 @@ export class ElkLayoutEngine implements LayoutEngine {
   private buildChildren(model: PlantUmlModel): ElkNode[] {
     const pkgNodes = new Map<string, ElkNode>();
     for (const pkg of model.packages) {
-      pkgNodes.set(pkg.id, { id: PACKAGE_PREFIX + pkg.id, children: [] });
+      // Padding at the top keeps the package label tab clear of the first
+      // entity; the minimum width keeps the tab wide enough for the label when
+      // a package holds only a single short-named entity.
+      const labelWidth = measureTextWidth(pkg.name, PACKAGE_LABEL.fontSize);
+      const minWidth = labelWidth + PACKAGE_LABEL.tabPadding + 20; // + left/right padding
+      const minHeight = PACKAGE_LABEL.tabHeight + 26 + 10; // tab + top/bottom padding
+      pkgNodes.set(pkg.id, {
+        id: PACKAGE_PREFIX + pkg.id,
+        children: [],
+        layoutOptions: {
+          'elk.padding': '[top=26,left=10,bottom=10,right=10]',
+          'elk.nodeSize.constraints': '[MINIMUM_SIZE]',
+          'elk.nodeSize.minimum': `[${minWidth.toFixed(1)}, ${minHeight.toFixed(1)}]`,
+        },
+      });
     }
 
     const top: ElkNode[] = [];

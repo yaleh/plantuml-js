@@ -6,7 +6,7 @@
  */
 
 import { PlantUmlModel, PlantUmlEntity } from './model.js';
-import { measureTextWidth } from './text-measure.js';
+import { measureTextWidth, MONOSPACE_FONT_SIZE } from './text-measure.js';
 
 export interface Point {
   x: number;
@@ -51,15 +51,26 @@ export interface LayoutEngine {
 
 /**
  * Shared drawing metrics. The renderer reads these so entity sizing and the
- * emitted SVG stay in lockstep (M2 replaces M1's naive CHAR_WIDTH estimate
- * with real per-glyph measurement from [[../text-measure]]).
+ * emitted SVG stay in lockstep: the font family and size are bound to the same
+ * monospace advance [[../text-measure]] measures with.
  */
 export const METRICS = {
-  fontSize: 13,
+  fontFamily: 'monospace',
+  fontSize: MONOSPACE_FONT_SIZE,
   lineHeight: 18,
   paddingX: 10,
   paddingY: 8,
   minWidth: 60,
+} as const;
+
+/**
+ * Package label-tab geometry, shared by the renderer and the layout-metrics
+ * overlap counter so a drawn tab and a measured tab are the same rectangle.
+ */
+export const PACKAGE_LABEL = {
+  tabHeight: 18,
+  fontSize: 12,
+  tabPadding: 12,
 } as const;
 
 /** Reconstruct the name drawn in the title compartment, generics expanded. */

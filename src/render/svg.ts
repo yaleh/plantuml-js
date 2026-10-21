@@ -17,10 +17,11 @@ import {
   PackageLayout,
   Point,
   METRICS,
+  PACKAGE_LABEL,
   displayName,
 } from '../layout.js';
+import { measureTextWidth } from '../text-measure.js';
 
-const FONT_FAMILY = 'monospace';
 const STROKE = '#333333';
 
 const TRIANGLE_SIZE = 10;
@@ -90,7 +91,7 @@ function renderEntity(entity: PlantUmlEntity, node: NodeLayout): string {
   );
   parts.push(
     `<text x="${fmt(node.x + node.width / 2)}" y="${fmt(titleBaseline)}"` +
-      ` text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${METRICS.fontSize}"` +
+      ` text-anchor="middle" font-family="${METRICS.fontFamily}" font-size="${METRICS.fontSize}"` +
       `${fontStyle} fill="#000000">${escapeXml(displayName(entity))}</text>`,
   );
 
@@ -99,7 +100,7 @@ function renderEntity(entity: PlantUmlEntity, node: NodeLayout): string {
       node.y + METRICS.paddingY + METRICS.lineHeight * (i + 1) + METRICS.fontSize - 2;
     parts.push(
       `<text x="${fmt(node.x + METRICS.paddingX)}" y="${fmt(baseline)}"` +
-        ` text-anchor="start" font-family="${FONT_FAMILY}" font-size="${METRICS.fontSize}"` +
+        ` text-anchor="start" font-family="${METRICS.fontFamily}" font-size="${METRICS.fontSize}"` +
         ` fill="#000000">${escapeXml(member.raw)}</text>`,
     );
   });
@@ -108,7 +109,13 @@ function renderEntity(entity: PlantUmlEntity, node: NodeLayout): string {
 }
 
 function renderPackage(pkg: PlantUmlPackage, box: PackageLayout): string {
-  const tabWidth = Math.min(box.width, Math.max(24, measureName(pkg.name) + 12));
+  const tabWidth = Math.min(
+    box.width,
+    Math.max(
+      24,
+      measureTextWidth(pkg.name, PACKAGE_LABEL.fontSize) + PACKAGE_LABEL.tabPadding,
+    ),
+  );
   const parts: string[] = [];
   parts.push(
     `<rect x="${fmt(box.x)}" y="${fmt(box.y)}" width="${fmt(box.width)}"` +
@@ -116,19 +123,13 @@ function renderPackage(pkg: PlantUmlPackage, box: PackageLayout): string {
   );
   parts.push(
     `<rect x="${fmt(box.x)}" y="${fmt(box.y)}" width="${fmt(tabWidth)}"` +
-      ` height="18" fill="#ffffff" stroke="${STROKE}" stroke-width="1.5"/>`,
+      ` height="${PACKAGE_LABEL.tabHeight}" fill="#ffffff" stroke="${STROKE}" stroke-width="1.5"/>`,
   );
   parts.push(
     `<text x="${fmt(box.x + 6)}" y="${fmt(box.y + 13)}" text-anchor="start"` +
-      ` font-family="${FONT_FAMILY}" font-size="12" fill="#000000">${escapeXml(pkg.name)}</text>`,
+      ` font-family="${METRICS.fontFamily}" font-size="${PACKAGE_LABEL.fontSize}" fill="#000000">${escapeXml(pkg.name)}</text>`,
   );
   return parts.join('');
-}
-
-function measureName(name: string): number {
-  let w = 0;
-  for (const ch of name) w += ch.length === 1 ? 6.5 : 12;
-  return w;
 }
 
 function renderEdge(rel: PlantUmlRelation, edge: EdgeLayout): string {
@@ -239,7 +240,7 @@ function renderEdgeTexts(rel: PlantUmlRelation, points: Point[]): string[] {
 function textAt(text: string, x: number, y: number, size: number): string {
   return (
     `<text x="${fmt(x)}" y="${fmt(y)}" text-anchor="middle"` +
-    ` font-family="${FONT_FAMILY}" font-size="${size}" fill="#000000">${escapeXml(text)}</text>`
+    ` font-family="${METRICS.fontFamily}" font-size="${size}" fill="#000000">${escapeXml(text)}</text>`
   );
 }
 

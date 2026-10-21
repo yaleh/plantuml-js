@@ -1,35 +1,26 @@
 /**
- * Approximate text measurement for the SVG renderer, pure JS (no canvas, no
- * DOM). A hand-tuned width table for a 13px monospace font: narrow glyphs
- * (i, l, punctuation) get less, wide glyphs (m, w, @) get more. Every value
- * is a conservative upper bound so a box sized from this table never clips
- * its longest member line.
+ * Monospace text measurement for the SVG renderer, pure JS (no canvas, no
+ * DOM). The SVG font is monospace, so every glyph advances by the same em
+ * width (0.6em — 13px × 0.6em ≈ 7.8px). A box sized from a fixed advance never
+ * clips its longest member line, and narrow glyphs (`i l . , : ( )`) are no
+ * longer under-counted.
  */
 
-const BASE_FONT_SIZE = 13;
-const DEFAULT_ADVANCE = 7.8;
-
-const NARROW = new Set('il.,:;|!()[]{}\'"` ');
-const WIDE = new Set('mwMW@%&_<>~#');
-
-function advanceFor(ch: string): number {
-  if (NARROW.has(ch)) return 4.8;
-  if (WIDE.has(ch)) return 9.6;
-  return DEFAULT_ADVANCE;
-}
+/** Font size the renderer draws entity text at; keep in step with [[../layout]]. */
+export const MONOSPACE_FONT_SIZE = 13;
+/** Monospace advance per em: 13px × 0.6em ≈ 7.8px per glyph. */
+export const MONOSPACE_ADVANCE_EM = 0.6;
 
 /**
  * Width of `text` at `fontSize` (default 13) in pixels. Deterministic and
- * scaled linearly from the base table.
+ * linear in both the character count and the font size — every glyph, whatever
+ * its shape, contributes the same advance.
  */
 export function measureTextWidth(
   text: string,
-  fontSize: number = BASE_FONT_SIZE,
+  fontSize: number = MONOSPACE_FONT_SIZE,
 ): number {
-  const scale = fontSize / BASE_FONT_SIZE;
-  let width = 0;
-  for (const ch of text) width += advanceFor(ch);
-  return Math.ceil(width * scale * 100) / 100;
+  return Math.ceil(text.length * MONOSPACE_ADVANCE_EM * fontSize * 100) / 100;
 }
 
 export interface TextMeasurer {
