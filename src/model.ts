@@ -82,6 +82,12 @@ export interface PlantUmlPackage {
   name: string;
   /** id of the enclosing package (undefined = top level). */
   parentId?: string;
+  /**
+   * Semantic layer this package belongs to, derived from the `"X Layer"` name
+   * convention (e.g. `"Src Layer"` → `"Src"`). The layout engine uses this to
+   * stack layers in a fixed vertical order so dependency direction is readable.
+   */
+  layer?: string;
 }
 
 export interface PlantUmlModel {

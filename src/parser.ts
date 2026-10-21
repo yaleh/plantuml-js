@@ -99,11 +99,13 @@ export function parsePlantUml(source: string): PlantUmlModel {
 
     const pkg = parsePackageLine(code);
     if (pkg) {
-      model.packages.push({
+      const record: PlantUmlModel['packages'][number] = {
         id: pkg.id,
         name: pkg.name,
         parentId: currentPackageId(stack),
-      });
+      };
+      if (pkg.layer !== undefined) record.layer = pkg.layer;
+      model.packages.push(record);
       if (pkg.opensBlock) open({ kind: 'package', id: pkg.id });
       else lastDeclaration = { kind: 'package', id: pkg.id };
       continue;
@@ -153,7 +155,7 @@ function currentPackageId(stack: Frame[]): string | undefined {
 
 function parsePackageLine(
   code: string,
-): { id: string; name: string; opensBlock: boolean } | null {
+): { id: string; name: string; opensBlock: boolean; layer?: string } | null {
   let opensBlock = false;
   if (code.endsWith('{')) {
     opensBlock = true;
@@ -177,7 +179,19 @@ function parsePackageLine(
   }
   if (name === '') return null;
 
-  return { id: alias ?? name, name, opensBlock };
+  return { id: alias ?? name, name, opensBlock, layer: layerFromName(name) };
+}
+
+/**
+ * Derive a semantic layer from the `"X Layer"` name convention used by the
+ * archguard package diagrams (`"Src Layer"` → `"Src"`). Non-matching names and
+ * a bare `"Layer"` carry no layer.
+ */
+function layerFromName(name: string): string | undefined {
+  const m = /^(.*)\s+Layer$/i.exec(name);
+  if (!m) return undefined;
+  const core = m[1].trim();
+  return core === '' ? undefined : core;
 }
 
 function parseEntityLine(

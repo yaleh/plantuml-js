@@ -1,8 +1,30 @@
 /**
  * ElkLayoutEngine — the default engine, pure-JS layered layout via elkjs.
+ *
  * Packages become nested container nodes (so members stay grouped and frames
- * nest), edges use ORTHOGONAL routing to keep crossings down, and the result
- * is flattened back to absolute coordinates for the renderer.
+ * nest) and edges use ORTHOGONAL routing to keep crossings down. On top of
+ * that geometry the engine now carries *architecture semantics*:
+ *
+ * - **Semantic layering** — packages whose name follows the `"X Layer"`
+ *   convention (or that carry an explicit `layer`) are stacked top-to-bottom in
+ *   a fixed order via ELK partitioning (`elk.partitioning.activate` +
+ *   `elk.partitioning.partition`). The order defaults to declaration order and
+ *   can be overridden with `ElkLayoutOptions.layerOrder`, so dependency
+ *   direction becomes readable (entry layers on top, base types at the bottom).
+ * - **Directed inheritance/composition** — inheritance/implementation edges are
+ *   laid out in reverse (parent above the subclass) and composition/aggregation
+ *   with the whole above its parts, while the renderer still draws the original
+ *   arrow direction (the reversed polyline is flipped back before returning).
+ * - **Ports** — edges attach to a fixed side of each node
+ *   (`elk.layered.portConstraints: FIXED_SIDE`), so same-direction parallel
+ *   edges share an in/out side and spread across distinct ports instead of
+ *   piling onto one point.
+ *
+ * Cross-package edges would otherwise come back from ELK without any routing
+ * section (the `INHERIT` hierarchy mode leaves them unresolved), so when the
+ * model contains edges that cross package boundaries the engine switches that
+ * layout to `INCLUDE_CHILDREN` — that is what lets ELK route those edges around
+ * unrelated boxes and keeps `edgeNodeIntersections` at zero.
  */
 
 import ELKDefault from 'elkjs';
@@ -14,7 +36,12 @@ import type {
   ELK as ElkInstance,
   ELKConstructorArguments,
 } from 'elkjs';
-import { PlantUmlModel, PlantUmlEntity } from '../model.js';
+import {
+  PlantUmlModel,
+  PlantUmlEntity,
+  PlantUmlPackage,
+  PlantUmlRelation,
+} from '../model.js';
 import {
   LayoutEngine,
   LayoutResult,
@@ -35,33 +62,90 @@ const ElkConstructor = ELKDefault as unknown as new (
 
 const PACKAGE_PREFIX = 'pkg::';
 
+/** Edge routing strategies, evaluated in docs/layout-routing-eval.md. */
+export type EdgeRoutingMode = 'ORTHOGONAL' | 'POLYLINE' | 'SPLINES';
+
+/** Tuning knobs for the ELK engine. All are optional with sensible defaults. */
+export interface ElkLayoutOptions {
+  /**
+   * Explicit layer order. Layers not listed (and packages without a layer) are
+   * placed after the listed ones, in first-seen order. Defaults to the
+   * declaration order of `"X Layer"` packages in the model.
+   */
+  layerOrder?: string[];
+  /** Edge routing mode. Default `'ORTHOGONAL'` (see docs/layout-routing-eval.md). */
+  edgeRouting?: EdgeRoutingMode;
+  /**
+   * Merge parallel edges between the same node pair (`elk.layered.mergeEdges`).
+   * Only meaningful on models whose same-pair relations are already aggregated
+   * into a weighted edge; default false.
+   */
+  mergeEdges?: boolean;
+}
+
+/** Relation types whose layout direction is reversed so the arrow target sits above the source. */
+const REVERSED_RELATION_TYPES = new Set(['inheritance', 'implementation']);
+
+/** Name convention: `"X Layer"` declares a semantic layer `X`. */
+const LAYER_SUFFIX = /^(.*)\s+Layer$/i;
+
+/** Resolve a package's semantic layer from its explicit field or its name. */
+function packageLayer(pkg: PlantUmlPackage): string | undefined {
+  if (pkg.layer !== undefined) return pkg.layer;
+  const m = LAYER_SUFFIX.exec(pkg.name);
+  if (!m) return undefined;
+  const core = m[1].trim();
+  return core === '' ? undefined : core;
+}
+
+/** Minimum frame width that keeps the package label tab readable. */
+function packageMinWidth(name: string): number {
+  return measureTextWidth(name, PACKAGE_LABEL.fontSize) + PACKAGE_LABEL.tabPadding + 20;
+}
+
 export class ElkLayoutEngine implements LayoutEngine {
   private readonly elk = new ElkConstructor();
+  private readonly options: ElkLayoutOptions;
+
+  constructor(options: ElkLayoutOptions = {}) {
+    this.options = options;
+  }
 
   async layout(model: PlantUmlModel): Promise<LayoutResult> {
-    const children = this.buildChildren(model);
+    const layers = this.resolveLayerOrder(model);
+    const partitions = this.assignPartitions(model, layers);
+    const partitionsActive = layers.length > 0;
+    const includeChildren = this.hasCrossPackageEdge(model);
+
+    const children = this.buildChildren(model, partitions);
     const edges: ElkExtendedEdge[] = model.relations.map((relation, i) => ({
       id: `rel-${i}`,
-      sources: [relation.source],
-      targets: [relation.target],
+      sources: [this.layoutSource(relation)],
+      targets: [this.layoutTarget(relation)],
     }));
+
+    const layoutOptions: Record<string, string> = {
+      'elk.algorithm': 'layered',
+      'elk.direction': 'DOWN',
+      'elk.edgeRouting': this.options.edgeRouting ?? 'ORTHOGONAL',
+      'elk.spacing.nodeNode': '40',
+      'elk.layered.spacing.nodeNodeBetweenLayers': '60',
+      // Ports keep a fixed side per edge, so same-direction edges fan out across
+      // one node edge instead of scattering onto every side (or one point).
+      'elk.layered.portConstraints': 'FIXED_SIDE',
+      // Soft targets: pack disconnected components into a balanced rectangle
+      // instead of a long horizontal strip. (hierarchyHandling stays INHERIT
+      // unless cross-package edges exist — see the header comment.)
+      'elk.aspectRatio': '1.6',
+      'elk.separateConnectedComponents': 'true',
+    };
+    if (partitionsActive) layoutOptions['elk.partitioning.activate'] = 'true';
+    if (includeChildren) layoutOptions['elk.hierarchyHandling'] = 'INCLUDE_CHILDREN';
+    if (this.options.mergeEdges) layoutOptions['elk.layered.mergeEdges'] = 'true';
 
     const graph: ElkNode = {
       id: 'root',
-      layoutOptions: {
-        'elk.algorithm': 'layered',
-        'elk.direction': 'DOWN',
-        'elk.edgeRouting': 'ORTHOGONAL',
-        'elk.spacing.nodeNode': '40',
-        'elk.layered.spacing.nodeNodeBetweenLayers': '60',
-        // Soft targets: pack disconnected components into a balanced rectangle
-        // instead of a long horizontal strip. (hierarchyHandling is deliberately
-        // left at its default — INCLUDE_CHILDREN was measured to widen the class
-        // fixture to aspect 8.6 and the package fixture to 2.9 without reducing
-        // edge crossings in elkjs 0.12.)
-        'elk.aspectRatio': '1.6',
-        'elk.separateConnectedComponents': 'true',
-      },
+      layoutOptions,
       children,
       edges,
     };
@@ -74,14 +158,23 @@ export class ElkLayoutEngine implements LayoutEngine {
     for (const child of result.children ?? []) {
       this.flatten(child, 0, 0, nodes, packages, offsets);
     }
+    this.enforcePackageMinWidth(model, packages);
 
     const nodeById = new Map(nodes.map((n) => [n.id, n]));
-    const laidEdges: EdgeLayout[] = (result.edges ?? []).map((edge, i) => ({
-      id: edge.id ?? `rel-${i}`,
-      source: edge.sources?.[0] ?? '',
-      target: edge.targets?.[0] ?? '',
-      points: this.edgePoints(edge, nodeById, offsets),
-    }));
+    const laidEdges: EdgeLayout[] = (result.edges ?? []).map((edge, i) => {
+      const relation = model.relations[i];
+      const reversed = relation !== undefined && REVERSED_RELATION_TYPES.has(relation.type);
+      const points = this.edgePoints(edge, nodeById, offsets);
+      return {
+        id: edge.id ?? `rel-${i}`,
+        // Keep the model's direction (not the possibly-reversed layout
+        // direction) so the renderer's arrowheads and the overlap counter both
+        // see the endpoints the author wrote.
+        source: relation?.source ?? (edge.sources?.[0] ?? ''),
+        target: relation?.target ?? (edge.targets?.[0] ?? ''),
+        points: reversed ? points.slice().reverse() : points,
+      };
+    });
 
     return {
       nodes,
@@ -92,23 +185,69 @@ export class ElkLayoutEngine implements LayoutEngine {
     };
   }
 
-  private buildChildren(model: PlantUmlModel): ElkNode[] {
+  /** Source endpoint of the edge *as laid out* (reversed for inheritance/implementation). */
+  private layoutSource(relation: PlantUmlRelation): string {
+    return REVERSED_RELATION_TYPES.has(relation.type) ? relation.target : relation.source;
+  }
+
+  /** Target endpoint of the edge *as laid out* (reversed for inheritance/implementation). */
+  private layoutTarget(relation: PlantUmlRelation): string {
+    return REVERSED_RELATION_TYPES.has(relation.type) ? relation.source : relation.target;
+  }
+
+  /** Ordered, de-duplicated list of semantic layers (declaration order by default). */
+  private resolveLayerOrder(model: PlantUmlModel): string[] {
+    if (this.options.layerOrder) {
+      return this.options.layerOrder.filter((layer, i, all) => all.indexOf(layer) === i);
+    }
+    const order: string[] = [];
+    for (const pkg of model.packages) {
+      const layer = packageLayer(pkg);
+      if (layer !== undefined && !order.includes(layer)) order.push(layer);
+    }
+    return order;
+  }
+
+  /** Map each package to its partition index (layers first, unlayered last). */
+  private assignPartitions(model: PlantUmlModel, layers: string[]): Map<string, number> {
+    const partitions = new Map<string, number>();
+    if (layers.length === 0) return partitions;
+    for (const pkg of model.packages) {
+      const layer = packageLayer(pkg);
+      const index = layer !== undefined ? layers.indexOf(layer) : -1;
+      partitions.set(pkg.id, index >= 0 ? index : layers.length);
+    }
+    return partitions;
+  }
+
+  /** True when any relation connects entities in different packages (or top level). */
+  private hasCrossPackageEdge(model: PlantUmlModel): boolean {
+    const packageOf = new Map(model.entities.map((e) => [e.id, e.packageId]));
+    for (const relation of model.relations) {
+      if (packageOf.get(relation.source) !== packageOf.get(relation.target)) return true;
+    }
+    return false;
+  }
+
+  private buildChildren(model: PlantUmlModel, partitions: Map<string, number>): ElkNode[] {
     const pkgNodes = new Map<string, ElkNode>();
     for (const pkg of model.packages) {
       // Padding at the top keeps the package label tab clear of the first
       // entity; the minimum width keeps the tab wide enough for the label when
       // a package holds only a single short-named entity.
-      const labelWidth = measureTextWidth(pkg.name, PACKAGE_LABEL.fontSize);
-      const minWidth = labelWidth + PACKAGE_LABEL.tabPadding + 20; // + left/right padding
+      const minWidth = packageMinWidth(pkg.name);
       const minHeight = PACKAGE_LABEL.tabHeight + 26 + 10; // tab + top/bottom padding
+      const layoutOptions: Record<string, string> = {
+        'elk.padding': '[top=26,left=10,bottom=10,right=10]',
+        'elk.nodeSize.constraints': '[MINIMUM_SIZE]',
+        'elk.nodeSize.minimum': `[${minWidth.toFixed(1)}, ${minHeight.toFixed(1)}]`,
+      };
+      const partition = partitions.get(pkg.id);
+      if (partition !== undefined) layoutOptions['elk.partitioning.partition'] = String(partition);
       pkgNodes.set(pkg.id, {
         id: PACKAGE_PREFIX + pkg.id,
         children: [],
-        layoutOptions: {
-          'elk.padding': '[top=26,left=10,bottom=10,right=10]',
-          'elk.nodeSize.constraints': '[MINIMUM_SIZE]',
-          'elk.nodeSize.minimum': `[${minWidth.toFixed(1)}, ${minHeight.toFixed(1)}]`,
-        },
+        layoutOptions,
       });
     }
 
@@ -135,6 +274,22 @@ export class ElkLayoutEngine implements LayoutEngine {
   private entityLeaf(entity: PlantUmlEntity): ElkNode {
     const size = estimateEntitySize(entity);
     return { id: entity.id, width: size.width, height: size.height };
+  }
+
+  /**
+   * INCLUDE_CHILDREN sizes a container from its content and does not honour the
+   * `elk.nodeSize.minimum` we give package frames, so a single short-named
+   * entity can leave the frame narrower than its label tab. Widen those frames
+   * in place (never shrink) so the tab stays readable.
+   */
+  private enforcePackageMinWidth(model: PlantUmlModel, packages: PackageLayout[]): void {
+    const byId = new Map(packages.map((p) => [p.id, p]));
+    for (const pkg of model.packages) {
+      const box = byId.get(pkg.id);
+      if (!box) continue;
+      const min = packageMinWidth(pkg.name);
+      if (box.width < min) box.width = min;
+    }
   }
 
   private flatten(
