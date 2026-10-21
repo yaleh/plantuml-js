@@ -1,7 +1,7 @@
 ---
 id: gap-build-clean-dist-and-harness-metrics-path
 title: 构建前清理 dist（重构后遗留旧产物）+ harness 改走公开导出取度量，不再按文件路径
-status: todo
+status: ready
 labels:
   - gap
   - defect
