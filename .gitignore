@@ -25,3 +25,7 @@ dist/
 # local inspection renders (generated on demand, not shipped)
 rendered/*
 !rendered/metrics.baseline.json
+
+# demo generated artifacts (rebuilt by scripts/build-demo.mjs)
+examples/archguard-data.js
+examples/demo.bundle.js

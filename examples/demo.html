@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>plantuml-js × ArchGuard 邻域动态渲染 demo</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; font-family: system-ui, sans-serif; }
+  header {
+    display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+    border-bottom: 1px solid #ddd; position: sticky; top: 0; background: inherit;
+  }
+  header h1 { font-size: 15px; margin: 0; }
+  #breadcrumb { flex: 1; font-size: 13px; color: #666; }
+  #status { font-size: 12px; color: #888; }
+  #wrap { overflow: auto; height: calc(100vh - 54px); }
+  #diagram { padding: 16px; transform-origin: 0 0; }
+  #diagram svg { max-width: none; }
+  .uml-node { cursor: pointer; }
+  .uml-node .uml-hover { outline: none; }
+  .uml-dim { opacity: 0.15; }
+  .uml-lit { stroke-width: 2.5; }
+  .uml-node:hover { filter: drop-shadow(0 0 4px #2b7bb9); }
+  button { padding: 6px 12px; cursor: pointer; }
+</style>
+</head>
+<body>
+<header>
+  <h1>plantuml-js · 邻域动态渲染</h1>
+  <span id="breadcrumb">加载中…</span>
+  <span id="status"></span>
+  <button id="home">回到总览</button>
+</header>
+<div id="wrap"><div id="diagram"></div></div>
+<script src="archguard-data.js"></script>
+<script src="demo.bundle.js"></script>
+</body>
+</html>

@@ -112,7 +112,13 @@ function renderEntity(entity: PlantUmlEntity, node: NodeLayout): string {
     parts.push(renderHubBadge(node, entity.usageCount));
   }
 
-  return parts.join('');
+  // Each entity is a single DOM group carrying its stable id, so a browser host
+  // can bind hover/click handlers and cross-panel linkage by `data-entity-id`.
+  return (
+    `<g data-entity-id="${escapeXml(entity.id)}" class="uml-node">` +
+    parts.join('') +
+    `</g>`
+  );
 }
 
 /**
@@ -152,7 +158,11 @@ function renderPackage(pkg: PlantUmlPackage, box: PackageLayout): string {
     `<text x="${fmt(box.x + 6)}" y="${fmt(box.y + 13)}" text-anchor="start"` +
       ` font-family="${METRICS.fontFamily}" font-size="${PACKAGE_LABEL.fontSize}" fill="#000000">${escapeXml(pkg.name)}</text>`,
   );
-  return parts.join('');
+  return (
+    `<g data-package-id="${escapeXml(pkg.id)}" class="uml-package">` +
+    parts.join('') +
+    `</g>`
+  );
 }
 
 function renderEdge(rel: PlantUmlRelation, edge: EdgeLayout): string {
@@ -199,7 +209,14 @@ function renderEdge(rel: PlantUmlRelation, edge: EdgeLayout): string {
     const mid = points[Math.floor(points.length / 2)];
     parts.push(textAt(`×${weight}`, mid.x, mid.y - (rel.label ? 20 : 10), 11, color));
   }
-  return parts.join('');
+  // Each edge is one DOM group tagged with its endpoints + type so hosts can
+  // highlight an edge and its neighbours via data attributes.
+  return (
+    `<g data-edge-source="${escapeXml(rel.source)}" data-edge-target="${escapeXml(rel.target)}"` +
+    ` data-edge-type="${rel.type}" class="uml-edge">` +
+    parts.join('') +
+    `</g>`
+  );
 }
 
 function renderTriangle(points: Point[], type: PlantUmlRelation['type'], color = STROKE): string {
