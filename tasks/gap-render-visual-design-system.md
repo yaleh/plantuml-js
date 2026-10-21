@@ -1,7 +1,7 @@
 ---
 id: gap-render-visual-design-system
 title: 视觉设计系统：主题 token、排版层级、克制配色、边与箭头样式、节点对齐，附审美评审量表
-status: ready
+status: done
 labels:
   - gap
   - layout
