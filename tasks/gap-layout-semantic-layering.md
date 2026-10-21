@@ -1,7 +1,7 @@
 ---
 id: gap-layout-semantic-layering
 title: 语义分层：Layer 分区约束、继承/组合方向固定、端口与边束
-status: ready
+status: done
 labels:
   - gap
   - layout
