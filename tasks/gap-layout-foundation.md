@@ -1,7 +1,7 @@
 ---
 id: gap-layout-foundation
 title: layout 地基：等宽文本度量修正 + ELK 层级/版面选项 + Graphviz 尺寸与 cluster
-status: todo
+status: ready
 labels:
   - gap
   - layout
