@@ -1,7 +1,7 @@
 ---
 id: gap-layout-legibility-legend-metrics-fixes
 title: 可读性：hub 徽标不遮标签 + 图例 + overview 空白/权重标签 + 视图与完整图同管线 + 度量失真修正
-status: ready
+status: done
 labels:
   - gap
   - layout
