@@ -46,6 +46,76 @@ const ARROWS: Record<string, { type: RelationType; swap?: boolean }> = {
  * legend, …) are tolerated and skipped rather than failing the parse.
  */
 export function parsePlantUml(source: string): PlantUmlModel {
+  return parseWithDiagnostics(source).model;
+}
+
+/** An undeclared relation endpoint that the parser resolved on the author's behalf. */
+export interface EndpointDiagnostic {
+  /** 1-based source line of the relation. */
+  line: number;
+  message: string;
+}
+
+/**
+ * Parse and also report how relation endpoints were resolved: endpoints naming
+ * a package are re-attached to a representative entity inside it, and endpoints
+ * naming nothing declared become implicit (empty) classes, as PlantUML does.
+ */
+export function parseWithDiagnostics(source: string): {
+  model: PlantUmlModel;
+  diagnostics: EndpointDiagnostic[];
+} {
+  const relationLines: number[] = [];
+  const model = parseRaw(source, relationLines);
+  const diagnostics = resolveEndpoints(model, relationLines);
+  return { model, diagnostics };
+}
+
+function resolveEndpoints(model: PlantUmlModel, relationLines: number[]): EndpointDiagnostic[] {
+  const diagnostics: EndpointDiagnostic[] = [];
+  const entityIds = new Set(model.entities.map((e) => e.id));
+  const packageIds = new Set(model.packages.map((p) => p.id));
+  const parentOf = new Map(model.packages.map((p) => [p.id, p.parentId]));
+
+  const inPackage = (entityPkg: string | undefined, pkg: string): boolean => {
+    for (let cur = entityPkg; cur !== undefined; cur = parentOf.get(cur)) {
+      if (cur === pkg) return true;
+    }
+    return false;
+  };
+  const representative = (pkg: string): string | undefined =>
+    model.entities.find((e) => inPackage(e.packageId, pkg))?.id;
+
+  const resolve = (id: string, line: number): string => {
+    if (entityIds.has(id)) return id;
+    if (packageIds.has(id)) {
+      const rep = representative(id);
+      if (rep !== undefined) {
+        diagnostics.push({
+          line,
+          message: `relation endpoint "${id}" is a package; edge attached to "${rep}" inside it`,
+        });
+        return rep;
+      }
+    }
+    model.entities.push({ id, name: id, generics: [], kind: 'class', members: [] });
+    entityIds.add(id);
+    diagnostics.push({
+      line,
+      message: `relation endpoint "${id}" is not declared; implicit class created`,
+    });
+    return id;
+  };
+
+  model.relations.forEach((r, i) => {
+    const line = relationLines[i] ?? 0;
+    r.source = resolve(r.source, line);
+    r.target = resolve(r.target, line);
+  });
+  return diagnostics;
+}
+
+function parseRaw(source: string, relationLines: number[]): PlantUmlModel {
   const model = emptyModel();
   const lines = source.split(/\r?\n/);
   let inDiagram = false;
@@ -58,8 +128,8 @@ export function parsePlantUml(source: string): PlantUmlModel {
     lastDeclaration = null;
   };
 
-  for (const raw of lines) {
-    const line = raw.trim();
+  for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+    const line = lines[lineIdx].trim();
     if (line === '') continue;
 
     if (/^@startuml\b/i.test(line)) {
@@ -137,6 +207,7 @@ export function parsePlantUml(source: string): PlantUmlModel {
       const relation = parseRelationLine(code);
       if (relation) {
         model.relations.push(relation);
+        relationLines.push(lineIdx + 1);
         lastDeclaration = null;
         continue;
       }

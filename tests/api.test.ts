@@ -8,6 +8,15 @@ import {
 } from '../src/index.js';
 
 describe('checkSyntax', () => {
+  it('warns (not errors) on implicitly declared relation endpoints', () => {
+    const result = checkSyntax('@startuml\nclass A\nA --> B\n@enduml');
+    expect(result.ok).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toMatchObject({ line: 3, severity: 'warning' });
+    expect(result.warnings[0].message).toContain('"B"');
+  });
+
   it('returns ok for a valid diagram', () => {
     const result = checkSyntax('@startuml\nclass A\n@enduml');
     expect(result.ok).toBe(true);

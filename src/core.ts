@@ -8,7 +8,7 @@
  */
 
 import { PlantUmlModel } from './model.js';
-import { parsePlantUml } from './parser.js';
+import { parsePlantUml, parseWithDiagnostics } from './parser.js';
 import { LayoutEngine } from './layout.js';
 import { ElkLayoutEngine } from './layout/elk.js';
 import { renderSvg } from './render/svg.js';
@@ -110,11 +110,11 @@ export function createRenderer(options: RendererOptions = {}): Renderer {
       const syntax = checkSyntax(puml);
       if (!syntax.ok) throw new RenderError(syntax.errors);
 
-      const parsed = parsePlantUml(puml);
+      const { model: parsed, diagnostics } = parseWithDiagnostics(puml);
       const model = transformForRender(parsed, options);
       const layout = await engine.layout(model);
       const svg = renderSvg(model, layout);
-      return { svg, diagramType: model.diagramType, warnings: [] };
+      return { svg, diagramType: model.diagramType, warnings: diagnostics.map((d) => `line ${d.line}: ${d.message}`) };
     },
   };
 }
@@ -243,6 +243,10 @@ export function checkSyntax(puml: string): SyntaxCheckResult {
         });
       }
     }
+  }
+
+  for (const d of parseWithDiagnostics(puml).diagnostics) {
+    warnings.push({ line: d.line, severity: 'warning', message: d.message });
   }
 
   if (sawStart && inDiagram) {
