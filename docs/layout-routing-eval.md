@@ -253,3 +253,24 @@ closing it. Their thresholds are ratcheted to the current values (0.2 / 0.14) in
 
 Self-score (1–5): hierarchy legibility 4, parallel-edge merging 4, dependency flow 4,
 XL silhouette 4, M-tier balance 3.
+
+## Round 7 — inter-package corridors and line semantics
+
+- **Aggregation.** `interPackage: 'aggregate' | 'raw'` (default `aggregate` above 150 entities):
+  all relations between two packages fold into one box-to-box edge (`data-weight` = N, `×N`
+  label, originals in `<title>`); intra-package edges are untouched.
+- **Line type = relation kind only.** Inheritance/implementation/composition/aggregation/
+  association are solid, dependency is dashed (`6,3`, no longer dotted), cycle feedback is
+  dash-dot. Weight is width + opacity. Edge strokes use `vector-effect: non-scaling-stroke`
+  so thumbnails keep ≥ 1px lines.
+- **Alignment.** An isolated top-level frame (no edge touches it) is top-aligned with the
+  topmost side-by-side neighbour (`s-architecture-manual`: Utils now level with CLI Layer).
+
+| `xl-all-classes` (elk) | round 6 | round 7 |
+| --- | --- | --- |
+| edgeCrossings | 4024 | 975 (−76%) |
+| overlappingEdgeLength | 18332 | 4130 |
+| cross-package edges drawn | 385 | ≤ 40% (asserted in `tests/interpackage-aggregate.test.ts`) |
+
+`render-samples.mjs --manifest --compare`: no regressions; all thresholds satisfied. Metrics
+only — the 1:1 tile / thumbnail visual re-score is not recorded here.

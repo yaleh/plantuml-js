@@ -52,11 +52,17 @@ export interface Theme {
     heavyWeight: number;
     /** Edge opacity tiers: light = weight 1, medium = weight 2, strong = heavy, feedback = cycle back edge. */
     opacity: { light: number; medium: number; strong: number; feedback: number };
+    /**
+     * Edge strokes keep their width in screen pixels (`vector-effect:
+     * non-scaling-stroke`) so a thumbnail of a large diagram still shows every
+     * edge at >= 1px instead of dropping below a pixel.
+     */
+    edgeNonScaling: boolean;
     /** Width of the label halo stroke. */
     labelHalo: number;
   };
-  /** Line types: weak = dependency, implementation = realisation, feedback = cycle back edge. */
-  dash: { weak: string; implementation: string; stub: string; feedback: string };
+  /** Line types: weak = dependency (dashed), feedback = cycle back edge (dash-dot). Every other relation kind is solid. */
+  dash: { weak: string; stub: string; feedback: string };
   arrow: { triangle: number; chevron: number; diamond: number };
   /** Spacing grid (px); node sizes snap to it. */
   grid: number;
@@ -98,9 +104,10 @@ export const defaultTheme: Theme = {
     feedback: 1.5,
     heavyWeight: 3,
     opacity: { light: 0.8, medium: 0.9, strong: 1, feedback: 0.95 },
+    edgeNonScaling: true,
     labelHalo: 3,
   },
-  dash: { weak: '2,4', implementation: '6,3', stub: '5,3', feedback: '10,3,2,3' },
+  dash: { weak: '6,3', stub: '5,3', feedback: '10,3,2,3' },
   arrow: { triangle: 12, chevron: 10, diamond: 14 },
   grid: 8,
 };

@@ -54,4 +54,22 @@ describe('default theme accessibility', () => {
     const m = /<path[^>]*stroke-dasharray="([^"]+)"[^>]*class="uml-feedback"/.exec(svg);
     expect(m?.[1]).toBe(dash.feedback);
   });
+
+  it('keeps primary and secondary edges >= 3:1 on the deepest package fill and visible at 1/4 scale', async () => {
+    const deepest = color.packageFills.reduce((a, b) => (contrastRatio(a, color.canvas) <= contrastRatio(b, color.canvas) ? a : b));
+    for (const fg of [color.edge, color.edgeWeak]) {
+      for (const alpha of [stroke.opacity.light, stroke.opacity.medium, stroke.opacity.strong]) {
+        expect(contrastRatio(blendOver(fg, deepest, alpha), deepest)).toBeGreaterThanOrEqual(3);
+      }
+    }
+    // 0.25x raster: a stroke keeps >= 1px either through its width or by not scaling.
+    expect(stroke.edgeNonScaling || stroke.edge * 0.25 >= 1).toBe(true);
+    const { svg } = await createRenderer().render('@startuml\nclass A\nclass B\nclass C\nA --> B\nA ..> C\n@enduml');
+    const paths = [...svg.matchAll(/<path d="[^"]*" fill="none"[^>]*\/>/g)].map((m) => m[0]);
+    expect(paths.length).toBeGreaterThanOrEqual(2);
+    for (const p of paths) {
+      const w = Number(/stroke-width="([^"]+)"/.exec(p)![1]);
+      expect(p.includes('vector-effect="non-scaling-stroke"') || w * 0.25 >= 1, p).toBe(true);
+    }
+  });
 });

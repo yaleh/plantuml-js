@@ -37,12 +37,12 @@ describe('M2 relations', () => {
     expect(svg).not.toContain('stroke-dasharray');
   });
 
-  it('emits a hollow triangle on a dashed line for implementation', async () => {
+  it('emits a hollow triangle on a solid line for implementation', async () => {
     const { svg } = await createRenderer().render(
       '@startuml\nclass A\nclass B\nA ..|> B\n@enduml',
     );
     expect(svg).toContain('uml-arrow-implementation');
-    expect(svg).toContain('stroke-dasharray');
+    expect(svg).not.toContain('stroke-dasharray');
   });
 
   it('emits an open chevron on a dashed line for dependency', async () => {

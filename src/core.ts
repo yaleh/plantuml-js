@@ -13,7 +13,7 @@ import { LayoutEngine, LayoutResult, DetailLevel, applyDetail } from './layout.j
 import { ThemeOverrides } from './render/theme.js';
 import { ElkLayoutEngine, type ElkLayoutOptions } from './layout/elk.js';
 import { renderSvg, RenderSvgOptions } from './render/svg.js';
-import { applyView, transformModel, ViewSpec, TransformOptions } from './transform.js';
+import { applyView, transformModel, INTER_PACKAGE_AGGREGATE_ENTITY_THRESHOLD, ViewSpec, TransformOptions } from './transform.js';
 
 export type {
   PlantUmlModel,
@@ -58,6 +58,12 @@ export interface RendererOptions {
    * Default: chosen by entity count (≤40 full, ≤150 compact, else names).
    */
   detail?: DetailLevel;
+  /**
+   * `'aggregate'` folds the relations between two packages into one weighted
+   * box-to-box corridor edge (originals kept in its `<title>`); `'raw'` draws
+   * every edge. Default: `'aggregate'` for diagrams with more than 150 entities.
+   */
+  interPackage?: 'aggregate' | 'raw';
 }
 
 export interface RenderResult {
@@ -177,11 +183,17 @@ export async function renderDetailed(
  * unreadable arrow cluster.
  */
 function transformForRender(model: PlantUmlModel, options: RendererOptions): PlantUmlModel {
+  const overrides: TransformOptions = {
+    ...(options.interPackage ? { interPackage: options.interPackage } : {}),
+    ...options.transform,
+  };
   if (options.view) {
-    return transformView(model, options.view, options.transform);
+    return transformView(model, options.view, overrides);
   }
-  if (options.transform) return transformModel(model, options.transform);
-  return transformFullGraph(model);
+  if (options.transform) {
+    return transformModel(model, { interPackage: defaultInterPackage(model), ...overrides });
+  }
+  return transformFullGraph(model, overrides);
 }
 
 /**
@@ -228,8 +240,12 @@ export function transformView(
   return transformModel(viewed, { ...defaultTransformOptions(viewed), ...overrides });
 }
 
+function defaultInterPackage(model: PlantUmlModel): 'aggregate' | 'raw' {
+  return model.entities.length > INTER_PACKAGE_AGGREGATE_ENTITY_THRESHOLD ? 'aggregate' : 'raw';
+}
+
 function defaultTransformOptions(model: PlantUmlModel): TransformOptions {
-  const options: TransformOptions = { aggregate: true, cycles: true };
+  const options: TransformOptions = { aggregate: true, cycles: true, interPackage: defaultInterPackage(model) };
   if (model.entities.length > FULL_GRAPH_HUB_NODE_THRESHOLD) {
     options.hubThreshold = FULL_GRAPH_HUB_IN_DEGREE_THRESHOLD;
   }

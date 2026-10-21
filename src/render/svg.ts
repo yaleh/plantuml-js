@@ -258,7 +258,7 @@ function findEdgeBundles(model: PlantUmlModel, edgesById: Map<string, EdgeLayout
   const groups = new Map<string, number[]>();
   model.relations.forEach((rel, i) => {
     const edge = edgesById.get(`rel-${i}`);
-    if (!edge || edge.points.length < 2 || rel.label || rel.feedback) return;
+    if (!edge || edge.points.length < 2 || rel.label || rel.feedback || rel.descriptions) return;
     if (rel.type !== 'dependency' && rel.type !== 'association') return;
     const from = edge.points[0];
     const next = edge.points[1];
@@ -315,10 +315,14 @@ function renderBundle(
     ` data-bundle-size="${members.length}" data-weight="${totalWeight}" class="uml-edge uml-edge-bundle">` +
     `<path d="${segments.join('')}" fill="none" stroke="${color}" stroke-width="${fmt(strokeWidth)}"` +
     ` stroke-opacity="${edgeOpacity(totalWeight, false, theme)}"` +
-    `${dash ? ` stroke-dasharray="${dash}"` : ''} stroke-linejoin="round"/>` +
+    `${dash ? ` stroke-dasharray="${dash}"` : ''} stroke-linejoin="round"${nonScaling(theme)}/>` +
     heads.join('') +
     `</g>`
   );
+}
+
+function nonScaling(theme: Theme): string {
+  return theme.stroke.edgeNonScaling ? ' vector-effect="non-scaling-stroke"' : '';
 }
 
 /** Opacity tier of an edge: heavier (more merged relations) edges are more opaque. */
@@ -339,16 +343,10 @@ function renderEdge(
   const points = edge.points;
   const weak = rel.type === 'dependency';
   const color = rel.feedback ? theme.color.warn : weak ? theme.color.edgeWeak : theme.color.edge;
-  // Three tiers of line type, each with a non-colour cue: strong relations are
-  // solid, a realisation is dashed, a weak dependency is dotted, and a cycle
-  // feedback edge is dash-dot.
-  const dash = rel.feedback
-    ? theme.dash.feedback
-    : weak
-      ? theme.dash.weak
-      : rel.type === 'implementation'
-        ? theme.dash.implementation
-        : undefined;
+  // Line type carries relation kind only: inheritance/implementation/
+  // composition/aggregation/association are solid, a dependency is dashed, and
+  // a cycle feedback edge is dash-dot. Weight is width + opacity, never dashes.
+  const dash = rel.feedback ? theme.dash.feedback : weak ? theme.dash.weak : undefined;
   const { arrow } = theme;
 
   const sourceTrim =
@@ -375,7 +373,7 @@ function renderEdge(
   parts.push(
     `<path d="${roundedPath(linePoints, theme.shape.edgeCornerRadius)}" fill="none" stroke="${color}"` +
       ` stroke-width="${fmt(strokeWidth)}"${opacity}${dash ? ` stroke-dasharray="${dash}"` : ''}` +
-      ` stroke-linejoin="round"${feedbackClass}/>`,
+      ` stroke-linejoin="round"${nonScaling(theme)}${feedbackClass}/>`,
   );
 
   if (rel.type === 'aggregation' || rel.type === 'composition') {
@@ -396,9 +394,12 @@ function renderEdge(
   }
   // Each edge is one DOM group tagged with its endpoints + type so hosts can
   // highlight an edge and its neighbours via data attributes.
+  if (rel.descriptions) {
+    parts.unshift(`<title>${rel.descriptions.map(escapeXml).join('\n')}</title>`);
+  }
   return (
     `<g data-edge-source="${escapeXml(rel.source)}" data-edge-target="${escapeXml(rel.target)}"` +
-    ` data-edge-type="${rel.type}" class="uml-edge">` +
+    ` data-edge-type="${rel.type}"${rel.weight && rel.weight > 1 ? ` data-weight="${rel.weight}"` : ''} class="uml-edge">` +
     parts.join('') +
     `</g>`
   );

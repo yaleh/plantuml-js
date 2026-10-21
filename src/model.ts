@@ -82,6 +82,11 @@ export interface PlantUmlRelation {
   /** True when this edge is a cycle feedback arc, drawn in a distinct color. */
   feedback?: boolean;
   /**
+   * One line per original relation folded into an inter-package corridor edge
+   * (`A --> B`); rendered as the edge's `<title>`.
+   */
+  descriptions?: string[];
+  /**
    * Set when the authored endpoint named a package rather than an entity: the
    * edge is laid out against a representative entity inside it, and the
    * layout clips its end to the package frame boundary.

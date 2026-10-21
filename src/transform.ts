@@ -32,6 +32,12 @@ export interface TransformOptions {
    * hub summarization. Default undefined.
    */
   hubThreshold?: number;
+  /**
+   * `'aggregate'` folds all relations between two packages into one
+   * box-to-box weighted corridor edge; `'raw'` keeps every edge. Default:
+   * `'aggregate'` above [[INTER_PACKAGE_AGGREGATE_ENTITY_THRESHOLD]] entities.
+   */
+  interPackage?: 'aggregate' | 'raw';
   /** Detect cycles and mark one edge per cycle as a `feedback` arc. Default false. */
   cycles?: boolean;
 }
@@ -50,6 +56,9 @@ export type ViewSpec =
   | { kind: 'overview'; depth?: number }
   | { kind: 'package'; id: string }
   | { kind: 'neighborhood'; entity: string; hops: number };
+
+/** Entity count above which inter-package edges aggregate into corridors by default. */
+export const INTER_PACKAGE_AGGREGATE_ENTITY_THRESHOLD = 150;
 
 const ROOT = '__root__';
 
@@ -71,12 +80,13 @@ export function transformModel(
   model: PlantUmlModel,
   options: TransformOptions = {},
 ): PlantUmlModel {
-  const { aggregate = true, transitiveReduction = false, hubThreshold, cycles = false } = options;
+  const { aggregate = true, transitiveReduction = false, hubThreshold, cycles = false, interPackage = 'raw' } = options;
   let out = cloneModel(model);
   out = summarizeExternals(out, EXTERNAL_SUMMARY_MIN_IN_EDGES);
   if (aggregate) out = aggregateRelations(out);
   if (transitiveReduction) out = transitiveReduce(out);
   if (hubThreshold !== undefined) out = summarizeHubs(out, hubThreshold);
+  if (interPackage === 'aggregate') out = aggregateInterPackage(out);
   if (cycles) out = markCycles(out);
   return groupExternals(out);
 }
@@ -136,6 +146,84 @@ export function aggregateRelations(model: PlantUmlModel): PlantUmlModel {
     }
   }
   return { ...model, relations: [...byKey.values()] };
+}
+
+/**
+ * Fold every relation between two different packages into one corridor edge
+ * per ordered package pair: `weight` = number of originals, `descriptions`
+ * keeps each original, and the endpoints are the entities carrying most of the
+ * traffic with `sourcePackageId`/`targetPackageId` set so the layout clips the
+ * edge to the frame boundaries. Intra-package edges and edges touching
+ * package-less entities, or between nested packages, are left as they are.
+ */
+export function aggregateInterPackage(model: PlantUmlModel): PlantUmlModel {
+  const pkgOf = new Map(model.entities.map((e) => [e.id, e.packageId]));
+  const parent = new Map(model.packages.map((p) => [p.id, p.parentId]));
+  const nested = (a: string, b: string): boolean => {
+    for (const [x, y] of [[a, b], [b, a]]) {
+      for (let p = parent.get(x); p !== undefined; p = parent.get(p)) if (p === y) return true;
+    }
+    return false;
+  };
+  interface Group { src: string; dst: string; items: PlantUmlRelation[]; srcCount: Map<string, number>; dstCount: Map<string, number>; at: number }
+  const groups = new Map<string, Group>();
+  const relations: (PlantUmlRelation | Group)[] = [];
+  for (const rel of model.relations) {
+    const a = pkgOf.get(rel.source);
+    const b = pkgOf.get(rel.target);
+    if (!a || !b || a === b || nested(a, b) || rel.sourcePackageId || rel.targetPackageId) {
+      relations.push(rel);
+      continue;
+    }
+    const key = `${a}\u0000${b}`;
+    let g = groups.get(key);
+    if (!g) {
+      g = { src: a, dst: b, items: [], srcCount: new Map(), dstCount: new Map(), at: relations.length };
+      groups.set(key, g);
+      relations.push(g);
+    }
+    g.items.push(rel);
+    g.srcCount.set(rel.source, (g.srcCount.get(rel.source) ?? 0) + 1);
+    g.dstCount.set(rel.target, (g.dstCount.get(rel.target) ?? 0) + 1);
+  }
+  const top = (m: Map<string, number>): string => {
+    let best = '';
+    let n = -1;
+    for (const [k, v] of m) if (v > n) { best = k; n = v; }
+    return best;
+  };
+  const out = relations.map((r): PlantUmlRelation => {
+    if (!('items' in r)) return r;
+    const types = new Set(r.items.map((i) => i.type));
+    const only = r.items.length === 1 ? r.items[0].type : [...types][0];
+    const type = types.size === 1 && (only === 'association' || only === 'dependency') ? only : 'dependency';
+    return {
+      source: top(r.srcCount),
+      target: top(r.dstCount),
+      type,
+      weight: r.items.reduce((sum, i) => sum + (i.weight ?? 1), 0),
+      feedback: r.items.every((i) => i.feedback) || undefined,
+      sourcePackageId: r.src,
+      targetPackageId: r.dst,
+      descriptions: r.items.map((i) => `${i.source} ${ARROWS[i.type]} ${i.target}${i.label ? ` : ${i.label}` : ''}`),
+    };
+  });
+  return { ...model, relations: out.map(dropUndefined) };
+}
+
+const ARROWS: Record<PlantUmlRelation['type'], string> = {
+  inheritance: '--|>',
+  implementation: '..|>',
+  dependency: '..>',
+  association: '-->',
+  aggregation: 'o--',
+  composition: '*--',
+};
+
+function dropUndefined(r: PlantUmlRelation): PlantUmlRelation {
+  const copy = { ...r } as Record<string, unknown>;
+  for (const k of Object.keys(copy)) if (copy[k] === undefined) delete copy[k];
+  return copy as unknown as PlantUmlRelation;
 }
 
 /**

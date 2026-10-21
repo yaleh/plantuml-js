@@ -250,6 +250,60 @@ export function alignRows(model: PlantUmlModel, layout: LayoutResult): LayoutRes
   return layout;
 }
 
+/**
+ * Top-align an isolated package frame (no edge touches any entity inside it)
+ * with the topmost side-by-side neighbour frame, so a lone package sits level
+ * with its neighbour instead of floating at its own offset. Only moves up, and
+ * only when the frame (with its contents) stays clear of everything else.
+ * Mutates and returns `layout`.
+ */
+export function alignIsolatedFrames(model: PlantUmlModel, layout: LayoutResult): LayoutResult {
+  const frames = layout.packages ?? [];
+  const roots = model.packages.filter((p) => p.parentId === undefined);
+  if (roots.length < 2 || frames.length === 0) return layout;
+  const parentOf = new Map(model.packages.map((p) => [p.id, p.parentId]));
+  const rootOf = (id: string | undefined): string | undefined => {
+    let cur = id;
+    while (cur !== undefined && parentOf.get(cur) !== undefined) cur = parentOf.get(cur);
+    return cur;
+  };
+  const entityRoot = new Map(model.entities.map((e) => [e.id, rootOf(e.packageId)]));
+  const touched = new Set<string>();
+  for (const r of model.relations) {
+    for (const id of [r.source, r.target]) {
+      const root = entityRoot.get(id);
+      if (root !== undefined) touched.add(root);
+    }
+    if (r.sourcePackageId) touched.add(rootOf(r.sourcePackageId)!);
+    if (r.targetPackageId) touched.add(rootOf(r.targetPackageId)!);
+  }
+  const byId = new Map(frames.map((f) => [f.id, f]));
+  const rootFrames = roots.map((r) => byId.get(r.id)).filter((f): f is PackageLayout => f !== undefined);
+  for (const frame of rootFrames) {
+    if (touched.has(frame.id)) continue;
+    const neighbours = rootFrames.filter(
+      (g) => g !== frame && g.y < frame.y && g.y + g.height > frame.y &&
+        (g.x + g.width <= frame.x || frame.x + frame.width <= g.x),
+    );
+    if (neighbours.length === 0) continue;
+    const top = Math.min(...neighbours.map((g) => g.y));
+    const dy = top - frame.y;
+    const inFrame = (pid: string | undefined): boolean => rootOf(pid) === frame.id;
+    const memberNodes = layout.nodes.filter((n) => inFrame(model.entities.find((e) => e.id === n.id)?.packageId));
+    const memberFrames = frames.filter((f) => inFrame(f.id));
+    const moved = { x: frame.x, y: top, width: frame.width, height: frame.height };
+    const others = [
+      ...rootFrames.filter((g) => g !== frame),
+      ...layout.nodes.filter((n) => !memberNodes.includes(n)),
+    ];
+    if (others.some((o) => boxesOverlap(moved, o))) continue;
+    if ((layout.edges ?? []).some((e) => polylineHitsBox(e.points, moved))) continue;
+    for (const n of memberNodes) n.y += dy;
+    for (const f of memberFrames) f.y += dy;
+  }
+  return layout;
+}
+
 function isOrthogonal(points: Point[]): boolean {
   for (let i = 0; i + 1 < points.length; i++) {
     if (Math.abs(points[i].x - points[i + 1].x) > 0.01 && Math.abs(points[i].y - points[i + 1].y) > 0.01) {

@@ -42,7 +42,7 @@ import type {
   ELKConstructorArguments,
 } from 'elkjs';
 import { PlantUmlModel } from '../model.js';
-import { LayoutEngine, LayoutResult, alignRows } from '../layout.js';
+import { LayoutEngine, LayoutResult, alignRows, alignIsolatedFrames } from '../layout.js';
 import { compoundLayout, type StubOrbit } from './compound.js';
 import { computeLayoutMetrics, computeMaxEmptyBlockRatio } from '../layout-metrics.js';
 import { resolveLayerOrder, assignPartitions } from './layers.js';
@@ -154,7 +154,7 @@ export class ElkLayoutEngine implements LayoutEngine {
 
   async layout(model: PlantUmlModel): Promise<LayoutResult> {
     const finish = (raw: LayoutResult): LayoutResult =>
-      spreadParallelLanes(clipPackageEndpoints(model, alignRows(model, raw)));
+      spreadParallelLanes(clipPackageEndpoints(model, alignIsolatedFrames(model, alignRows(model, raw))));
     const first = finish(await this.layoutRaw(model));
     if (!model.entities.some((e) => e.stub) || !this.stubsOrbited) return first;
     // Where the orbiting stubs sit decides how the router weaves their edges
