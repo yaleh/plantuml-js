@@ -19,11 +19,11 @@ extra:
 
 ## AC
 
-- [ ] `tests/cross-package-routing.test.ts`：合成两个包、跨包边的模型，ELK 布局后所有边（含跨包边）均为正交折线（`countNonOrthogonalSegments === 0`），不穿过无关节点；并对 `all-classes.puml` 的 `Src_Mermaid_Layer` 视图断言 `edgeNodeIntersections` ≤ 5
-- [ ] `computeLayoutMetrics` 新增 `nonOrthogonalEdgeCount`（`tests/layout-metrics.test.ts` 合成断言）；对 all-classes 全部 56 个包视图，`nonOrthogonalEdgeCount === 0`（ELK 引擎），且 `edgeNodeIntersections` 的总和 ≤ 60（当前最大单个 335）
-- [ ] 完整 `all-classes` 默认渲染：宽高比在 0.5–2.5 之间，总像素 ≤ 100 MP，`edgeCrossings` 低于 9027；`textOverflowCount === 0`
-- [ ] 全部 56 个包视图宽高比在 0.25–4 之间（当前 7 个越界）
-- [ ] `scripts/render-samples.mjs` 对超过 100 MP 的图跳过 PNG（或缩放后截图）并在日志说明，不再 OOM；`npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
+- [x] `tests/cross-package-routing.test.ts`：合成两个包、跨包边的模型，ELK 布局后所有边（含跨包边）均为正交折线（`countNonOrthogonalSegments === 0`），不穿过无关节点；并对 `all-classes.puml` 的 `Src_Mermaid_Layer` 视图断言 `edgeNodeIntersections` ≤ 5
+- [x] `computeLayoutMetrics` 新增 `nonOrthogonalEdgeCount`（`tests/layout-metrics.test.ts` 合成断言）；对 all-classes 全部 56 个包视图，`nonOrthogonalEdgeCount === 0`（ELK 引擎），且 `edgeNodeIntersections` 的总和 ≤ 60（当前最大单个 335）
+- [x] 完整 `all-classes` 默认渲染：宽高比在 0.5–2.5 之间，总像素 ≤ 100 MP，`edgeCrossings` 低于 9027；`textOverflowCount === 0`
+- [x] 全部 56 个包视图宽高比在 0.25–4 之间（当前 7 个越界）
+- [x] `scripts/render-samples.mjs` 对超过 100 MP 的图跳过 PNG（或缩放后截图）并在日志说明，不再 OOM；`npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
 
 ## DoD
 
@@ -33,9 +33,12 @@ extra:
 
 - tasks/gap-layout-cross-package-routing-large-graph.md
 - src/layout/elk.ts
+- src/layout/compound.ts (new)
+- src/layout/grid-router.ts (new)
 - src/layout-metrics.ts
 - src/transform.ts
 - scripts/render-samples.mjs
 - docs/layout-routing-eval.md
 - tests/cross-package-routing.test.ts (new)
+- tests/fixtures/all-classes.puml (new)
 - tests/layout-metrics.test.ts
