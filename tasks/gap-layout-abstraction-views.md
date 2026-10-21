@@ -1,7 +1,7 @@
 ---
 id: gap-layout-abstraction-views
 title: 多级抽象：包级聚合边、枢纽节点汇总、环标注、单包视图（存根节点）
-status: todo
+status: ready
 labels:
   - gap
   - layout
