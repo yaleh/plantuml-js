@@ -55,11 +55,13 @@ if (branch !== 'author') {
 // Quay runtime state churns while the loop runs and is not part of the release
 // build; ignore it when deciding whether the tree is clean enough to release.
 const RUNTIME_PREFIXES = ['.quay/', '.archguard/', 'orchestration/', '.workflow-events/'];
-// Keep each porcelain line raw: the path starts at column 3 (`XY path`). Trimming
-// the line would drop the status column's leading space and shift the path left,
-// breaking the prefix test below.
-const dirty = out('git status --porcelain')
+// Parse porcelain verbatim: the path starts at column 3 (`XY path`). Do NOT trim
+// the whole output — trimming strips the first line's leading status space and
+// shifts the path to column 2, which breaks the prefix test below.
+const rawStatus = execSync('git status --porcelain', { cwd: root, encoding: 'utf8' });
+const dirty = rawStatus
   .split('\n')
+  .map((line) => line.replace(/\r$/, ''))
   .filter((line) => line !== '')
   .filter((line) => !RUNTIME_PREFIXES.some((prefix) => line.slice(3).startsWith(prefix)))
   .join('\n');
