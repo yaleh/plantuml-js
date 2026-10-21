@@ -10,7 +10,11 @@
  * layout change is diffed against.
  *
  * Usage:
- *   node scripts/render-samples.mjs [--baseline] [<archguard-output-dir>]
+ *   node scripts/render-samples.mjs [--baseline] [--views] [<archguard-output-dir>]
+ *
+ * `<archguard-output-dir>` is either a directory holding .puml files directly or
+ * an archguard output root: `class/all-classes.puml` and `overview/package.puml`
+ * (any `*.puml` in those subdirectories) are discovered automatically.
  *
  * The script builds `dist/` first so it can import the compiled TypeScript
  * modules (parsePlantUml / engines / renderSvg / computeLayoutMetrics) as plain
@@ -23,6 +27,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -49,7 +54,7 @@ const distMetrics = pathToFileURL(
   join(repoRoot, 'dist', 'layout-metrics.js'),
 ).href;
 
-const { parsePlantUml, ElkLayoutEngine, VizLayoutEngine, applyView, transformModel, transformFullGraph } =
+const { parsePlantUml, ElkLayoutEngine, VizLayoutEngine, transformView, transformFullGraph } =
   await import(distIndex);
 const { renderSvg } = await import(distSvg);
 const { computeLayoutMetrics } = await import(distMetrics);
@@ -121,13 +126,38 @@ const inputs = [
   { group: 'package', pumlPath: join(fixturesDir, 'archguard-package.puml') },
 ];
 
+/** Directories searched for .puml inputs: the dir itself plus archguard's `class/` and `overview/`. */
+function discoverPumlDirs(root) {
+  const dirs = [root];
+  for (const sub of ['class', 'overview']) {
+    const dir = join(root, sub);
+    if (existsSync(dir) && statSync(dir).isDirectory()) dirs.push(dir);
+  }
+  return dirs;
+}
+
+/** Locate `all-classes.puml` directly in, or under `class/` of, an archguard output dir. */
+function findAllClasses(root) {
+  for (const dir of discoverPumlDirs(root)) {
+    const candidate = join(dir, 'all-classes.puml');
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
 if (externalDir) {
   if (!existsSync(externalDir)) {
     throw new Error(`external archguard dir not found: ${externalDir}`);
   }
-  for (const entry of readdirSync(externalDir).sort()) {
-    if (extname(entry).toLowerCase() !== '.puml') continue;
-    inputs.push({ group: basename(entry, '.puml'), pumlPath: join(externalDir, entry) });
+  const usedGroups = new Set(inputs.map((i) => i.group));
+  for (const dir of discoverPumlDirs(externalDir)) {
+    for (const entry of readdirSync(dir).sort()) {
+      if (extname(entry).toLowerCase() !== '.puml') continue;
+      let group = basename(entry, '.puml');
+      if (usedGroups.has(group)) group = `${basename(dir)}-${group}`;
+      usedGroups.add(group);
+      inputs.push({ group, pumlPath: join(dir, entry) });
+    }
   }
 }
 
@@ -186,10 +216,8 @@ if (views) {
   const model = parsePlantUml(readFileSync(packageInput.pumlPath, 'utf8'));
 
   const renderView = async ({ group, view, png }) => {
-    const viewed = transformModel(applyView(model, view), {
-      aggregate: true,
-      cycles: true,
-    });
+    // Same default transforms as the full graph (aggregation, cycles, hubs).
+    const viewed = transformView(model, view);
     const layout = await engines.elk().layout(viewed);
     const svg = renderSvg(viewed, layout);
     const metrics = computeLayoutMetrics(viewed, layout);
@@ -257,17 +285,14 @@ if (views) {
 
 // ── every package of an external all-classes.puml renders without overflow ──
 if (views && externalDir) {
-  const allClasses = join(externalDir, 'all-classes.puml');
-  if (!existsSync(allClasses)) {
-    console.warn(`views: no all-classes.puml in ${externalDir} — skipping package sweep`);
+  const allClasses = findAllClasses(externalDir);
+  if (allClasses === null) {
+    console.warn(`views: no all-classes.puml in ${externalDir} (or its class/ subdir) — skipping package sweep`);
   } else {
     const model = parsePlantUml(readFileSync(allClasses, 'utf8'));
     let failed = 0;
     for (const pkg of model.packages) {
-      const viewed = transformModel(applyView(model, { kind: 'package', id: pkg.id }), {
-        aggregate: true,
-        cycles: true,
-      });
+      const viewed = transformView(model, { kind: 'package', id: pkg.id });
       const layout = await engines.elk().layout(viewed);
       const metrics = computeLayoutMetrics(viewed, layout);
       if (metrics.textOverflowCount !== 0) {

@@ -11,7 +11,7 @@ import { PlantUmlModel } from './model.js';
 import { parsePlantUml, parseWithDiagnostics } from './parser.js';
 import { LayoutEngine } from './layout.js';
 import { ElkLayoutEngine } from './layout/elk.js';
-import { renderSvg } from './render/svg.js';
+import { renderSvg, RenderSvgOptions } from './render/svg.js';
 import { applyView, transformModel, ViewSpec, TransformOptions } from './transform.js';
 
 export type {
@@ -43,6 +43,8 @@ export interface RendererOptions {
   view?: ViewSpec;
   /** Extra model transforms applied on top of the view (aggregation, cycles, …). */
   transform?: TransformOptions;
+  /** Draw a legend of the visual encodings. Default: on for diagrams with more than 30 entities. */
+  legend?: boolean;
 }
 
 export interface RenderResult {
@@ -113,7 +115,7 @@ export function createRenderer(options: RendererOptions = {}): Renderer {
       const { model: parsed, diagnostics } = parseWithDiagnostics(puml);
       const model = transformForRender(parsed, options);
       const layout = await engine.layout(model);
-      const svg = renderSvg(model, layout);
+      const svg = renderSvg(model, layout, { legend: options.legend });
       return { svg, diagramType: model.diagramType, warnings: diagnostics.map((d) => `line ${d.line}: ${d.message}`) };
     },
   };
@@ -130,8 +132,7 @@ export function createRenderer(options: RendererOptions = {}): Renderer {
  */
 function transformForRender(model: PlantUmlModel, options: RendererOptions): PlantUmlModel {
   if (options.view) {
-    const viewed = applyView(model, options.view);
-    return transformModel(viewed, { aggregate: true, cycles: true, ...options.transform });
+    return transformView(model, options.view, options.transform);
   }
   if (options.transform) return transformModel(model, options.transform);
   return transformFullGraph(model);
@@ -164,11 +165,29 @@ export function transformFullGraph(
   model: PlantUmlModel,
   overrides: TransformOptions = {},
 ): PlantUmlModel {
+  return transformModel(model, { ...defaultTransformOptions(model), ...overrides });
+}
+
+/**
+ * Apply a view, then the same default transforms as the full graph (computed on
+ * the *viewed* model, so a large single-package view summarizes its hubs too).
+ * `overrides` wins over the defaults.
+ */
+export function transformView(
+  model: PlantUmlModel,
+  view: ViewSpec,
+  overrides: TransformOptions = {},
+): PlantUmlModel {
+  const viewed = applyView(model, view);
+  return transformModel(viewed, { ...defaultTransformOptions(viewed), ...overrides });
+}
+
+function defaultTransformOptions(model: PlantUmlModel): TransformOptions {
   const options: TransformOptions = { aggregate: true, cycles: true };
   if (model.entities.length > FULL_GRAPH_HUB_NODE_THRESHOLD) {
     options.hubThreshold = FULL_GRAPH_HUB_IN_DEGREE_THRESHOLD;
   }
-  return transformModel(model, { ...options, ...overrides });
+  return options;
 }
 
 const ENTITY_DECL = /^(?:abstract\s+)?(?:class|interface|enum)\s+(.+)$/i;
@@ -368,6 +387,7 @@ function stripComment(line: string): string {
 }
 
 export { parsePlantUml, ElkLayoutEngine, renderSvg };
+export type { RenderSvgOptions };
 export { computeLayoutMetrics } from './layout-metrics.js';
 export type { LayoutMetrics } from './layout-metrics.js';
 export {

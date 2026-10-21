@@ -369,6 +369,7 @@ async function placeBlocks(
   options: CompoundOptions,
 ): Promise<Placement> {
   const pack = blocks.size > PACK_BLOCK_THRESHOLD;
+  if (!pack && options.partitions.size > 0) return stackLayerRows(blocks, options);
   const children: ElkNode[] = [...blocks.values()].map((b) => {
     const node: ElkNode = { id: b.key, width: b.width, height: b.height };
     const partition = options.partitions.get(b.key.slice(PACKAGE_PREFIX.length));
@@ -418,4 +419,61 @@ async function placeBlocks(
     positions.set(child.id, { x: child.x ?? 0, y: child.y ?? 0 });
   }
   return { positions, width: result.width ?? 0, height: result.height ?? 0 };
+}
+
+/** Row width beyond which a layer's blocks wrap onto a further row. */
+const MAX_ROW_WIDTH = 2000;
+
+/**
+ * Semantic-layer placement: every layer is a horizontal band, bands stack in
+ * partition order, and the blocks of one band sit side by side (wrapping when
+ * the band would grow wider than [[MAX_ROW_WIDTH]]). Each row is centred on the
+ * widest one. Unlike a layered run over the blocks this cannot drag a wide
+ * block sideways to sit under its parents, so the canvas stays as narrow as
+ * its widest block.
+ */
+function stackLayerRows(blocks: Map<string, Block>, options: CompoundOptions): Placement {
+  const bands = new Map<number, Block[]>();
+  for (const block of blocks.values()) {
+    const partition = options.partitions.get(block.key.slice(PACKAGE_PREFIX.length));
+    const band = partition ?? Number.MAX_SAFE_INTEGER;
+    const list = bands.get(band);
+    if (list) list.push(block);
+    else bands.set(band, [block]);
+  }
+
+  const rows: Block[][] = [];
+  for (const band of [...bands.keys()].sort((a, b) => a - b)) {
+    let row: Block[] = [];
+    let rowWidth = 0;
+    for (const block of bands.get(band)!) {
+      if (row.length > 0 && rowWidth + BLOCK_SPACING + block.width > MAX_ROW_WIDTH) {
+        rows.push(row);
+        row = [];
+        rowWidth = 0;
+      }
+      rowWidth += (row.length > 0 ? BLOCK_SPACING : 0) + block.width;
+      row.push(block);
+    }
+    if (row.length > 0) rows.push(row);
+  }
+
+  const widthOf = (row: Block[]): number =>
+    row.reduce((sum, b) => sum + b.width, 0) + BLOCK_SPACING * (row.length - 1);
+  const inner = Math.max(0, ...rows.map(widthOf));
+  const positions = new Map<string, Point>();
+  let y = CANVAS_MARGIN;
+  for (const row of rows) {
+    let x = CANVAS_MARGIN + (inner - widthOf(row)) / 2;
+    for (const block of row) {
+      positions.set(block.key, { x, y });
+      x += block.width + BLOCK_SPACING;
+    }
+    y += Math.max(...row.map((b) => b.height)) + BLOCK_SPACING;
+  }
+  return {
+    positions,
+    width: inner + CANVAS_MARGIN * 2,
+    height: Math.max(0, y - BLOCK_SPACING) + CANVAS_MARGIN,
+  };
 }

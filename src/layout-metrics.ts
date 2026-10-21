@@ -13,6 +13,12 @@ import { PlantUmlModel } from './model.js';
 import { LayoutResult, EdgeLayout, METRICS, Point, displayName } from './layout.js';
 import { countEdgeBoxIntersections, countNonOrthogonalSegments, nodeRect, Rect } from './edge-router.js';
 import { measureTextWidth } from './text-measure.js';
+import {
+  entityTextRects,
+  hubBadgeRect,
+  placeEdgeLabels,
+  rectsIntersect,
+} from './render/labels.js';
 
 export interface LayoutMetrics {
   /** Proper crossings between segments of two different edges. */
@@ -36,12 +42,20 @@ export interface LayoutMetrics {
   /** Package label tabs that overlap content or are narrower than their text. */
   labelOverlapCount: number;
   /**
-   * Summed length of collinear, overlapping segments from *different* edges —
-   * the orthogonal router's "parallel-line wall" is invisible to
-   * [[edgeCrossings]] (segments that merely overlap never *cross*), so this
-   * counts that hidden overlap in canvas pixels.
+   * Summed overlap length of *nearly* parallel segments from different edges —
+   * segments within [[PARALLEL_PROXIMITY]] px of each other. The orthogonal
+   * router's "parallel-line wall" is invisible to [[edgeCrossings]] (segments
+   * that merely run alongside never *cross*), so this counts that hidden
+   * clutter in canvas pixels.
    */
   overlappingEdgeLength: number;
+  /** Hub badges whose circle covers any of the owning node's text. */
+  badgeLabelOverlap: number;
+  /**
+   * Edge labels (`×N` weights and plain labels) that overlap another edge label
+   * or sit on top of a node box.
+   */
+  edgeLabelOverlap: number;
   /**
    * Incoming arrowheads stacked beyond a threshold on the same side of the
    * same node — the "everything points at this hub" pile-up that
@@ -75,6 +89,8 @@ export function computeLayoutMetrics(
     textOverflowCount: countTextOverflow(model, layout),
     labelOverlapCount: countLabelOverlap(model, layout),
     overlappingEdgeLength: countOverlappingEdgeLength(edges.map((e) => e.points)),
+    badgeLabelOverlap: countBadgeLabelOverlap(model, layout),
+    edgeLabelOverlap: countEdgeLabelOverlap(model, layout),
     hubArrowStack: countHubArrowStack(edges),
   };
 }
@@ -208,12 +224,14 @@ function countLabelOverlap(model: PlantUmlModel, layout: LayoutResult): number {
   return count;
 }
 
+/** Lateral distance (px) within which two parallel segments count as overlapping. */
+export const PARALLEL_PROXIMITY = 8;
+
 /**
- * Summed length of collinear, overlapping segments from different edges. Two
- * axis-aligned segments that lie on the same line and overlap are a
- * "parallel-line wall": they never produce a proper crossing (so
- * [[countEdgeCrossings]] misses them) yet still read as clutter. Each
- * (segment, segment) overlap is counted once, in canvas pixels.
+ * Summed length of near-parallel, overlapping segments from different edges.
+ * Two segments that run in the same direction within [[PARALLEL_PROXIMITY]] px
+ * of each other and share a stretch of their projection read as one "wall" of
+ * lines. Each (segment, segment) pair is counted once, in canvas pixels.
  */
 function countOverlappingEdgeLength(polylines: Point[][]): number {
   interface Seg {
@@ -232,14 +250,14 @@ function countOverlappingEdgeLength(polylines: Point[][]): number {
   for (let i = 0; i < segs.length; i++) {
     for (let j = i + 1; j < segs.length; j++) {
       if (segs[i].edge === segs[j].edge) continue;
-      total += collinearOverlapLength(segs[i].a, segs[i].b, segs[j].a, segs[j].b);
+      total += nearParallelOverlapLength(segs[i].a, segs[i].b, segs[j].a, segs[j].b);
     }
   }
   return total;
 }
 
-/** Overlap length of two segments when collinear, else 0 (in canvas pixels). */
-function collinearOverlapLength(a: Point, b: Point, c: Point, d: Point): number {
+/** Shared projected length of two near-parallel segments, else 0 (canvas pixels). */
+function nearParallelOverlapLength(a: Point, b: Point, c: Point, d: Point): number {
   const ux = b.x - a.x;
   const uy = b.y - a.y;
   const vx = d.x - c.x;
@@ -251,9 +269,9 @@ function collinearOverlapLength(a: Point, b: Point, c: Point, d: Point): number 
   // Parallel: the two direction vectors must be colinear.
   if (Math.abs(ux * vy - uy * vx) > 1e-9 * lenU * lenV) return 0;
 
-  // Colinear: `c` must lie on the line through `a`/`b` (perpendicular distance).
-  const distC = Math.abs(ux * (c.y - a.y) - uy * (c.x - a.x)) / lenU;
-  if (distC > 0.01) return 0;
+  // Near: the lateral distance between the two lines is within the proximity.
+  const dist = Math.abs(ux * (c.y - a.y) - uy * (c.x - a.x)) / lenU;
+  if (dist > PARALLEL_PROXIMITY) return 0;
 
   const uxN = ux / lenU;
   const uyN = uy / lenU;
@@ -264,6 +282,35 @@ function collinearOverlapLength(a: Point, b: Point, c: Point, d: Point): number 
   const s1 = Math.max(proj(c), proj(d));
   const overlap = Math.min(t1, s1) - Math.max(t0, s0);
   return overlap > 0 ? overlap : 0;
+}
+
+/** Hub badges (drawn on the node's corner) that touch the node's own text. */
+function countBadgeLabelOverlap(model: PlantUmlModel, layout: LayoutResult): number {
+  const nodes = new Map(layout.nodes.map((n) => [n.id, n]));
+  let count = 0;
+  for (const entity of model.entities) {
+    if (!entity.usageCount || entity.usageCount <= 0) continue;
+    const node = nodes.get(entity.id);
+    if (!node) continue;
+    const badge = hubBadgeRect(node);
+    if (entityTextRects(entity, node).some((r) => rectsIntersect(badge, r))) count++;
+  }
+  return count;
+}
+
+/** Edge labels overlapping each other, or covering a node box. */
+function countEdgeLabelOverlap(model: PlantUmlModel, layout: LayoutResult): number {
+  const labels = placeEdgeLabels(model, layout);
+  const nodeRects = layout.nodes.map(nodeRect);
+  let count = 0;
+  for (let i = 0; i < labels.length; i++) {
+    let bad = nodeRects.some((n) => rectsIntersect(labels[i].rect, n));
+    for (let j = 0; j < i && !bad; j++) {
+      if (rectsIntersect(labels[i].rect, labels[j].rect)) bad = true;
+    }
+    if (bad) count++;
+  }
+  return count;
 }
 
 /**

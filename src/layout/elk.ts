@@ -70,6 +70,12 @@ const ElkConstructor = ELKDefault as unknown as new (
 ) => ElkInstance;
 
 const PACKAGE_PREFIX = 'pkg::';
+/** Id prefix of the invisible container that packs a package's unconnected entities. */
+const ISOLATED_PREFIX = 'iso::';
+/** Unconnected entities in one container before they are packed into a grid... */
+const ISOLATED_PACK_MIN = 3;
+/** ...and only once laid side by side they would be wider than this (px). */
+const ISOLATED_ROW_MAX_WIDTH = 2000;
 
 /**
  * Entity count above which the single hierarchical ELK run is skipped in favour
@@ -80,12 +86,22 @@ const COMPOUND_ENTITY_THRESHOLD = 250;
 const MAX_ASPECT = 3;
 /** Stacked semantic layers are legitimately tall; only a sliver is rejected. */
 const MIN_ASPECT = 0.2;
+/** Narrowest aspect a width-driven switch to the compound layout may produce. */
+const PREFERRED_MIN_ASPECT = 0.6;
 const MAX_PIXELS = 40e6;
+/** Canvas width beyond which a single hierarchical run is too wide to read. */
+const MAX_WIDTH = 2400;
 
 function isProportionate(layout: LayoutResult): boolean {
   if (layout.height <= 0 || layout.width <= 0) return true;
   const aspect = layout.width / layout.height;
   return aspect <= MAX_ASPECT && aspect >= MIN_ASPECT && layout.width * layout.height <= MAX_PIXELS;
+}
+
+/** Compound result that respects the width budget and is not a tall sliver. */
+function isNarrowEnough(layout: LayoutResult): boolean {
+  if (layout.height <= 0 || layout.width <= 0) return true;
+  return layout.width <= MAX_WIDTH && layout.width / layout.height >= PREFERRED_MIN_ASPECT;
 }
 
 /** Edge routing strategies, evaluated in docs/layout-routing-eval.md. */
@@ -208,15 +224,21 @@ export class ElkLayoutEngine implements LayoutEngine {
     const partitions = this.assignPartitions(model, layers);
     // Very large graphs skip the single hierarchical run: it cannot keep the
     // canvas proportioned, so it would only be thrown away.
+    let flat: LayoutResult | undefined;
     if (model.entities.length <= COMPOUND_ENTITY_THRESHOLD) {
-      const flat = await this.hierarchicalLayout(model, layers, partitions);
-      if (isProportionate(flat)) return flat;
+      flat = await this.hierarchicalLayout(model, layers, partitions);
+      if (isProportionate(flat) && flat.width <= MAX_WIDTH) return flat;
     }
-    return compoundLayout(this.elk, model, {
+    const compound = await compoundLayout(this.elk, model, {
       edgeRouting: this.options.edgeRouting ?? 'ORTHOGONAL',
       dense: model.entities.length > COMPOUND_ENTITY_THRESHOLD,
       partitions: layers.length > 0 ? partitions : new Map(),
     });
+    // A flat run kept only for being too wide gives way to the compound layout
+    // when that one fits the width budget without degenerating into a tall
+    // sliver; otherwise the wide-but-balanced flat run is the better picture.
+    if (flat !== undefined && isProportionate(flat) && !isNarrowEnough(compound)) return flat;
+    return compound;
   }
 
   /** One ELK run over the whole nested graph (`INCLUDE_CHILDREN`). */
@@ -226,7 +248,10 @@ export class ElkLayoutEngine implements LayoutEngine {
     partitions: Map<string, number>,
   ): Promise<LayoutResult> {
     const partitionsActive = layers.length > 0;
-    
+    // Memberless one-line boxes (overview / grouped / stub-only graphs) are tiny
+    // next to the default gaps, which leaves the canvas mostly empty.
+    const compact =
+      model.packages.length === 0 && model.entities.every((e) => e.members.length === 0);
     const children = this.buildChildren(model, partitions);
     const edges: ElkExtendedEdge[] = model.relations.map((relation, i) => ({
       id: `rel-${i}`,
@@ -238,8 +263,8 @@ export class ElkLayoutEngine implements LayoutEngine {
       'elk.algorithm': 'layered',
       'elk.direction': 'DOWN',
       'elk.edgeRouting': this.options.edgeRouting ?? 'ORTHOGONAL',
-      'elk.spacing.nodeNode': '40',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '60',
+      'elk.spacing.nodeNode': compact ? '12' : '40',
+      'elk.layered.spacing.nodeNodeBetweenLayers': compact ? '24' : '60',
       // Ports keep a fixed side per edge, so same-direction edges fan out across
       // one node edge instead of scattering onto every side (or one point).
       'elk.layered.portConstraints': 'FIXED_SIDE',
@@ -255,6 +280,11 @@ export class ElkLayoutEngine implements LayoutEngine {
       'elk.layered.nodePlacement.strategy': 'INTERACTIVE',
     };
     if (partitionsActive) layoutOptions['elk.partitioning.activate'] = 'true';
+    if (compact) {
+      layoutOptions['elk.layered.nodePlacement.strategy'] = 'NETWORK_SIMPLEX';
+      layoutOptions['elk.layered.spacing.edgeEdgeBetweenLayers'] = '5';
+      layoutOptions['elk.layered.spacing.edgeNodeBetweenLayers'] = '12';
+    }
     // Every edge that crosses a container boundary (package↔package or
     // package↔top-level stub) needs INCLUDE_CHILDREN to get a routing section.
     if (this.hasContainerCrossingEdge(model)) {
@@ -362,8 +392,55 @@ export class ElkLayoutEngine implements LayoutEngine {
       });
     }
 
-    const top: ElkNode[] = [];
+    const connected = new Set<string>();
+    for (const relation of model.relations) {
+      connected.add(relation.source);
+      connected.add(relation.target);
+    }
+
+    // Unconnected entities of one container are packed into a balanced grid by
+    // an invisible sub-container; left alone, the layered algorithm lines them
+    // all up in a single row and stretches the whole canvas.
+    const isolatedByOwner = new Map<string, PlantUmlEntity[]>();
+    const ownerKey = (entity: PlantUmlEntity): string =>
+      entity.packageId && pkgNodes.has(entity.packageId) ? entity.packageId : '';
     for (const entity of model.entities) {
+      if (connected.has(entity.id)) continue;
+      const key = ownerKey(entity);
+      const list = isolatedByOwner.get(key);
+      if (list) list.push(entity);
+      else isolatedByOwner.set(key, [entity]);
+    }
+    const packed = new Set<string>();
+    const groups = new Map<string, ElkNode>();
+    for (const [key, list] of isolatedByOwner) {
+      if (list.length < ISOLATED_PACK_MIN) continue;
+      const rowWidth = list.reduce((sum, e) => sum + estimateEntitySize(e).width + 40, 0);
+      if (rowWidth <= ISOLATED_ROW_MAX_WIDTH) continue;
+      const layoutOptions: Record<string, string> = {
+        'elk.algorithm': 'rectpacking',
+        'elk.hierarchyHandling': 'SEPARATE_CHILDREN',
+        'elk.aspectRatio': '1.6',
+        'elk.spacing.nodeNode': '20',
+        'elk.padding': '[top=0,left=0,bottom=0,right=0]',
+      };
+      const partition = key === '' ? undefined : partitions.get(key);
+      if (partition !== undefined) layoutOptions['elk.partitioning.partition'] = String(partition);
+      groups.set(key, {
+        id: ISOLATED_PREFIX + key,
+        children: list.map((e) => this.entityLeaf(e)),
+        layoutOptions,
+      });
+      for (const e of list) packed.add(e.id);
+    }
+
+    const top: ElkNode[] = [];
+    for (const [key, group] of groups) {
+      if (key === '') top.push(group);
+      else pkgNodes.get(key)!.children!.push(group);
+    }
+    for (const entity of model.entities) {
+      if (packed.has(entity.id)) continue;
       const leaf = this.entityLeaf(entity);
       const owner = entity.packageId ? pkgNodes.get(entity.packageId) : undefined;
       if (owner) owner.children!.push(leaf);
@@ -423,6 +500,10 @@ export class ElkLayoutEngine implements LayoutEngine {
         width: node.width ?? 0,
         height: node.height ?? 0,
       });
+      for (const child of node.children ?? []) {
+        this.flatten(child, x, y, nodes, packages, offsets);
+      }
+    } else if (node.id.startsWith(ISOLATED_PREFIX)) {
       for (const child of node.children ?? []) {
         this.flatten(child, x, y, nodes, packages, offsets);
       }

@@ -21,6 +21,8 @@ import {
   displayName,
 } from '../layout.js';
 import { measureTextWidth } from '../text-measure.js';
+import { hubBadgeCircle, placeEdgeLabels, EdgeLabelPlacement, EDGE_LABEL_FONT_SIZE } from './labels.js';
+import { renderLegend, LEGEND_DEFAULT_NODE_THRESHOLD } from './legend.js';
 
 const STROKE = '#333333';
 
@@ -42,7 +44,16 @@ function fmt(n: number): string {
   return Object.is(r, -0) ? '0' : String(r);
 }
 
-export function renderSvg(model: PlantUmlModel, layout: LayoutResult): string {
+export interface RenderSvgOptions {
+  /** Draw a legend of the visual encodings. Default: on for models with more than 30 entities. */
+  legend?: boolean;
+}
+
+export function renderSvg(
+  model: PlantUmlModel,
+  layout: LayoutResult,
+  options: RenderSvgOptions = {},
+): string {
   const nodesById = new Map(layout.nodes.map((n) => [n.id, n]));
   const packagesById = new Map((layout.packages ?? []).map((p) => [p.id, p]));
   const edgesById = new Map((layout.edges ?? []).map((e) => [e.id, e]));
@@ -54,9 +65,13 @@ export function renderSvg(model: PlantUmlModel, layout: LayoutResult): string {
     if (box) body.push(renderPackage(pkg, box));
   }
 
+  const weightLabels = new Map<number, EdgeLabelPlacement>();
+  for (const label of placeEdgeLabels(model, layout)) {
+    if (label.kind === 'weight') weightLabels.set(label.edge, label);
+  }
   for (let i = 0; i < model.relations.length; i++) {
     const edge = edgesById.get(`rel-${i}`);
-    if (edge) body.push(renderEdge(model.relations[i], edge));
+    if (edge) body.push(renderEdge(model.relations[i], edge, weightLabels.get(i)));
   }
 
   for (const entity of model.entities) {
@@ -64,8 +79,15 @@ export function renderSvg(model: PlantUmlModel, layout: LayoutResult): string {
     if (node) body.push(renderEntity(entity, node));
   }
 
-  const width = layout.width;
-  const height = layout.height;
+  let width = layout.width;
+  let height = layout.height;
+  const showLegend = options.legend ?? model.entities.length > LEGEND_DEFAULT_NODE_THRESHOLD;
+  if (showLegend) {
+    const legend = renderLegend(12, layout.height + 8);
+    body.push(legend.svg);
+    width = Math.max(width, legend.width + 24);
+    height = layout.height + 8 + legend.height + 12;
+  }
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${fmt(width)}" height="${fmt(height)}"` +
     ` viewBox="0 0 ${fmt(width)} ${fmt(height)}">${body.join('')}</svg>`
@@ -122,15 +144,16 @@ function renderEntity(entity: PlantUmlEntity, node: NodeLayout): string {
 }
 
 /**
- * Hub badge — the "used by N packages" marker drawn at the top-right corner of
- * a node whose incoming edges were summarized away (see [[../transform]]).
+ * Hub badge — the "used by N packages" marker drawn on the top-right corner of
+ * a node whose incoming edges were summarized away (see [[../transform]]). It
+ * is centred on the corner, so half of it sits outside the box and never covers
+ * the node's name.
  */
 function renderHubBadge(node: NodeLayout, count: number): string {
-  const cx = node.x + node.width - 12;
-  const cy = node.y + 13;
+  const { cx, cy, r } = hubBadgeCircle(node);
   return (
     `<g class="uml-hub-badge">` +
-    `<circle cx="${fmt(cx)}" cy="${fmt(cy)}" r="9" fill="#c0392b"/>` +
+    `<circle cx="${fmt(cx)}" cy="${fmt(cy)}" r="${r}" fill="#c0392b" stroke="#ffffff" stroke-width="1"/>` +
     `<text x="${fmt(cx)}" y="${fmt(cy + 3.5)}" text-anchor="middle"` +
     ` font-family="${METRICS.fontFamily}" font-size="11" fill="#ffffff">${count}</text>` +
     `</g>`
@@ -165,7 +188,11 @@ function renderPackage(pkg: PlantUmlPackage, box: PackageLayout): string {
   );
 }
 
-function renderEdge(rel: PlantUmlRelation, edge: EdgeLayout): string {
+function renderEdge(
+  rel: PlantUmlRelation,
+  edge: EdgeLayout,
+  weightLabel?: EdgeLabelPlacement,
+): string {
   if (edge.points.length < 2) return '';
   const points = edge.points;
   const dashed = rel.type === 'implementation' || rel.type === 'dependency';
@@ -205,9 +232,16 @@ function renderEdge(rel: PlantUmlRelation, edge: EdgeLayout): string {
   }
 
   parts.push(...renderEdgeTexts(rel, points, color));
-  if (weight > 1) {
-    const mid = points[Math.floor(points.length / 2)];
-    parts.push(textAt(`×${weight}`, mid.x, mid.y - (rel.label ? 20 : 10), 11, color));
+  if (weightLabel) {
+    // White backing box so the label stays legible over the line it annotates.
+    const r = weightLabel.rect;
+    parts.push(
+      `<rect class="uml-edge-label-bg" x="${fmt(r.x)}" y="${fmt(r.y)}" width="${fmt(r.width)}"` +
+        ` height="${fmt(r.height)}" fill="#ffffff" fill-opacity="0.92"/>`,
+    );
+    parts.push(
+      textAt(weightLabel.text, r.x + r.width / 2, r.y + r.height / 2 + 4, EDGE_LABEL_FONT_SIZE, color),
+    );
   }
   // Each edge is one DOM group tagged with its endpoints + type so hosts can
   // highlight an edge and its neighbours via data attributes.

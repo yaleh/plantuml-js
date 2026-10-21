@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { computeLayoutMetrics } from '../src/layout-metrics.js';
+import { parsePlantUml, transformFullGraph, ElkLayoutEngine } from '../src/index.js';
 import { LayoutResult } from '../src/layout.js';
 import { PlantUmlModel } from '../src/model.js';
 
@@ -256,6 +260,58 @@ describe('computeLayoutMetrics', () => {
     expect(computeLayoutMetrics(model, layout(4)).hubArrowStack).toBe(1);
   });
 
+  it('counts near-parallel segments 3px apart as overlapping over their shared projection', () => {
+    const model: PlantUmlModel = {
+      diagramType: 'class',
+      entities: [],
+      relations: [],
+      packages: [],
+    };
+    const layout: LayoutResult = {
+      nodes: [],
+      edges: [
+        {
+          id: 'rel-0',
+          source: 'A',
+          target: 'B',
+          points: [
+            { x: 0, y: 0 },
+            { x: 100, y: 0 },
+          ],
+        },
+        {
+          id: 'rel-1',
+          source: 'C',
+          target: 'D',
+          points: [
+            { x: 40, y: 3 },
+            { x: 140, y: 3 },
+          ],
+        },
+      ],
+      width: 150,
+      height: 50,
+    };
+    expect(computeLayoutMetrics(model, layout).overlappingEdgeLength).toBeCloseTo(60, 5);
+
+    // Beyond the proximity threshold the lines read as separate.
+    layout.edges[1].points = [
+      { x: 40, y: 20 },
+      { x: 140, y: 20 },
+    ];
+    expect(computeLayoutMetrics(model, layout).overlappingEdgeLength).toBe(0);
+  });
+
+  it('measures a non-zero near-parallel overlap on the package.elk layout', async () => {
+    const puml = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'archguard-package.puml'),
+      'utf8',
+    );
+    const model = transformFullGraph(parsePlantUml(puml));
+    const layout = await new ElkLayoutEngine().layout(model);
+    expect(computeLayoutMetrics(model, layout).overlappingEdgeLength).toBeGreaterThan(0);
+  });
+
   it('returns all-zero metrics for an empty model and layout', () => {
     const model: PlantUmlModel = {
       diagramType: 'class',
@@ -281,6 +337,8 @@ describe('computeLayoutMetrics', () => {
       textOverflowCount: 0,
       labelOverlapCount: 0,
       overlappingEdgeLength: 0,
+      badgeLabelOverlap: 0,
+      edgeLabelOverlap: 0,
       hubArrowStack: 0,
     });
   });
