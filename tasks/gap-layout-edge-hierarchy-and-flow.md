@@ -54,3 +54,11 @@ depends_on:
 - tests/package-flow.test.ts (new)
 - tests/bundling.test.ts
 - tests/theme-contrast.test.ts
+
+## Blocker
+
+**2026-10-21T18:50:34.226Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 5/6，剩余未勾 1）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：eab4f0e0-9840-4517-b2f3-9d248a439916
