@@ -1,7 +1,7 @@
 ---
 id: gap-layout-fanout-trunk-and-frame-gutters
 title: 一对多扇出合并为干线+分支（梳状平行线）+ 走廊走框间缝隙不穿越无关包框 + 单包视图 stub 与空白
-status: ready
+status: done
 labels:
   - gap
   - layout
