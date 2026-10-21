@@ -1,7 +1,7 @@
 ---
 id: gap-converge-duplicated-definitions
 title: 收敛重复定义到单一来源：PACKAGE_LABEL 已漂移（度量失真）+ parser 语法重复
-status: ready
+status: done
 labels:
   - gap
   - defect
