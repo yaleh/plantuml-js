@@ -21,11 +21,11 @@ depends_on:
 
 ## AC
 
-- [ ] `tests/text-measure.test.ts`：等宽字体下任意字符等宽；`+kind: FunctionFingerprintKind` 这类行在 `estimateEntitySize` 给出的框内 `textOverflowCount === 0`；`npx vitest run` 通过
-- [ ] ELK 输出：fixture 渲染的 `textOverflowCount === 0` 且 `labelOverlapCount === 0`（经 `computeLayoutMetrics`），`areaUtilization` 相对 `rendered/metrics.baseline.json` 提升
-- [ ] viz 输出：fixture 的节点高度等于 `estimateEntitySize` 的高度（成员区被计入），`packages` 非空，`textOverflowCount === 0`
-- [ ] `node scripts/render-samples.mjs` 退出码 0，且 package 图的 `aspectRatio` 落在 1.2–2.2 内
-- [ ] `npm run typecheck` 与 `npx vitest run` 全部通过，同一输入两次渲染字节一致（确定性）
+- [x] `tests/text-measure.test.ts`：等宽字体下任意字符等宽；`+kind: FunctionFingerprintKind` 这类行在 `estimateEntitySize` 给出的框内 `textOverflowCount === 0`；`npx vitest run` 通过
+- [x] ELK 输出：fixture 渲染的 `textOverflowCount === 0` 且 `labelOverlapCount === 0`（经 `computeLayoutMetrics`），`areaUtilization` 相对 `rendered/metrics.baseline.json` 提升
+- [x] viz 输出：fixture 的节点高度等于 `estimateEntitySize` 的高度（成员区被计入），`packages` 非空，`textOverflowCount === 0`
+- [x] `node scripts/render-samples.mjs` 退出码 0，且 package 图的 `aspectRatio` 落在 1.2–2.2 内
+- [x] `npm run typecheck` 与 `npx vitest run` 全部通过，同一输入两次渲染字节一致（确定性）
 
 ## DoD
 
