@@ -47,6 +47,12 @@ export interface PlantUmlEntity {
    * no members and are drawn with a distinct frame.
    */
   stub?: boolean;
+  /**
+   * True when the entity was never declared and only exists because a relation
+   * named it (an implicit/external type such as `Error`). Drawn with a weaker
+   * style and grouped under a synthetic External package.
+   */
+  external?: boolean;
 }
 
 export type RelationType =
@@ -75,6 +81,13 @@ export interface PlantUmlRelation {
   weight?: number;
   /** True when this edge is a cycle feedback arc, drawn in a distinct color. */
   feedback?: boolean;
+  /**
+   * Set when the authored endpoint named a package rather than an entity: the
+   * edge is laid out against a representative entity inside it, and the
+   * layout clips its end to the package frame boundary.
+   */
+  sourcePackageId?: string;
+  targetPackageId?: string;
 }
 
 export interface PlantUmlPackage {

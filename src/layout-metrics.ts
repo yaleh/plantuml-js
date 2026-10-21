@@ -56,6 +56,8 @@ export interface LayoutMetrics {
    * or sit on top of a node box.
    */
   edgeLabelOverlap: number;
+  /** Edge labels whose rectangle intersects any node rectangle (should be 0). */
+  labelNodeOverlap: number;
   /**
    * Incoming arrowheads stacked beyond a threshold on the same side of the
    * same node — the "everything points at this hub" pile-up that
@@ -91,6 +93,7 @@ export function computeLayoutMetrics(
     overlappingEdgeLength: countOverlappingEdgeLength(edges.map((e) => e.points)),
     badgeLabelOverlap: countBadgeLabelOverlap(model, layout),
     edgeLabelOverlap: countEdgeLabelOverlap(model, layout),
+    labelNodeOverlap: countLabelNodeOverlap(model, layout),
     hubArrowStack: countHubArrowStack(edges),
   };
 }
@@ -311,6 +314,13 @@ function countEdgeLabelOverlap(model: PlantUmlModel, layout: LayoutResult): numb
     if (bad) count++;
   }
   return count;
+}
+
+function countLabelNodeOverlap(model: PlantUmlModel, layout: LayoutResult): number {
+  const nodeRects = layout.nodes.map(nodeRect);
+  return placeEdgeLabels(model, layout).filter((l) =>
+    nodeRects.some((n) => rectsIntersect(l.rect, n)),
+  ).length;
 }
 
 /**

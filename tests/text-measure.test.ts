@@ -13,6 +13,11 @@ describe('text-measure (monospace)', () => {
     }
   });
 
+  it('counts CJK / fullwidth characters as two cells', () => {
+    expect(measureTextWidth('(命令层)')).toBe(measureTextWidth('x'.repeat(2 * 3 + 2)));
+    expect(measureTextWidth('Ａ')).toBe(measureTextWidth('xx'));
+  });
+
   it('scales linearly with the font size', () => {
     expect(measureTextWidth('abcdef', 26)).toBeCloseTo(
       measureTextWidth('abcdef', 13) * 2,

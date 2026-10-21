@@ -82,14 +82,29 @@ export function placeEdgeLabels(model: PlantUmlModel, layout: LayoutResult): Edg
   const nodeRects = layout.nodes.map(nodeRect);
   const out: EdgeLabelPlacement[] = [];
 
+  const placed: Rect[] = [];
+  // A plain label must not sit on a node box. The classic spot (above the middle
+  // vertex) is tried first, then positions along the edge's segments; a label
+  // that fits nowhere is left out (the renderer keeps it as a `<title>` tooltip).
   model.relations.forEach((rel, edge) => {
     const points = edgesById.get(`rel-${edge}`)?.points;
-    if (points && points.length >= 2 && rel.label) {
-      out.push({ edge, kind: 'label', text: rel.label, rect: plainLabelRect(rel.label, points) });
-    }
+    if (!points || points.length < 2 || !rel.label) return;
+    const width = measureTextWidth(rel.label, 12);
+    const candidates = [
+      plainLabelRect(rel.label, points),
+      ...labelCandidates(points, width, 14).map((r) => ({ ...r, y: r.y - 10 })),
+      ...labelCandidates(points, width, 14),
+    ];
+    const free = candidates.find(
+      (rect) =>
+        !nodeRects.some((n) => rectsIntersect(rect, n)) &&
+        !placed.some((p) => rectsIntersect(rect, p)),
+    );
+    if (!free) return;
+    placed.push(free);
+    out.push({ edge, kind: 'label', text: rel.label, rect: free });
   });
 
-  const placed = out.map((p) => p.rect);
   model.relations.forEach((rel, edge) => {
     const points = edgesById.get(`rel-${edge}`)?.points;
     if (!points || points.length < 2 || !rel.weight || rel.weight <= 1) return;

@@ -73,18 +73,61 @@ export function transformModel(
 ): PlantUmlModel {
   const { aggregate = true, transitiveReduction = false, hubThreshold, cycles = false } = options;
   let out = cloneModel(model);
+  out = summarizeExternals(out, EXTERNAL_SUMMARY_MIN_IN_EDGES);
   if (aggregate) out = aggregateRelations(out);
   if (transitiveReduction) out = transitiveReduce(out);
   if (hubThreshold !== undefined) out = summarizeHubs(out, hubThreshold);
   if (cycles) out = markCycles(out);
-  return out;
+  return groupExternals(out);
+}
+
+/** Incoming edges at which an external type's edges collapse into a count badge. */
+export const EXTERNAL_SUMMARY_MIN_IN_EDGES = 3;
+/** Id of the synthetic package that gathers implicit/external types. */
+export const EXTERNAL_PACKAGE_ID = '__external__';
+
+/**
+ * Implicit/external types (`Error`, `EventEmitter`, …) receive many parallel
+ * edges that would fly across the whole canvas. Once one has `minEdges` or more
+ * incoming relations they are dropped and replaced by a `usageCount` badge that
+ * carries the original incoming-edge count.
+ */
+export function summarizeExternals(model: PlantUmlModel, minEdges: number): PlantUmlModel {
+  const incoming = new Map<string, number>();
+  for (const r of model.relations) {
+    const e = model.entities.find((x) => x.id === r.target);
+    if (e?.external) incoming.set(r.target, (incoming.get(r.target) ?? 0) + (r.weight ?? 1));
+  }
+  const summarized = new Set([...incoming].filter(([, n]) => n >= minEdges).map(([id]) => id));
+  if (summarized.size === 0) return model;
+  return {
+    ...model,
+    entities: model.entities.map((e) =>
+      summarized.has(e.id) ? { ...e, usageCount: incoming.get(e.id)! } : e,
+    ),
+    relations: model.relations.filter((r) => !summarized.has(r.target)),
+  };
+}
+
+/** Gather top-level external entities into one synthetic External package. */
+export function groupExternals(model: PlantUmlModel): PlantUmlModel {
+  const externals = model.entities.filter((e) => e.external && e.packageId === undefined);
+  if (externals.length < 2 || model.packages.some((p) => p.id === EXTERNAL_PACKAGE_ID)) {
+    return model;
+  }
+  const ids = new Set(externals.map((e) => e.id));
+  return {
+    ...model,
+    entities: model.entities.map((e) => (ids.has(e.id) ? { ...e, packageId: EXTERNAL_PACKAGE_ID } : e)),
+    packages: [...model.packages, { id: EXTERNAL_PACKAGE_ID, name: 'External' }],
+  };
 }
 
 /** Merge relations sharing (source, target) into one edge with `weight`. */
 export function aggregateRelations(model: PlantUmlModel): PlantUmlModel {
   const byKey = new Map<string, PlantUmlRelation>();
   for (const relation of model.relations) {
-    const key = `${relation.source}\u0000${relation.target}`;
+    const key = `${relation.source}\u0000${relation.target}\u0000${relation.sourcePackageId ?? ''}\u0000${relation.targetPackageId ?? ''}`;
     const existing = byKey.get(key);
     if (existing) {
       existing.weight = (existing.weight ?? 1) + 1;

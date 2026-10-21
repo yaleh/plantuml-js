@@ -46,6 +46,7 @@ import { LayoutEngine, LayoutResult, alignRows } from '../layout.js';
 import { compoundLayout } from './compound.js';
 import { resolveLayerOrder, assignPartitions } from './layers.js';
 import { buildElkGraph } from './elk-graph.js';
+import { clipPackageEndpoints } from './package-endpoints.js';
 import { mapElkResult } from './elk-result.js';
 
 // elkjs ships a `typeof import(...)` default-export type under NodeNext; pin the
@@ -112,7 +113,7 @@ export class ElkLayoutEngine implements LayoutEngine {
   }
 
   async layout(model: PlantUmlModel): Promise<LayoutResult> {
-    return alignRows(model, await this.layoutRaw(model));
+    return clipPackageEndpoints(model, alignRows(model, await this.layoutRaw(model)));
   }
 
   private async layoutRaw(model: PlantUmlModel): Promise<LayoutResult> {

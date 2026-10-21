@@ -76,12 +76,14 @@ export function renderSvg(
   }
 
   const weightLabels = new Map<number, EdgeLabelPlacement>();
+  const plainLabels = new Map<number, EdgeLabelPlacement>();
   for (const label of placeEdgeLabels(model, layout)) {
     if (label.kind === 'weight') weightLabels.set(label.edge, label);
+    else plainLabels.set(label.edge, label);
   }
   for (let i = 0; i < model.relations.length; i++) {
     const edge = edgesById.get(`rel-${i}`);
-    if (edge) body.push(renderEdge(model.relations[i], edge, theme, weightLabels.get(i)));
+    if (edge) body.push(renderEdge(model.relations[i], edge, theme, weightLabels.get(i), plainLabels.get(i)));
   }
 
   for (const entity of model.entities) {
@@ -132,12 +134,15 @@ function renderEntity(entity: PlantUmlEntity, node: NodeLayout, theme: Theme): s
   const { color, font } = theme;
 
   const parts: string[] = [];
-  const stubAttrs = stub ? ` class="uml-stub" stroke-dasharray="${theme.dash.stub}"` : '';
+  const weak = stub || entity.external === true;
+  const stubAttrs = weak
+    ? ` class="${stub ? 'uml-stub' : 'uml-external'}" stroke-dasharray="${theme.dash.stub}"`
+    : '';
   parts.push(
     `<rect x="${fmt(node.x)}" y="${fmt(node.y)}" width="${fmt(node.width)}"` +
       ` height="${fmt(node.height)}" rx="${theme.shape.nodeRadius}" ry="${theme.shape.nodeRadius}"` +
-      ` fill="${stub ? color.stubFill : color.nodeFill}"` +
-      `${stubAttrs} stroke="${stub ? color.strokeStub : color.stroke}" stroke-width="${theme.stroke.node}"/>`,
+      ` fill="${weak ? color.stubFill : color.nodeFill}"` +
+      `${stubAttrs} stroke="${weak ? color.strokeStub : color.stroke}" stroke-width="${theme.stroke.node}"/>`,
   );
 
   const headerBottom = node.y + METRICS.paddingY + METRICS.lineHeight;
@@ -175,7 +180,7 @@ function renderEntity(entity: PlantUmlEntity, node: NodeLayout, theme: Theme): s
       ? ` data-package-id="${escapeXml(entity.packageId)}"`
       : '';
   return (
-    `<g data-entity-id="${escapeXml(entity.id)}"${packageAttr} class="uml-node">` +
+    `<g data-entity-id="${escapeXml(entity.id)}"${packageAttr} class="uml-node${entity.external ? ' uml-external' : ''}">` +
     parts.join('') +
     `</g>`
   );
@@ -236,6 +241,7 @@ function renderEdge(
   edge: EdgeLayout,
   theme: Theme,
   weightLabel?: EdgeLabelPlacement,
+  plainLabel?: EdgeLabelPlacement,
 ): string {
   if (edge.points.length < 2) return '';
   const points = edge.points;
@@ -282,7 +288,7 @@ function renderEdge(
     parts.push(renderChevron(points, rel.type, color, theme));
   }
 
-  parts.push(...renderEdgeTexts(rel, points, theme));
+  parts.push(...renderEdgeTexts(rel, points, theme, plainLabel));
   if (weightLabel) {
     // Canvas-coloured backing box so the label stays legible over its line.
     const r = weightLabel.rect;
@@ -294,6 +300,10 @@ function renderEdge(
       textEl(weightLabel.text, r.x + r.width / 2, r.y + r.height / 2 + 4, 'middle',
         EDGE_LABEL_FONT_SIZE, 'normal', theme.color.textMember, theme),
     );
+  }
+  if (rel.label && !plainLabel) {
+    // No label position clear of the nodes: keep the text reachable as a tooltip.
+    parts.unshift(`<title>${escapeXml(rel.label)}</title>`);
   }
   // Each edge is one DOM group tagged with its endpoints + type so hosts can
   // highlight an edge and its neighbours via data attributes.
@@ -362,7 +372,12 @@ function renderDiamond(points: Point[], filled: boolean, color: string, theme: T
   );
 }
 
-function renderEdgeTexts(rel: PlantUmlRelation, points: Point[], theme: Theme): string[] {
+function renderEdgeTexts(
+  rel: PlantUmlRelation,
+  points: Point[],
+  theme: Theme,
+  plainLabel?: EdgeLabelPlacement,
+): string[] {
   const parts: string[] = [];
   const t = (text: string, x: number, y: number, size: number): string =>
     textEl(text, x, y, 'middle', size, 'normal', theme.color.textMember, theme);
@@ -373,9 +388,9 @@ function renderEdgeTexts(rel: PlantUmlRelation, points: Point[], theme: Theme): 
     const last = points[points.length - 1];
     parts.push(t(rel.targetCardinality, last.x, last.y - 7, 11));
   }
-  if (rel.label) {
-    const mid = points[Math.floor(points.length / 2)];
-    parts.push(t(rel.label, mid.x, mid.y - 10, 12));
+  if (rel.label && plainLabel) {
+    const r = plainLabel.rect;
+    parts.push(t(rel.label, r.x + r.width / 2, r.y + 12, 12));
   }
   return parts;
 }

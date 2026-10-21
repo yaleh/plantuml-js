@@ -13,7 +13,8 @@
  *
  * Entity rects are the only `<rect>` elements with rounded corners (`rx`), so a
  * `<text>` is attributed to the first such rect that contains its anchor point.
- * Package-label tabs and edge labels carry no rounded rect and are skipped.
+ * Package labels are checked separately: the text must fit inside its tab block
+ * (`line.uml-package-tab`) and package frame. Edge labels are skipped.
  *
  * Usage (CLI):
  *   node scripts/measure-svg-text.mjs <svg> [<svg>...]
@@ -107,7 +108,19 @@ ${svg}
   var count = 0;
   try {
     var rects = Array.from(document.querySelectorAll('rect[rx]'));
+    document.querySelectorAll('g.uml-package').forEach(function (g) {
+      var tab = g.querySelector('line.uml-package-tab');
+      var t = g.querySelector('text');
+      if (!tab || !t) return;
+      var tabWidth = parseFloat(tab.getAttribute('x2')) - parseFloat(tab.getAttribute('x1'));
+      var rect = g.querySelector('rect');
+      var tx = parseFloat(t.getAttribute('x')) - parseFloat(tab.getAttribute('x1'));
+      var limit = rect ? parseFloat(rect.getAttribute('width')) : tabWidth;
+      // The label must sit inside the tab block (tab padding on the right) and the frame.
+      if (tx + t.getBBox().width > tabWidth + 0.01 || tx + t.getBBox().width > limit + 0.01) count++;
+    });
     document.querySelectorAll('text').forEach(function (t) {
+      if (t.closest('g.uml-package')) return;
       var x = parseFloat(t.getAttribute('x'));
       var y = parseFloat(t.getAttribute('y'));
       var box = null;

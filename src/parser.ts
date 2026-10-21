@@ -86,19 +86,39 @@ function resolveEndpoints(model: PlantUmlModel, relationLines: number[]): Endpoi
   const representative = (pkg: string): string | undefined =>
     model.entities.find((e) => inPackage(e.packageId, pkg))?.id;
 
-  const resolve = (id: string, line: number): string => {
+  // An endpoint may name a package by its id or by the identifier form of its
+  // display name (`CLI_Layer` for `"CLI Layer (命令层)"`), as authors write it.
+  const packageByKey = new Map<string, string>();
+  for (const p of model.packages) {
+    for (const key of [p.id, packageKey(p.name)]) {
+      if (!packageByKey.has(key)) packageByKey.set(key, p.id);
+    }
+  }
+  const asPackage = (id: string): string | undefined =>
+    packageIds.has(id) ? id : packageByKey.get(id);
+
+  const resolve = (id: string, line: number, pkgOut: (p: string) => void): string => {
     if (entityIds.has(id)) return id;
-    if (packageIds.has(id)) {
-      const rep = representative(id);
+    const pkg = asPackage(id);
+    if (pkg !== undefined) {
+      const rep = representative(pkg);
       if (rep !== undefined) {
         diagnostics.push({
           line,
           message: `relation endpoint "${id}" is a package; edge attached to "${rep}" inside it`,
         });
+        pkgOut(pkg);
         return rep;
       }
     }
-    model.entities.push({ id, name: id, generics: [], kind: 'class', members: [] });
+    model.entities.push({
+      id,
+      name: id,
+      generics: [],
+      kind: 'class',
+      members: [],
+      external: true,
+    });
     entityIds.add(id);
     diagnostics.push({
       line,
@@ -109,10 +129,22 @@ function resolveEndpoints(model: PlantUmlModel, relationLines: number[]): Endpoi
 
   model.relations.forEach((r, i) => {
     const line = relationLines[i] ?? 0;
-    r.source = resolve(r.source, line);
-    r.target = resolve(r.target, line);
+    r.source = resolve(r.source, line, (p) => {
+      r.sourcePackageId = p;
+    });
+    r.target = resolve(r.target, line, (p) => {
+      r.targetPackageId = p;
+    });
   });
   return diagnostics;
+}
+
+/** Identifier form of a package display name: parenthetical dropped, non-word runs → `_`. */
+function packageKey(name: string): string {
+  return name
+    .replace(/\s*\([^)]*\)\s*$/, '')
+    .trim()
+    .replace(/[^\p{L}\p{N}]+/gu, '_');
 }
 
 function parseRaw(source: string, relationLines: number[]): PlantUmlModel {

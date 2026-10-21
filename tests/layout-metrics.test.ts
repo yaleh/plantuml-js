@@ -339,8 +339,45 @@ describe('computeLayoutMetrics', () => {
       overlappingEdgeLength: 0,
       badgeLabelOverlap: 0,
       edgeLabelOverlap: 0,
+      labelNodeOverlap: 0,
       hubArrowStack: 0,
     });
+  });
+
+  it('counts an edge label rectangle that lands on a node (labelNodeOverlap)', () => {
+    const model: PlantUmlModel = {
+      diagramType: 'class',
+      entities: [entity('A'), entity('B'), entity('C')],
+      relations: [{ source: 'A', target: 'B', type: 'association', label: 'uses', weight: 2 }],
+      packages: [],
+    };
+    const edge = (pts: { x: number; y: number }[]): LayoutResult['edges'] => [
+      { id: 'rel-0', source: 'A', target: 'B', points: pts },
+    ];
+    const bad: LayoutResult = {
+      // The edge's only anchor positions all fall inside the wide node C.
+      nodes: [
+        { id: 'A', x: 0, y: 0, width: 10, height: 10 },
+        { id: 'B', x: 10, y: 0, width: 10, height: 10 },
+        { id: 'C', x: -200, y: -200, width: 500, height: 500 },
+      ],
+      edges: edge([
+        { x: 10, y: 5 },
+        { x: 11, y: 5 },
+      ]),
+      width: 300,
+      height: 300,
+    };
+    expect(computeLayoutMetrics(model, bad).labelNodeOverlap).toBeGreaterThan(0);
+    const good: LayoutResult = {
+      ...bad,
+      nodes: bad.nodes.slice(0, 2),
+      edges: edge([
+        { x: 10, y: 5 },
+        { x: 400, y: 5 },
+      ]),
+    };
+    expect(computeLayoutMetrics(model, good).labelNodeOverlap).toBe(0);
   });
 
   it('counts edges that contain a diagonal segment as non-orthogonal', () => {

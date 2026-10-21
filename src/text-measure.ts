@@ -26,7 +26,29 @@ export function measureTextWidth(
   text: string,
   fontSize: number = MONOSPACE_FONT_SIZE,
 ): number {
-  return Math.ceil(text.length * MONOSPACE_ADVANCE_EM * fontSize * 100) / 100;
+  return Math.ceil(textUnits(text) * MONOSPACE_ADVANCE_EM * fontSize * 100) / 100;
+}
+
+/** East Asian wide / fullwidth ranges: these glyphs advance two monospace cells. */
+function isWide(cp: number): boolean {
+  return (
+    (cp >= 0x1100 && cp <= 0x115f) ||
+    (cp >= 0x2e80 && cp <= 0xa4cf) ||
+    (cp >= 0xac00 && cp <= 0xd7a3) ||
+    (cp >= 0xf900 && cp <= 0xfaff) ||
+    (cp >= 0xfe30 && cp <= 0xfe6f) ||
+    (cp >= 0xff00 && cp <= 0xff60) ||
+    (cp >= 0xffe0 && cp <= 0xffe6) ||
+    (cp >= 0x1f300 && cp <= 0x1faff) ||
+    (cp >= 0x20000 && cp <= 0x3fffd)
+  );
+}
+
+/** Width of `text` in monospace cells: CJK / fullwidth code points count 2, the rest 1. */
+export function textUnits(text: string): number {
+  let units = 0;
+  for (const ch of text) units += isWide(ch.codePointAt(0)!) ? 2 : 1;
+  return units;
 }
 
 export interface TextMeasurer {
