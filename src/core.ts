@@ -12,7 +12,14 @@ import { parsePlantUml, parseWithDiagnostics, ENTITY_LINE, ENTITY_KEYWORD, extra
 import { LayoutEngine, LayoutResult, DetailLevel, applyDetail } from './foundation/layout.js';
 import { ThemeOverrides } from './render/theme.js';
 import { ElkLayoutEngine, type ElkLayoutOptions } from './layout/elk.js';
-import { renderSvg, RenderSvgOptions } from './render/svg.js';
+import {
+  renderSvg,
+  RenderSvgOptions,
+  RenderEngine,
+  RenderFrameOptions,
+  SvgRenderer,
+  SvgRendererOptions,
+} from './render/svg.js';
 import { applyView, transformModel, transformModelDetailed, shouldAutoReduce, INTER_PACKAGE_AGGREGATE_ENTITY_THRESHOLD, ViewSpec, TransformOptions } from './transform.js';
 
 export type {
@@ -45,6 +52,12 @@ export interface RendererOptions {
   layout?: 'elk' | 'viz' | LayoutEngine;
   /** ELK tuning (e.g. `aspectRatio`); only applies to the `'elk'` engine, ignored by `'viz'` and custom engines. */
   layoutOptions?: ElkLayoutOptions;
+  /**
+   * Custom `RenderEngine` instance. Default: the built-in [[SvgRenderer]],
+   * configured with `theme` and `legend`. When set, this engine owns the
+   * rendering configuration, so `theme`/`legend` are not applied to it.
+   */
+  renderer?: RenderEngine;
   /** Collapse/expand the diagram before layout (overview, single package, …). */
   view?: ViewSpec;
   /** Extra model transforms applied on top of the view (aggregation, cycles, …). */
@@ -143,8 +156,28 @@ function resolveEngine(
   return layout;
 }
 
+/**
+ * Resolve the render engine the same way [[resolveEngine]] resolves layout:
+ * the injected instance wins; otherwise the built-in [[SvgRenderer]] takes the
+ * renderer-wide static configuration (`theme`, `legend`). Structural validation
+ * fails closed instead of rendering an empty SVG.
+ */
+function resolveRenderer(options: RendererOptions): RenderEngine {
+  const renderer = options.renderer;
+  if (renderer === undefined) {
+    return new SvgRenderer({ legend: options.legend, theme: options.theme });
+  }
+  if (typeof renderer.render !== 'function') {
+    throw new Error(
+      'invalid RenderEngine: a custom engine must expose a render(model, layout) method',
+    );
+  }
+  return renderer;
+}
+
 export function createRenderer(options: RendererOptions = {}): Renderer {
   const engine = resolveEngine(options.layout, options.layoutOptions);
+  const renderEngine = resolveRenderer(options);
   return {
     async render(puml: string): Promise<RenderResult> {
       // Fail closed on structurally invalid puml: checkSyntax reports instead of
@@ -153,7 +186,7 @@ export function createRenderer(options: RendererOptions = {}): Renderer {
       if (!syntax.ok) throw new RenderError(syntax.errors);
 
       const { model: parsed, diagnostics } = parseWithDiagnostics(puml);
-      const { svg, model } = await renderParsed(parsed, options, engine);
+      const { svg, model } = await renderParsed(parsed, options, engine, renderEngine);
       return { svg, diagramType: model.diagramType, warnings: diagnostics.map((d) => `line ${d.line}: ${d.message}`) };
     },
   };
@@ -163,13 +196,14 @@ async function renderParsed(
   parsed: PlantUmlModel,
   options: RendererOptions,
   engine: LayoutEngine,
+  renderEngine: RenderEngine,
 ): Promise<DetailedRender> {
   const { model: transformed, hiddenTransitive } = transformForRender(parsed, options);
   const model = applyDetail(transformed, options.detail);
   const started = performance.now();
   const layout = await engine.layout(model);
   const layoutMs = Math.round((performance.now() - started) * 100) / 100;
-  const svg = renderSvg(model, layout, { legend: options.legend, theme: options.theme, hiddenTransitive });
+  const svg = renderEngine.render(model, layout, { hiddenTransitive });
   return { model, layout, svg, layoutMs, hiddenTransitive };
 }
 
@@ -184,7 +218,12 @@ export async function renderDetailed(
   parsed: PlantUmlModel,
   options: RendererOptions = {},
 ): Promise<DetailedRender> {
-  return renderParsed(parsed, options, resolveEngine(options.layout, options.layoutOptions));
+  return renderParsed(
+    parsed,
+    options,
+    resolveEngine(options.layout, options.layoutOptions),
+    resolveRenderer(options),
+  );
 }
 
 /**
@@ -444,8 +483,8 @@ function classifyLine(
   return { kind: 'unknown', explanation: 'unrecognised line (ignored)' };
 }
 
-export { parsePlantUml, ElkLayoutEngine, renderSvg };
-export type { RenderSvgOptions };
+export { parsePlantUml, ElkLayoutEngine, renderSvg, SvgRenderer };
+export type { RenderSvgOptions, RenderEngine, RenderFrameOptions, SvgRendererOptions };
 export { computeLayoutMetrics } from './layout/layout-metrics.js';
 export type { LayoutMetrics } from './layout/layout-metrics.js';
 export {
