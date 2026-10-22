@@ -1,7 +1,7 @@
 ---
 id: gap-layout-nested-large-graph-superlinear
 title: 嵌套大图布局超线性：2000 节点 ~282s，按节点数自动降级
-status: todo
+status: ready
 labels:
   - gap
   - layout
