@@ -12,7 +12,7 @@
  * Usage:
  *   node scripts/render-samples.mjs [--baseline] [--views] [<archguard-output-dir>]
  *   node scripts/render-samples.mjs [--manifest [<archguard-output-dir>]] [--tiles]
- *                                   [--compare [<baseline.json>]] [--baseline]
+ *                                   [--compare [<baseline.json>]] [--baseline] [--ignore-timing]
  *
  * Sample mode (`--manifest` and/or `--tiles`) renders the tiered S/M/L/XL set
  * declared in scripts/samples.json (elk for all, viz for S/M), prints a
@@ -21,7 +21,8 @@
  * `--compare` additionally checks every elk record against the committed
  * `rendered/metrics.baseline.json` (or the given file): edgeCrossings may grow
  * ≤25%, areaUtilization shrink ≤30%, maxEmptyBlockRatio grow ≤0.05, otherwise
- * the exit code is non-zero. `--baseline` (sample mode) merges the fresh records
+ * the exit code is non-zero; `layoutMs` may grow ≤50% too unless `--ignore-timing`
+ * (slow machines). `--baseline` (sample mode) merges the fresh records
  * into the baseline file. With `--tiles` also cuts each diagram into 1:1 PNG tiles under
  * `rendered/tiles/<id>/` plus an `overview.png` marking the tile grid.
  *
@@ -70,6 +71,7 @@ const argv = process.argv.slice(2);
 const baseline = argv.includes('--baseline');
 const views = argv.includes('--views');
 const tiles = argv.includes('--tiles');
+const ignoreTiming = argv.includes('--ignore-timing');
 const compareIdx = argv.indexOf('--compare');
 const comparePath =
   compareIdx === -1
@@ -189,8 +191,8 @@ async function runSamples() {
     const engineNames = ['elk', ...(sample.tier === 'S' || sample.tier === 'M' ? ['viz'] : [])];
 
     for (const engineName of engineNames) {
-      const { model, layout, svg } = await renderViaPipeline(parsed, engineName, sample.view);
-      const metrics = computeLayoutMetrics(model, layout);
+      const { model, layout, svg, layoutMs, hiddenTransitive } = await renderViaPipeline(parsed, engineName, sample.view);
+      const metrics = computeLayoutMetrics(model, layout, layoutMs);
       const svgName = `${sample.id}.${engineName}.svg`;
       const pngName = `${sample.id}.${engineName}.png`;
       const svgPath = join(renderedDir, svgName);
@@ -209,6 +211,8 @@ async function runSamples() {
         tier: sample.tier,
         engine: engineName,
         entities: model.entities.length,
+        edges: model.relations.length,
+        hiddenTransitive,
         svg: svgName,
         png: wrotePng ? pngName : null,
         width: round(layout.width),
@@ -235,7 +239,7 @@ async function runSamples() {
   printTierTable(outRecords);
   console.log(`wrote rendered/metrics.json (${outRecords.length} records)`);
   if (comparePath) {
-    const regressions = compareToBaseline(JSON.parse(readFileSync(comparePath, 'utf8')), outRecords);
+    const regressions = compareToBaseline(JSON.parse(readFileSync(comparePath, 'utf8')), outRecords, { ignoreTiming });
     for (const r of regressions) failures.push(`regression vs ${basename(comparePath)}: ${r}`);
     if (!regressions.length) console.log(`no regressions vs ${basename(comparePath)}`);
   }
@@ -260,7 +264,7 @@ async function runSamples() {
 }
 
 function printTierTable(recs) {
-  const cols = ['id', 'engine', 'ents', 'w×h', 'cross', 'edge×node', 'nonOrth', 'areaUtil', 'aspect', 'overflow', 'ok'];
+  const cols = ['id', 'engine', 'ents', 'w×h', 'cross', 'edge×node', 'nonOrth', 'areaUtil', 'aspect', 'overflow', 'layoutMs', 'ok'];
   for (const tier of TIERS) {
     const rows = recs.filter((r) => r.tier === tier);
     if (!rows.length) continue;
@@ -276,6 +280,7 @@ function printTierTable(recs) {
       round(r.metrics.areaUtilization),
       round(r.metrics.aspectRatio),
       r.metrics.textOverflowCount,
+      r.metrics.layoutMs,
       r.engine === 'elk' ? (r.violations.length ? 'FAIL' : 'pass') : '-',
     ].map(String));
     const widths = cols.map((c, i) => Math.max(c.length, ...lines.map((l) => l[i].length)));

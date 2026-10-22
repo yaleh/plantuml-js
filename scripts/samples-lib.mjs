@@ -4,15 +4,19 @@
  * `packagesMatching` filtering and threshold evaluation.
  */
 
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { generateLadder } from './gen-class-ladder.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const manifestPath = join(repoRoot, 'scripts', 'samples.json');
 export const fixturesDir = join(repoRoot, 'tests', 'fixtures');
 
-export const TIERS = ['S', 'M', 'L', 'XL'];
+/** S/M/L/XL are real archguard samples; G is the synthetic scale ladder (`generate` in samples.json). */
+export const TIERS = ['S', 'M', 'L', 'XL', 'G'];
+
+export const generatedDir = join(repoRoot, 'rendered', 'generated');
 
 export function loadManifest(path = manifestPath) {
   return JSON.parse(readFileSync(path, 'utf8'));
@@ -30,6 +34,13 @@ function searchDirs(root) {
 
 /** Absolute path of a sample's .puml: `archguardDir` wins when it holds the file, else tests/fixtures. */
 export function resolveSource(sample, archguardDir) {
+  if (sample.generate) {
+    // Synthetic ladder sample: regenerate deterministically (never committed).
+    const path = join(generatedDir, sample.source);
+    mkdirSync(generatedDir, { recursive: true });
+    writeFileSync(path, generateLadder(sample.generate));
+    return path;
+  }
   if (archguardDir) {
     for (const dir of searchDirs(archguardDir)) {
       const candidate = join(dir, sample.source);
@@ -76,6 +87,10 @@ export const COMPARE_LIMITS = {
   areaUtilizationDrop: 0.3,
   /** maxEmptyBlockRatio may grow by at most this absolute amount. */
   maxEmptyBlockRatioGrowth: 0.05,
+  /** layoutMs may grow by at most this fraction (skipped by `--ignore-timing`). */
+  layoutMsGrowth: 0.5,
+  /** ...and by more than this many ms (millisecond-scale layouts are pure timer noise). */
+  layoutMsMinDelta: 250,
 };
 
 /**
@@ -84,7 +99,7 @@ export const COMPARE_LIMITS = {
  * shipping `elk` engine is judged, and only samples present in both. Returns
  * one message per regression: `<group>: <metric> <base> → <current> (limit …)`.
  */
-export function compareToBaseline(baselineRecords, currentRecords) {
+export function compareToBaseline(baselineRecords, currentRecords, { ignoreTiming = false } = {}) {
   const key = (r) => `${r.group}\u0000${r.engine}`;
   const base = new Map(baselineRecords.map((r) => [key(r), r]));
   const regressions = [];
@@ -110,6 +125,12 @@ export function compareToBaseline(baselineRecords, currentRecords) {
       const limit = a.maxEmptyBlockRatio + COMPARE_LIMITS.maxEmptyBlockRatioGrowth;
       if (b.maxEmptyBlockRatio > limit) {
         regressions.push(`${cur.group}: maxEmptyBlockRatio ${a.maxEmptyBlockRatio} → ${b.maxEmptyBlockRatio} (limit ${limit})`);
+      }
+    }
+    if (!ignoreTiming && typeof a.layoutMs === 'number' && typeof b.layoutMs === 'number') {
+      const limit = Math.max(a.layoutMs * (1 + COMPARE_LIMITS.layoutMsGrowth), a.layoutMs + COMPARE_LIMITS.layoutMsMinDelta);
+      if (b.layoutMs > limit) {
+        regressions.push(`${cur.group}: layoutMs ${a.layoutMs} → ${b.layoutMs} (limit ${Math.round(limit)}; --ignore-timing skips)`);
       }
     }
   }

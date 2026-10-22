@@ -129,11 +129,17 @@ export interface LayoutMetrics {
    * cropped.
    */
   edgeCanvasMargin: number;
+  /**
+   * Layout-engine wall time in milliseconds (layout only: no transforms, SVG
+   * or rasterisation). Present only when the caller passes the measured time.
+   */
+  layoutMs?: number;
 }
 
 export function computeLayoutMetrics(
   model: PlantUmlModel,
   layout: LayoutResult,
+  layoutMs?: number,
 ): LayoutMetrics {
   const edges = layout.edges ?? [];
   const nodeArea = layout.nodes.reduce((sum, n) => sum + n.width * n.height, 0);
@@ -169,6 +175,7 @@ export function computeLayoutMetrics(
     edgeNodeFlush: countEdgeNodeFlush(edges, layout),
     frameFillRatio: computeFrameFillRatio(layout),
     edgeCanvasMargin: computeEdgeCanvasMargin(edges, layout),
+    ...(layoutMs !== undefined ? { layoutMs } : {}),
   };
 }
 

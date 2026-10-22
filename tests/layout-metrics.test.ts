@@ -806,3 +806,12 @@ describe('computeLayoutMetrics: frameFillRatio and edgeCanvasMargin', () => {
     expect(computeLayoutMetrics(emptyModel, { ...layout, edges: [] }).edgeCanvasMargin).toBe(100);
   });
 });
+
+describe('computeLayoutMetrics layoutMs', () => {
+  it('carries the measured layout time when given and omits it otherwise', () => {
+    const model = { diagramType: 'class' as const, entities: [], relations: [], packages: [] };
+    const layout = { width: 100, height: 100, nodes: [], edges: [] };
+    expect(computeLayoutMetrics(model, layout, 12.5).layoutMs).toBe(12.5);
+    expect(computeLayoutMetrics(model, layout).layoutMs).toBeUndefined();
+  });
+});

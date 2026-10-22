@@ -385,3 +385,9 @@ now needs ≥ 12 px).
 
 Cost: un-coiling trades loops for crossings (`l-plugins` sits 0.25 under the +25% `--compare` limit); thresholds
 are m-package 3, l-plugins 1, XL 4.
+
+## Scale ladder, `layoutMs` and transitive edge reduction
+
+- **Synthetic ladder** (`g-10` … `g-400`, tier `G` in `scripts/samples.json`): `scripts/gen-class-ladder.mjs` deterministically generates class diagrams (seeded PRNG) with 2–12 packages, nested sub-packages, all five relation kinds, member rows, isolated Tests/Examples layers and stray nodes. Output goes to `rendered/generated/` (untracked). Thresholds gate shape (aspect 0.6–2.5, `areaUtilization` ≥ 0.08) and routing hygiene (no edge×node, no non-orthogonal edges, no text overflow, `nestedLoopCount` ≤ 3).
+- **`layoutMs`**: wall time of the layout engine only (`DetailedRender.layoutMs`, copied into `metrics.layoutMs`). `xl-all-classes` and `g-400` are capped at 20000 ms; `--compare` fails when `layoutMs` grows more than 50% (and more than 250 ms, so tiny layouts do not flap on timer noise) over the baseline record, `--ignore-timing` skips that check on slow machines. Note the ladder exposes a discontinuity: g-100 (~12 s) lays out slower than g-200 (~6 s), because the diagram stays below the 150-entity inter-package aggregation threshold with ~100 raw edges between frames.
+- **`edgeReduction`** (`'auto'` default | `'transitive'` | `'none'`): `auto` drops transitive dependencies (A→B→C hides A→C; edges inside a cycle are kept as long as reachability is preserved) only when every relation is a dependency/association and distinct edges > 3 × nodes. The SVG root gets `data-hidden-transitive="N"` and a legend note "N transitive dependencies hidden"; `edgeReduction: 'none'` draws everything. On `m-package`: 217 authored edges → 77 drawn (101 without reduction), `edgeCrossings` 287 → 193, at the cost of a higher `maxEmptyBlockRatio` (0.11 → 0.18; threshold relaxed to 0.2).

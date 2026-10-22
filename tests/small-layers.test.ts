@@ -5,9 +5,10 @@ import { parsePlantUml, renderDetailed } from '../src/core.js';
 
 const fixture = readFileSync(new URL('./fixtures/archguard-package.puml', import.meta.url), 'utf8');
 
+// edgeReduction 'none': this pins grid packing / row alignment of the full edge set; the reduced layout is covered by edge-reduction.test.ts.
 describe('small root layers on the package overview', () => {
   it('packs the Tests Layer into a grid and top-aligns it with the other small layers', async () => {
-    const { layout } = await renderDetailed(parsePlantUml(fixture), { layout: new ElkLayoutEngine() });
+    const { layout } = await renderDetailed(parsePlantUml(fixture), { layout: new ElkLayoutEngine(), edgeReduction: 'none' });
     const frames = layout.packages!;
     const tests = frames.find((p) => p.id === 'Tests_Layer')!;
     expect(tests).toBeDefined();

@@ -13,7 +13,7 @@ import { LayoutEngine, LayoutResult, DetailLevel, applyDetail } from './foundati
 import { ThemeOverrides } from './render/theme.js';
 import { ElkLayoutEngine, type ElkLayoutOptions } from './layout/elk.js';
 import { renderSvg, RenderSvgOptions } from './render/svg.js';
-import { applyView, transformModel, INTER_PACKAGE_AGGREGATE_ENTITY_THRESHOLD, ViewSpec, TransformOptions } from './transform.js';
+import { applyView, transformModel, transformModelDetailed, shouldAutoReduce, INTER_PACKAGE_AGGREGATE_ENTITY_THRESHOLD, ViewSpec, TransformOptions } from './transform.js';
 
 export type {
   PlantUmlModel,
@@ -64,6 +64,13 @@ export interface RendererOptions {
    * every edge. Default: `'aggregate'` for diagrams with more than 150 entities.
    */
   interPackage?: 'aggregate' | 'raw';
+  /**
+   * Transitive edge reduction (A→B→C hides A→C). `'auto'` (default) reduces only
+   * when every relation is a dependency/association and edges outnumber nodes
+   * more than 3:1; `'transitive'` always reduces; `'none'` draws every edge.
+   * Hidden edges are counted in the legend and in `data-hidden-transitive`.
+   */
+  edgeReduction?: 'auto' | 'transitive' | 'none';
 }
 
 export interface RenderResult {
@@ -77,6 +84,10 @@ export interface DetailedRender {
   model: PlantUmlModel;
   layout: LayoutResult;
   svg: string;
+  /** Layout engine wall time in milliseconds (excludes transforms, SVG and any rasterisation). */
+  layoutMs: number;
+  /** Edges hidden by transitive reduction (0 when it did not apply). */
+  hiddenTransitive: number;
 }
 
 export interface Renderer {
@@ -153,10 +164,13 @@ async function renderParsed(
   options: RendererOptions,
   engine: LayoutEngine,
 ): Promise<DetailedRender> {
-  const model = applyDetail(transformForRender(parsed, options), options.detail);
+  const { model: transformed, hiddenTransitive } = transformForRender(parsed, options);
+  const model = applyDetail(transformed, options.detail);
+  const started = performance.now();
   const layout = await engine.layout(model);
-  const svg = renderSvg(model, layout, { legend: options.legend, theme: options.theme });
-  return { model, layout, svg };
+  const layoutMs = Math.round((performance.now() - started) * 100) / 100;
+  const svg = renderSvg(model, layout, { legend: options.legend, theme: options.theme, hiddenTransitive });
+  return { model, layout, svg, layoutMs, hiddenTransitive };
 }
 
 /**
@@ -182,18 +196,27 @@ export async function renderDetailed(
  * referenced nodes (e.g. `src/types`) would otherwise turn the canvas into an
  * unreadable arrow cluster.
  */
-function transformForRender(model: PlantUmlModel, options: RendererOptions): PlantUmlModel {
+function transformForRender(
+  model: PlantUmlModel,
+  options: RendererOptions,
+): { model: PlantUmlModel; hiddenTransitive: number } {
   const overrides: TransformOptions = {
     ...(options.interPackage ? { interPackage: options.interPackage } : {}),
     ...options.transform,
   };
+  const mode = options.edgeReduction ?? 'auto';
+  const reduction = (m: PlantUmlModel): TransformOptions =>
+    overrides.transitiveReduction !== undefined || mode === 'none'
+      ? {}
+      : { transitiveReduction: mode === 'transitive' || shouldAutoReduce(m) };
   if (options.view) {
-    return transformView(model, options.view, overrides);
+    const viewed = applyView(model, options.view);
+    return transformModelDetailed(viewed, { ...defaultTransformOptions(viewed), ...reduction(viewed), ...overrides });
   }
   if (options.transform) {
-    return transformModel(model, { interPackage: defaultInterPackage(model), ...overrides });
+    return transformModelDetailed(model, { interPackage: defaultInterPackage(model), ...reduction(model), ...overrides });
   }
-  return transformFullGraph(model, overrides);
+  return transformModelDetailed(model, { ...defaultTransformOptions(model), ...reduction(model), ...overrides });
 }
 
 /**

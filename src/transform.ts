@@ -83,15 +83,44 @@ export function transformModel(
   model: PlantUmlModel,
   options: TransformOptions = {},
 ): PlantUmlModel {
+  return transformModelDetailed(model, options).model;
+}
+
+/** [[transformModel]] plus the number of edges the transitive reduction hid. */
+export function transformModelDetailed(
+  model: PlantUmlModel,
+  options: TransformOptions = {},
+): { model: PlantUmlModel; hiddenTransitive: number } {
   const { aggregate = true, transitiveReduction = false, hubThreshold, cycles = false, interPackage = 'raw' } = options;
   let out = cloneModel(model);
   out = summarizeExternals(out, EXTERNAL_SUMMARY_MIN_IN_EDGES);
   if (aggregate) out = aggregateRelations(out);
-  if (transitiveReduction) out = transitiveReduce(out);
+  let hiddenTransitive = 0;
+  if (transitiveReduction) {
+    const before = out.relations.length;
+    out = transitiveReduce(out);
+    hiddenTransitive = before - out.relations.length;
+  }
   if (hubThreshold !== undefined) out = summarizeHubs(out, hubThreshold);
   if (interPackage === 'aggregate') out = aggregateInterPackage(out);
   if (cycles) out = markCycles(out);
-  return groupExternals(out);
+  return { model: groupExternals(out), hiddenTransitive };
+}
+
+/** Edge count ÷ node count above which `edgeReduction: 'auto'` reduces a pure dependency graph. */
+export const AUTO_REDUCTION_EDGE_NODE_RATIO = 3;
+
+/**
+ * Whether `edgeReduction: 'auto'` applies: every relation is a dependency or
+ * association and there are more than [[AUTO_REDUCTION_EDGE_NODE_RATIO]] times
+ * as many edges as nodes.
+ */
+export function shouldAutoReduce(model: PlantUmlModel): boolean {
+  if (model.relations.length === 0) return false;
+  if (!model.relations.every((r) => r.type === 'dependency' || r.type === 'association')) return false;
+  const nodes = model.entities.length;
+  const distinct = new Set(model.relations.map((r) => `${r.source}\u0000${r.target}`)).size;
+  return distinct > AUTO_REDUCTION_EDGE_NODE_RATIO * nodes;
 }
 
 /** Incoming edges at which an external type's edges collapse into a count badge. */
@@ -235,37 +264,51 @@ function dropUndefined(r: PlantUmlRelation): PlantUmlRelation {
  * shortest-path edges that witness the reachability are always kept.
  */
 export function transitiveReduce(model: PlantUmlModel): PlantUmlModel {
-  const targets = new Map<string, string[]>();
-  for (const relation of model.relations) {
-    const list = targets.get(relation.source);
-    if (list) list.push(relation.target);
-    else targets.set(relation.source, [relation.target]);
-  }
+  const targets = new Map<string, Map<string, number>>();
+  const addEdge = (u: string, v: string): void => {
+    const m = targets.get(u) ?? new Map<string, number>();
+    m.set(v, (m.get(v) ?? 0) + 1);
+    targets.set(u, m);
+  };
+  for (const relation of model.relations) addEdge(relation.source, relation.target);
 
-  const reachable = (start: string, goal: string, skipTarget: string): boolean => {
-    const seen = new Set<string>();
-    const queue: string[] = [start];
-    while (queue.length > 0) {
-      const u = queue.shift()!;
-      for (const v of targets.get(u) ?? []) {
-        if (u === start && v === skipTarget) continue; // ignore the direct edge under test
+  const reachable = (start: string, goal: string): boolean => {
+    const seen = new Set<string>([start]);
+    const stack: string[] = [start];
+    while (stack.length > 0) {
+      const u = stack.pop()!;
+      for (const v of targets.get(u)?.keys() ?? []) {
         if (v === goal) return true;
         if (!seen.has(v)) {
           seen.add(v);
-          queue.push(v);
+          stack.push(v);
         }
       }
     }
     return false;
   };
 
-  const relations = model.relations.filter((relation) => {
-    // A self-loop is its own shortest witness; keep it. A single-hop edge with
-    // no alternate path is necessary; keep it.
-    return !reachable(relation.source, relation.target, relation.target);
+  // Greedy in authored order: an edge is dropped when its end points stay
+  // connected through the edges still present, so reachability is preserved
+  // exactly (also inside cycles, where dropping every "redundant" edge at once
+  // would disconnect the cycle). A self-loop is its own witness and is kept.
+  const removed = new Set<number>();
+  model.relations.forEach((relation, i) => {
+    if (relation.source === relation.target) return;
+    const out = targets.get(relation.source)!;
+    const count = out.get(relation.target)!;
+    if (count > 1) {
+      // A parallel duplicate of the same pair is always redundant.
+      out.set(relation.target, count - 1);
+      removed.add(i);
+      return;
+    }
+    out.delete(relation.target);
+    if (reachable(relation.source, relation.target)) removed.add(i);
+    else out.set(relation.target, 1);
   });
 
-  return { ...model, relations };
+  return { ...model, relations: model.relations.filter((_, i) => !removed.has(i)) };
 }
 
 /**

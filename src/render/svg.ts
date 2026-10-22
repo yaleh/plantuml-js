@@ -45,6 +45,8 @@ export interface RenderSvgOptions {
   legend?: boolean;
   /** Theme token overrides over `defaultTheme`. */
   theme?: ThemeOverrides;
+  /** Edges hidden by transitive reduction; > 0 forces the legend and is reported there and in `data-hidden-transitive`. */
+  hiddenTransitive?: number;
 }
 
 export function renderSvg(
@@ -103,15 +105,27 @@ export function renderSvg(
 
   let width = layout.width;
   let height = layout.height;
-  const showLegend = options.legend ?? model.entities.length > LEGEND_DEFAULT_NODE_THRESHOLD;
+  const hidden = options.hiddenTransitive ?? 0;
+  const showLegend = options.legend ?? (hidden > 0 || model.entities.length > LEGEND_DEFAULT_NODE_THRESHOLD);
   if (showLegend) {
     const legend = renderLegend(12, layout.height + 8, theme);
     body.push(legend.svg);
     width = Math.max(width, legend.width + 24);
     height = layout.height + 8 + legend.height + 12;
+    if (hidden > 0) {
+      const note = `${hidden} transitive ${hidden === 1 ? 'dependency' : 'dependencies'} hidden (A→B→C implies A→C); set edgeReduction: 'none' to show all`;
+      body.push(
+        `<g class="uml-legend-note">` +
+          textEl(note, 12 + 10, height + 4, 'start', 11, 'normal', theme.color.textMember, theme) +
+          `</g>`,
+      );
+      height += 22;
+      width = Math.max(width, 12 + 10 + 7 * note.length * 0.9 + 12);
+    }
   }
+  const hiddenAttr = hidden > 0 ? ` data-hidden-transitive="${hidden}"` : '';
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${fmt(width)}" height="${fmt(height)}"` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${fmt(width)}" height="${fmt(height)}"${hiddenAttr}` +
     ` viewBox="0 0 ${fmt(width)} ${fmt(height)}">` +
     `<rect class="uml-canvas" x="0" y="0" width="${fmt(width)}" height="${fmt(height)}" fill="${theme.color.canvas}"/>` +
     `${body.join('')}</svg>`
