@@ -8,6 +8,7 @@ import type { ElkNode, ElkExtendedEdge } from 'elkjs';
 import { PlantUmlModel, PlantUmlEntity, PlantUmlRelation } from '../foundation/model.js';
 import { PACKAGE_LABEL, estimateEntitySize } from '../foundation/layout.js';
 import { measureTextWidth } from '../foundation/text-measure.js';
+import { relationSemantics } from '../foundation/relation-semantics.js';
 
 export const PACKAGE_PREFIX = 'pkg::';
 /** Id prefix of the invisible container that packs a package's unconnected entities. */
@@ -17,9 +18,6 @@ const ISOLATED_PACK_MIN = 3;
 /** ...and only once laid side by side they would be wider than this (px). */
 const ISOLATED_ROW_MAX_WIDTH = 2000;
 
-/** Relation types whose layout direction is reversed so the arrow target sits above the source. */
-export const REVERSED_RELATION_TYPES = new Set(['inheritance', 'implementation']);
-
 /** Minimum frame width that keeps the package label tab readable. */
 export function packageMinWidth(name: string): number {
   return measureTextWidth(name, PACKAGE_LABEL.fontSize) + PACKAGE_LABEL.tabPadding + 20;
@@ -27,12 +25,12 @@ export function packageMinWidth(name: string): number {
 
 /** Source endpoint of the edge *as laid out* (reversed for inheritance/implementation). */
 export function layoutSource(relation: PlantUmlRelation): string {
-  return REVERSED_RELATION_TYPES.has(relation.type) ? relation.target : relation.source;
+  return relationSemantics(relation.type).reversed ? relation.target : relation.source;
 }
 
 /** Target endpoint of the edge *as laid out* (reversed for inheritance/implementation). */
 export function layoutTarget(relation: PlantUmlRelation): string {
-  return REVERSED_RELATION_TYPES.has(relation.type) ? relation.source : relation.target;
+  return relationSemantics(relation.type).reversed ? relation.source : relation.target;
 }
 
 /** True when any relation connects entities that live in different containers. */

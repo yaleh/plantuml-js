@@ -30,6 +30,7 @@ import {
 } from '../foundation/layout.js';
 import { getViz, GraphvizEngine } from '../foundation/render-dot.js';
 import { measureTextWidth } from '../foundation/text-measure.js';
+import { relationSemantics } from '../foundation/relation-semantics.js';
 
 const POINTS_PER_INCH = 72;
 const CLUSTER_PREFIX = 'cluster_';
@@ -199,28 +200,22 @@ function clusterIndex(name: string): number | null {
   return Number(tail);
 }
 
+/** Translate the relation's semantic facts into Graphviz DOT attributes. */
 function edgeAttrs(relation: PlantUmlRelation): string {
   const attrs: string[] = [];
-  switch (relation.type) {
-    case 'inheritance':
+  const semantics = relationSemantics(relation.type);
+  switch (semantics.arrowKind) {
+    case 'triangle':
       attrs.push('arrowhead="empty"');
       break;
-    case 'implementation':
-      attrs.push('arrowhead="empty"', 'style="dashed"');
-      break;
-    case 'dependency':
-      attrs.push('arrowhead="vee"', 'style="dashed"');
-      break;
-    case 'association':
+    case 'chevron':
       attrs.push('arrowhead="vee"');
       break;
-    case 'aggregation':
-      attrs.push('arrowhead="odiamond"');
-      break;
-    case 'composition':
-      attrs.push('arrowhead="diamond"');
+    case 'diamond':
+      attrs.push(`arrowhead="${semantics.filled ? 'diamond' : 'odiamond'}"`);
       break;
   }
+  if (semantics.dashed) attrs.push('style="dashed"');
   if (relation.label) attrs.push(`label=${quoteDotLabel(relation.label)}`);
   return attrs.length > 0 ? ` [${attrs.join(', ')}]` : '';
 }

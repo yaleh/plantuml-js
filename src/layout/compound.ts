@@ -25,11 +25,11 @@ import {
 import { measureTextWidth } from '../foundation/text-measure.js';
 import { routeOrthogonal, type RouteRequest } from './grid-router.js';
 import { mergeElkOptions } from './elk-graph.js';
+import { relationSemantics } from '../foundation/relation-semantics.js';
 
 const PACKAGE_PREFIX = 'pkg::';
 /** Block aspect ratio beyond which a flat block is repacked instead of layered. */
 const BLOCK_MAX_ASPECT = 2.2;
-const REVERSED_RELATION_TYPES = new Set(['inheritance', 'implementation']);
 
 /**
  * Width beyond which a lopsided nested block is split into child blocks and
@@ -349,7 +349,7 @@ async function layoutBlock(
 
   const edges: ElkExtendedEdge[] = relationIndexes.map((index) => {
     const relation = model.relations[index];
-    const reversed = REVERSED_RELATION_TYPES.has(relation.type);
+    const reversed = relationSemantics(relation.type).reversed;
     return {
       id: `rel-${index}`,
       sources: [reversed ? relation.target : relation.source],
@@ -460,7 +460,7 @@ async function layoutBlock(
     for (const edge of result.edges ?? []) {
       const index = Number((edge.id ?? '').slice('rel-'.length));
       const relation: PlantUmlRelation = model.relations[index];
-      const reversed = REVERSED_RELATION_TYPES.has(relation.type);
+      const reversed = relationSemantics(relation.type).reversed;
       const points = elkEdgePoints(edge, nodeById, offsets);
       edgeMap.set(index, reversed ? points.slice().reverse() : points);
     }

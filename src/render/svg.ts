@@ -25,6 +25,7 @@ import { hubBadgeCircle, placeEdgeLabels, EdgeLabelPlacement, EDGE_LABEL_FONT_SI
 import { renderLegend, LEGEND_DEFAULT_NODE_THRESHOLD } from './legend.js';
 import { Theme, ThemeOverrides, resolveTheme } from './theme.js';
 import { packageLayer } from '../foundation/layers.js';
+import { relationSemantics } from '../foundation/relation-semantics.js';
 
 export function escapeXml(text: string): string {
   return text
@@ -265,16 +266,16 @@ function renderPackage(pkg: PlantUmlPackage, box: PackageLayout, theme: Theme, t
 export const EDGE_BUNDLE_MIN = 5;
 
 /**
- * Groups of ≥ [[EDGE_BUNDLE_MIN]] unlabelled dependency/association edges that
- * leave one source in the same direction — the "comb" of near-parallel lines a
- * hub-like source otherwise draws. Returns relation indexes per group.
+ * Groups of ≥ [[EDGE_BUNDLE_MIN]] unlabelled bundlable edges that leave one
+ * source in the same direction — the "comb" of near-parallel lines a hub-like
+ * source otherwise draws. Returns relation indexes per group.
  */
 function findEdgeBundles(model: PlantUmlModel, edgesById: Map<string, EdgeLayout>): number[][] {
   const groups = new Map<string, number[]>();
   model.relations.forEach((rel, i) => {
     const edge = edgesById.get(`rel-${i}`);
     if (!edge || edge.points.length < 2 || rel.label || rel.feedback || rel.descriptions) return;
-    if (rel.type !== 'dependency' && rel.type !== 'association') return;
+    if (!relationSemantics(rel.type).bundlable) return;
     const from = edge.points[0];
     const next = edge.points[1];
     const dx = next.x - from.x;
@@ -298,9 +299,9 @@ function renderBundle(
   theme: Theme,
 ): string {
   const first = members[0].rel;
-  const weak = first.type === 'dependency';
-  const color = weak ? theme.color.edgeWeak : theme.color.edge;
-  const dash = weak ? theme.dash.weak : undefined;
+  const semantics = relationSemantics(first.type);
+  const color = semantics.weak ? theme.color.edgeWeak : theme.color.edge;
+  const dash = semantics.dashed ? theme.dash.weak : undefined;
   const totalWeight = members.reduce((sum, m) => sum + (m.rel.weight && m.rel.weight > 1 ? m.rel.weight : 1), 0);
   const strokeWidth = Math.min(theme.stroke.edge + Math.log2(members.length) * theme.stroke.weightStep, theme.stroke.edgeWidthMax);
 
@@ -356,20 +357,19 @@ function renderEdge(
 ): string {
   if (edge.points.length < 2) return '';
   const points = edge.points;
-  const weak = rel.type === 'dependency';
-  const color = rel.feedback ? theme.color.warn : weak ? theme.color.edgeWeak : theme.color.edge;
-  // Line type carries relation kind only: inheritance/implementation/
-  // composition/aggregation/association are solid, a dependency is dashed, and
-  // a cycle feedback edge is dash-dot. Weight is width + opacity, never dashes.
-  const dash = rel.feedback ? theme.dash.feedback : weak ? theme.dash.weak : undefined;
+  const semantics = relationSemantics(rel.type);
+  const color = rel.feedback ? theme.color.warn : semantics.weak ? theme.color.edgeWeak : theme.color.edge;
+  // Line type carries relation kind only: the dashed fact comes from the
+  // relation-semantics table; a cycle feedback edge is dash-dot. Weight is
+  // width + opacity, never dashes.
+  const dash = rel.feedback ? theme.dash.feedback : semantics.dashed ? theme.dash.weak : undefined;
   const { arrow } = theme;
 
-  const sourceTrim =
-    rel.type === 'aggregation' || rel.type === 'composition' ? arrow.diamond : 0;
+  const sourceTrim = semantics.arrowKind === 'diamond' ? arrow.diamond : 0;
   const targetTrim =
-    rel.type === 'inheritance' || rel.type === 'implementation'
+    semantics.arrowKind === 'triangle'
       ? arrow.triangle
-      : rel.type === 'dependency' || rel.type === 'association'
+      : semantics.arrowKind === 'chevron'
         ? arrow.chevron
         : 0;
 
@@ -391,13 +391,13 @@ function renderEdge(
       ` stroke-linejoin="round"${nonScaling(theme)}${feedbackClass}/>`,
   );
 
-  if (rel.type === 'aggregation' || rel.type === 'composition') {
-    parts.push(renderDiamond(points, rel.type === 'composition', color, theme));
+  if (semantics.arrowKind === 'diamond') {
+    parts.push(renderDiamond(points, semantics.filled, color, theme));
   }
-  if (rel.type === 'inheritance' || rel.type === 'implementation') {
+  if (semantics.arrowKind === 'triangle') {
     parts.push(renderTriangle(points, rel.type, color, theme));
   }
-  if (rel.type === 'dependency' || rel.type === 'association') {
+  if (semantics.arrowKind === 'chevron') {
     parts.push(renderChevron(points, rel.type, color, theme));
   }
 

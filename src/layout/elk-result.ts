@@ -9,9 +9,9 @@ import { LayoutResult, NodeLayout, EdgeLayout, PackageLayout, Point } from '../f
 import {
   PACKAGE_PREFIX,
   ISOLATED_PREFIX,
-  REVERSED_RELATION_TYPES,
   packageMinWidth,
 } from './elk-graph.js';
+import { relationSemantics } from '../foundation/relation-semantics.js';
 
 /**
  * INCLUDE_CHILDREN sizes a container from its content and does not honour the
@@ -125,7 +125,7 @@ export function mapElkResult(model: PlantUmlModel, result: ElkNode): LayoutResul
   const nodeById = new Map(nodes.map((n) => [n.id, n]));
   const laidEdges: EdgeLayout[] = (result.edges ?? []).map((edge, i) => {
     const relation = model.relations[i];
-    const reversed = relation !== undefined && REVERSED_RELATION_TYPES.has(relation.type);
+    const reversed = relation !== undefined && relationSemantics(relation.type).reversed;
     const points = edgePoints(edge, nodeById, offsets);
     return {
       id: edge.id ?? `rel-${i}`,

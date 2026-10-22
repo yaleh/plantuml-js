@@ -16,6 +16,7 @@ import {
   PlantUmlRelation,
   PlantUmlPackage,
 } from './foundation/model.js';
+import { relationSemantics } from './foundation/relation-semantics.js';
 
 /** Options driving the model-transform pipeline. */
 export interface TransformOptions {
@@ -111,13 +112,13 @@ export function transformModelDetailed(
 export const AUTO_REDUCTION_EDGE_NODE_RATIO = 3;
 
 /**
- * Whether `edgeReduction: 'auto'` applies: every relation is a dependency or
- * association and there are more than [[AUTO_REDUCTION_EDGE_NODE_RATIO]] times
- * as many edges as nodes.
+ * Whether `edgeReduction: 'auto'` applies: every relation is bundlable
+ * (dependency/association) and there are more than
+ * [[AUTO_REDUCTION_EDGE_NODE_RATIO]] times as many edges as nodes.
  */
 export function shouldAutoReduce(model: PlantUmlModel): boolean {
   if (model.relations.length === 0) return false;
-  if (!model.relations.every((r) => r.type === 'dependency' || r.type === 'association')) return false;
+  if (!model.relations.every((r) => relationSemantics(r.type).bundlable)) return false;
   const nodes = model.entities.length;
   const distinct = new Set(model.relations.map((r) => `${r.source}\u0000${r.target}`)).size;
   return distinct > AUTO_REDUCTION_EDGE_NODE_RATIO * nodes;
@@ -228,7 +229,7 @@ export function aggregateInterPackage(model: PlantUmlModel): PlantUmlModel {
     if (!('items' in r)) return r;
     const types = new Set(r.items.map((i) => i.type));
     const only = r.items.length === 1 ? r.items[0].type : [...types][0];
-    const type = types.size === 1 && (only === 'association' || only === 'dependency') ? only : 'dependency';
+    const type = types.size === 1 && relationSemantics(only).bundlable ? only : 'dependency';
     return {
       source: top(r.srcCount),
       target: top(r.dstCount),

@@ -48,11 +48,12 @@ const attr = (p: string, name: string): string | undefined => new RegExp(` ${nam
 describe('line semantics', () => {
   const svg = renderSvg(model, layout);
 
-  it('draws inheritance/implementation/composition/aggregation/association solid', () => {
-    types.slice(0, 5).forEach((_, i) => expect(attr(path(svg, 'S', `T${i}`), 'stroke-dasharray')).toBeUndefined());
+  it('draws inheritance/composition/aggregation/association solid', () => {
+    [0, 2, 3, 4].forEach((i) => expect(attr(path(svg, 'S', `T${i}`), 'stroke-dasharray')).toBeUndefined());
   });
 
-  it('draws a dependency dashed and a feedback edge dash-dot, from theme tokens', () => {
+  it('draws implementation and dependency dashed and a feedback edge dash-dot, from theme tokens', () => {
+    expect(attr(path(svg, 'S', 'T1'), 'stroke-dasharray')).toBe(dash.weak);
     expect(attr(path(svg, 'S', 'T5'), 'stroke-dasharray')).toBe(dash.weak);
     expect(attr(path(svg, 'W', 'X'), 'stroke-dasharray')).toBe(dash.feedback);
     expect(dash.feedback).not.toBe(dash.weak);
