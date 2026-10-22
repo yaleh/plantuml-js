@@ -1,7 +1,7 @@
 ---
 id: gap-layout-trunk-detours-grid-columns-stub-grouping
 title: 干线不绕簇（同心矩形回路）+ 孤立节点按等宽列网格排（Tests Layer 阶梯）+ stub 过多时按前缀分组
-status: needs-human
+status: todo
 labels:
   - gap
   - layout
