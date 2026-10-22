@@ -43,6 +43,7 @@ extra:
 ## Touches
 
 - src/layout/compound.ts
+- src/layout/elk.ts
 - scripts/bench-nested.mjs
 - tests/layout-compound-proportion.test.ts
 - tasks/gap-layout-nested-large-graph-superlinear.md
