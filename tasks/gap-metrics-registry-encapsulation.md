@@ -38,3 +38,11 @@ extra:
 - src/layout/layout-metrics.ts
 - tests/metric-registry.test.ts (new)
 - tests/layout-metrics.test.ts
+
+## Blocker
+
+**2026-10-22T08:09:09.740Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 0/5，剩余未勾 5）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：09508b67-590a-4943-ac3f-00f71673f93d
