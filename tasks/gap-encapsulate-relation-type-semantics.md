@@ -57,6 +57,11 @@ extra:
 - tests/line-semantics.test.ts
 - tests/viz.test.ts
 
+## Evidence
+
+- 2026-10-22 suite-red 复现与修复：develop 新增的 `tests/layout-compound-proportion.test.ts` aspectRatio 用例把 `tests/fixtures/archguard-neighborhood.json` 中 161 条 out-of-domain `call` 关系喂给布局引擎。改动前各消费者用 `Set.has()`/`===` 对未知类型天然容错；封装后的表查找返回 undefined，导致 `Cannot read properties of undefined (reading 'reversed')`（`src/layout/elk-graph.ts:28`），全量 suite 红。修复：`relationSemantics()` 对未知类型返回显式 fallback（`arrowKind: 'none'`，其余事实 false，等价于改动前的「无箭头 / 不反转 / 不虚线 / 不 weak / 不 bundlable」）。
+- 验证：`tests/layout-compound-proportion.test.ts` 4/4 通过；`relation-semantics` / `relations` / `line-semantics` / `viz` 全通过；`npm run typecheck` 全绿；anti-drift Touches 检查 OK（11 个实际改动文件均在声明的 13 个 glob 内）。AC 保持 6/6。
+
 ## Blocker
 
 **2026-10-22T07:26:57.746Z — worker 未落地（exited-not-landed）**
