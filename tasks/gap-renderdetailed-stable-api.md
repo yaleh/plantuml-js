@@ -1,7 +1,7 @@
 ---
 id: gap-renderdetailed-stable-api
 title: renderDetailed 作为公开、带类型、稳定 API 发布
-status: ready
+status: done
 labels:
   - gap
 parent: null
@@ -18,9 +18,9 @@ extra:
 
 ## AC
 
-- [ ] `tests/api.test.ts`（扩展）断言 `renderDetailed` 与 `DetailedRender` 从包入口（`./` 与 `./elk`）导出，且 `renderDetailed(puml)` 返回的 `.model`/`.layout`/`.svg`/`.layoutMs`/`.hiddenTransitive` 字段存在、类型正确；`npx vitest run tests/api.test.ts` 退出 0。
-- [ ] `README.md` 的 API 表新增 `renderDetailed` 行，写明 `DetailedRender.layout` 的 node/package/edge 矩形字段是稳定契约（含指向 `data-entity-id`/`data-package-id`/`data-edge-*` 的对应关系）。
-- [ ] `npm test` 与 `npm run typecheck` 退出 0。
+- [x] `tests/api.test.ts`（扩展）断言 `renderDetailed` 与 `DetailedRender` 从包入口（`./` 与 `./elk`）导出，且 `renderDetailed(puml)` 返回的 `.model`/`.layout`/`.svg`/`.layoutMs`/`.hiddenTransitive` 字段存在、类型正确；`npx vitest run tests/api.test.ts` 退出 0。
+- [x] `README.md` 的 API 表新增 `renderDetailed` 行，写明 `DetailedRender.layout` 的 node/package/edge 矩形字段是稳定契约（含指向 `data-entity-id`/`data-package-id`/`data-edge-*` 的对应关系）。
+- [x] `npm test` 与 `npm run typecheck` 退出 0。
 
 ## DoD
 

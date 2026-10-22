@@ -53,11 +53,31 @@ console.log(svg);
 |---|---|
 | `createRenderer({ layout })` | Build a renderer. `layout` is `'elk'` (default), `'viz'` (experimental), or a custom `LayoutEngine`. |
 | `renderer.render(puml)` | Parse + layout + emit SVG. Returns `{ svg, diagramType, warnings }`. Throws `RenderError` on structurally invalid puml. |
+| `renderDetailed(pumlOrModel, options?)` | Run the same pipeline as `renderer.render` and return every intermediate: `{ model, layout, svg, layoutMs, hiddenTransitive }`. Accepts a puml string (throws `RenderError` on invalid input) or an already-parsed `PlantUmlModel`. `DetailedRender.layout` carries the **stable** node/package/edge rectangles — see [Stable layout geometry](#stable-layout-geometry-renderdetailed) — so tooling never has to re-read bounding boxes from the SVG. Exported from both `.` and `./elk`. |
 | `parsePlantUml(puml)` | Parse a puml string into a `PlantUmlModel`. |
 | `checkSyntax(puml)` | Validate without throwing. Returns `{ ok, errors, warnings }` of line-accurate `SyntaxDiagnostic`s. |
 | `explain(puml)` | Explain each line. Returns `LineExplanation[]` (line, kind, explanation). |
 | `renderDot(dot, engine)` | Render a raw DOT string to SVG via `@viz-js/viz`. `engine` is `'dot'` (default), `'neato'`, `'fdp'`, `'sfdp'`, `'circo'`, `'twopi'`, `'osage'`, or `'patchwork'`. |
 | `ElkLayoutEngine` / `VizLayoutEngine` | The two built-in `LayoutEngine` implementations, exported for direct use. |
+
+### Stable layout geometry (`renderDetailed`)
+
+`DetailedRender.layout` is a **stable public contract**: the rectangle fields
+describe exactly what the renderer drew, so a thumbnail, a search jump or a
+selection box can use them directly instead of parsing the SVG. Coordinates are
+relative to the diagram origin (the SVG `viewBox` offset).
+
+| `layout` field | Shape | Corresponding SVG hook |
+|---|---|---|
+| `nodes[]` | `{ id, x, y, width, height }` | `<g class="uml-node" data-entity-id="{id}">` |
+| `packages[]` (engines with container support, e.g. `'elk'`) | `{ id, x, y, width, height }` | `<g class="uml-package" data-package-id="{id}">`; grouped nodes also carry `data-package-id` |
+| `edges[]` | `{ id, source, target, points }` | `<g class="uml-edge" data-edge-source="{source}" data-edge-target="{target}" data-edge-type="…">`; aggregated package corridors add `data-weight`, bundled arrowheads carry `data-edge-target` on `uml-bundle-head` |
+| `width`, `height` | `number` | The `viewBox` extent |
+
+`points` is the same polyline the SVG draws, so an edge hit-test can reuse it
+without re-routing. `model` is the diagram actually drawn (after view,
+transforms and detail), and `hiddenTransitive` counts the edges dropped by
+transitive reduction.
 
 ### Error semantics
 

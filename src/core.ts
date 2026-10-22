@@ -92,9 +92,33 @@ export interface RenderResult {
   warnings: string[];
 }
 
+/**
+ * Everything {@link renderDetailed} computed for one diagram: the model that was
+ * actually laid out and drawn, the geometry the renderer used, the SVG it
+ * emitted, and the reduction bookkeeping.
+ *
+ * This is a **public, stable API** (available from both the `.` and `./elk`
+ * entries). Consumers such as an architecture tab should read geometry from
+ * `layout` instead of parsing `svg` back into bounding boxes. In particular the
+ * rectangle fields below are a stable contract:
+ *
+ * - `layout.nodes[i]` — `{ id, x, y, width, height }`; `id` is the same string
+ *   the SVG puts on `<g class="uml-node" data-entity-id="…">`.
+ * - `layout.packages[i]` (present for engines with container support, e.g.
+ *   `'elk'`) — `{ id, x, y, width, height }`; `id` matches
+ *   `<g class="uml-package" data-package-id="…">`.
+ * - `layout.edges[i]` — `{ id, source, target, points }`; `source`/`target`
+ *   match the SVG's `data-edge-source`/`data-edge-target` (aggregated package
+ *   corridors are emitted as `data-edge-source`/`data-edge-target` pairs with
+ *   `data-weight`), and `points` is the same polyline the SVG draws.
+ *
+ * `x`/`y` are relative to the diagram origin (the SVG's `viewBox` offset), so
+ * they can be translated into a thumbnail directly.
+ */
 export interface DetailedRender {
   /** The model actually laid out and drawn (after view, transforms and detail). */
   model: PlantUmlModel;
+  /** Geometry actually used by the renderer; its node/package/edge rectangles are a stable contract (see above). */
   layout: LayoutResult;
   svg: string;
   /** Layout engine wall time in milliseconds (excludes transforms, SVG and any rasterisation). */
@@ -208,22 +232,49 @@ async function renderParsed(
 }
 
 /**
- * Run an already-parsed model through the exact pipeline `createRenderer` uses
+ * Render one diagram through the exact pipeline `createRenderer` uses
  * (view/transforms → detail → layout → svg) and return every intermediate, so
- * tooling (the sample harness) measures the same diagram a user gets. The
- * model-level counterpart of `createRenderer(options).render(puml)`; it skips
- * the syntax check because the caller already holds a parsed model.
+ * tooling can read real geometry instead of reverse-engineering the SVG.
+ *
+ * Accepts either a puml string (the counterpart of
+ * `createRenderer(options).render(puml)`, with the same fail-closed
+ * {@link RenderError} on invalid input) or an already-parsed
+ * {@link PlantUmlModel} (used by the sample harness, which parses first to also
+ * read parse diagnostics).
+ *
+ * Stable public API, exported from both the `.` and `./elk` package entries.
+ * The returned {@link DetailedRender.layout} rectangles are the stable contract
+ * documented on {@link DetailedRender}.
  */
+export function renderDetailed(
+  input: string,
+  options?: RendererOptions,
+): Promise<DetailedRender>;
+export function renderDetailed(
+  input: PlantUmlModel,
+  options?: RendererOptions,
+): Promise<DetailedRender>;
 export async function renderDetailed(
-  parsed: PlantUmlModel,
+  input: string | PlantUmlModel,
   options: RendererOptions = {},
 ): Promise<DetailedRender> {
+  const parsed = typeof input === 'string' ? parseForDetailed(input) : input;
   return renderParsed(
     parsed,
     options,
     resolveEngine(options.layout, options.layoutOptions),
     resolveRenderer(options),
   );
+}
+
+/**
+ * Parse the string form of {@link renderDetailed} with the same fail-closed
+ * semantics as `createRenderer().render` (structured `RenderError`).
+ */
+function parseForDetailed(puml: string): PlantUmlModel {
+  const syntax = checkSyntax(puml);
+  if (!syntax.ok) throw new RenderError(syntax.errors);
+  return parseWithDiagnostics(puml).model;
 }
 
 /**
