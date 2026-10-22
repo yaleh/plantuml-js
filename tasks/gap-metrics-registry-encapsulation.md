@@ -22,11 +22,11 @@ extra:
 
 ## AC
 
-- [ ] 改动前红：`grep -c "count[A-Z]\|compute[A-Z]" src/layout/layout-metrics.ts` 的返回值与 `computeLayoutMetrics` 返回字面量里的逐字段调用数一致（≥20），证明度量清单硬编码在返回体里
-- [ ] `Metric` 接口 + 注册表：新增 `Metric` 接口（`name` + `compute(model, layout): number`）；`computeLayoutMetrics` 遍历注册表组装强类型 `LayoutMetrics`，返回体里不再逐字段调用 `count*` 函数
-- [ ] 加度量 = 注册（扩展点判据）：新增 `tests/metric-registry.test.ts`，注册一个合成度量后它出现在 `computeLayoutMetrics` 的结果里；不改 `computeLayoutMetrics` 的返回体即生效
-- [ ] 无行为回归：`node scripts/render-samples.mjs` 产出的 `rendered/metrics.json` 每个度量数值与改动前一致；`npm run typecheck` 与 `npx vitest run` 全绿，`tests/layout-metrics.test.ts` 不改断言即通过
-- [ ] 类型不退化：`LayoutMetrics` 仍是强类型接口（`grep -c "export interface LayoutMetrics" src/layout/layout-metrics.ts` 为 1），未被动态化成 `Record<string, number>`
+- [x] 改动前红：`grep -c "count[A-Z]\|compute[A-Z]" src/layout/layout-metrics.ts` 的返回值与 `computeLayoutMetrics` 返回字面量里的逐字段调用数一致（≥20），证明度量清单硬编码在返回体里
+- [x] `Metric` 接口 + 注册表：新增 `Metric` 接口（`name` + `compute(model, layout): number`）；`computeLayoutMetrics` 遍历注册表组装强类型 `LayoutMetrics`，返回体里不再逐字段调用 `count*` 函数
+- [x] 加度量 = 注册（扩展点判据）：新增 `tests/metric-registry.test.ts`，注册一个合成度量后它出现在 `computeLayoutMetrics` 的结果里；不改 `computeLayoutMetrics` 的返回体即生效
+- [x] 无行为回归：`node scripts/render-samples.mjs` 产出的 `rendered/metrics.json` 每个度量数值与改动前一致；`npm run typecheck` 与 `npx vitest run` 全绿，`tests/layout-metrics.test.ts` 不改断言即通过
+- [x] 类型不退化：`LayoutMetrics` 仍是强类型接口（`grep -c "export interface LayoutMetrics" src/layout/layout-metrics.ts` 为 1），未被动态化成 `Record<string, number>`
 
 ## DoD
 
@@ -38,3 +38,11 @@ extra:
 - src/layout/layout-metrics.ts
 - tests/metric-registry.test.ts (new)
 - tests/layout-metrics.test.ts
+
+## Blocker
+
+**2026-10-22T08:09:09.740Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 0/5，剩余未勾 5）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：09508b67-590a-4943-ac3f-00f71673f93d
