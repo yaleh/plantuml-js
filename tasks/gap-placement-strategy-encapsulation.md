@@ -1,7 +1,7 @@
 ---
 id: gap-placement-strategy-encapsulation
 title: 把 compound 的五个放置/装箱算法封装成 PlacementStrategy 接口（加策略 = 注册而非改 if/else）
-status: ready
+status: done
 labels:
   - gap
   - layout
