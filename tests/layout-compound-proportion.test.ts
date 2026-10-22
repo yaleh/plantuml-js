@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { ElkLayoutEngine } from '../src/index.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { ElkLayoutEngine, transformFullGraph } from '../src/index.js';
 import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
 import type { PlantUmlEntity, PlantUmlModel, PlantUmlPackage, PlantUmlRelation } from '../src/foundation/model.js';
+
+const testDir = dirname(fileURLToPath(import.meta.url));
 
 /** 4 top packages × 5 sub-packages × 2 leaf packages × 7 classes = 280 nested classes + cross-package edges. */
 function nestedModel(): PlantUmlModel {
@@ -62,5 +67,40 @@ describe('compound layout proportion', { timeout: 60_000 }, () => {
     const layout = await new ElkLayoutEngine().layout(flat);
     expect(layout.nodes).toHaveLength(flat.entities.length);
     expect(layout.packages ?? []).toHaveLength(0);
+  });
+
+  it('keeps a large package-less graph on one layered ELK run when an aspectRatio is requested', async () => {
+    // The 789-node archguard neighbourhood flattened: no packages to pack, so
+    // the compound layout would be one block per entity (40s / 13k crossings).
+    // A requested aspectRatio must not drag it onto that path either.
+    const fixture = JSON.parse(
+      readFileSync(join(testDir, 'fixtures', 'archguard-neighborhood.json'), 'utf8'),
+    ) as {
+      nodes: { id: string; label: string }[];
+      edges: { from: string; to: string; relationType: PlantUmlRelation['type'] }[];
+    };
+    const idOf = new Map(fixture.nodes.map((n, i) => [n.id, `n${i}`]));
+    const flat = transformFullGraph({
+      diagramType: 'class',
+      entities: fixture.nodes.map((n, i) => ({ id: `n${i}`, name: n.label, kind: 'class', members: [] })),
+      relations: fixture.edges
+        .filter((e) => idOf.has(e.from) && idOf.has(e.to))
+        .map((e) => ({ source: idOf.get(e.from)!, target: idOf.get(e.to)!, type: e.relationType })),
+      packages: [],
+    });
+
+    const engine = new ElkLayoutEngine({ aspectRatio: 1.6 });
+    const elk = (engine as unknown as { elk: { layout: (graph: unknown) => Promise<unknown> } }).elk;
+    const realLayout = elk.layout.bind(elk);
+    let elkRuns = 0;
+    elk.layout = (graph) => {
+      elkRuns++;
+      return realLayout(graph);
+    };
+
+    const layout = await engine.layout(flat);
+    expect(layout.nodes).toHaveLength(flat.entities.length);
+    expect(layout.packages ?? []).toHaveLength(0);
+    expect(elkRuns).toBe(1);
   });
 });

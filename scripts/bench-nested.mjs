@@ -28,7 +28,7 @@ const { ElkLayoutEngine, transformFullGraph } = await import(
 );
 const { renderSvg } = await import(pathToFileURL(join(repoRoot, 'dist', 'render', 'svg.js')).href);
 const { computeLayoutMetrics } = await import(
-  pathToFileURL(join(repoRoot, 'dist', 'layout-metrics.js')).href
+  pathToFileURL(join(repoRoot, 'dist', 'layout', 'layout-metrics.js')).href
 );
 
 const fixture = JSON.parse(
