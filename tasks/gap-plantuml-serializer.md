@@ -1,7 +1,7 @@
 ---
 id: gap-plantuml-serializer
 title: toPlantUml(model) 序列化器：PlantUmlModel → 文本，往返稳定
-status: todo
+status: ready
 labels:
   - gap
 parent: null
