@@ -32,3 +32,11 @@ Architecture-tab 从 `renderDetailed()` 直接读节点/包/边矩形做缩略�
 - tests/api.test.ts
 - README.md
 - tasks/gap-renderdetailed-stable-api.md
+
+## Blocker
+
+**2026-10-22T09:03:06.515Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 0/3，剩余未勾 3）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：5f98385e-73aa-44a9-b14a-9b9aa2a1968f
