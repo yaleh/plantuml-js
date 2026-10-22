@@ -18,9 +18,9 @@ Architecture-tab 的「复制当前图的 PlantUML 文本」需要把屏幕上�
 
 ## AC
 
-- [ ] `tests/serialize.test.ts`（新增）对 `archguard-class.puml`、`archguard-package.puml` 与一个嵌套 package 合成 fixture：`checkSyntax(toPlantUml(parsePlantUml(p))).ok === true`，且 `parsePlantUml(toPlantUml(parsePlantUml(p)))` 的 entities（id/name/kind/packageId/parentId）与 relations（source/target/type/label）与原 model 一致。`npx vitest run tests/serialize.test.ts` 退出 0。
-- [ ] 子图稳定：对 `applyView` 的 overview/package/neighborhood 三种结果、以及 `renderDetailed(...)` 的 `.model`（view/transform/detail 之后）做同一往返断言；成员分栏、`… +N` 截断行、`<<function>>` 构造型在往返后仍保留为原文。
-- [ ] `npm test` 与 `npm run typecheck` 退出 0；`toPlantUml` 从 `core`（`./` 与 `./elk`）导出。
+- [x] `tests/serialize.test.ts`（新增）对 `archguard-class.puml`、`archguard-package.puml` 与一个嵌套 package 合成 fixture：`checkSyntax(toPlantUml(parsePlantUml(p))).ok === true`，且 `parsePlantUml(toPlantUml(parsePlantUml(p)))` 的 entities（id/name/kind/packageId/parentId）与 relations（source/target/type/label）与原 model 一致。`npx vitest run tests/serialize.test.ts` 退出 0。
+- [x] 子图稳定：对 `applyView` 的 overview/package/neighborhood 三种结果、以及 `renderDetailed(...)` 的 `.model`（view/transform/detail 之后）做同一往返断言；成员分栏、`… +N` 截断行、`<<function>>` 构造型在往返后仍保留为原文。
+- [x] `npm test` 与 `npm run typecheck` 退出 0；`toPlantUml` 从 `core`（`./` 与 `./elk`）导出。
 
 ## DoD
 
