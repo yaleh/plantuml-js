@@ -1,7 +1,7 @@
 ---
 id: gap-sink-root-domain-modules
 title: 把 parser/serialize/transform 下沉出根包，让根包只剩门面
-status: todo
+status: ready
 labels:
   - gap
   - layout
