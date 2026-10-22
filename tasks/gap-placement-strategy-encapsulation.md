@@ -22,12 +22,12 @@ extra:
 
 ## AC
 
-- [ ] 改动前红：`grep -n "if \|else if \|pack\|partitions.size\|blocks.size" src/layout/compound.ts` 显示 `placeBlocks` 内存在 ≥3 处的策略选择分支，证明放置策略靠 if/else 硬编码
-- [ ] `PlacementStrategy` 接口 + 链式选择：新增 `PlacementStrategy` 接口（`name` + `place(...) → Placement | undefined`，decline 返回 `undefined`）；`placeBlocks` 遍历策略链取第一个非 decline 结果
-- [ ] 加策略 = 注册（扩展点判据）：新增 `tests/placement-strategy.test.ts`，注入一个合成 `PlacementStrategy` 返回固定 `Placement`，**不改 `src/layout/compound.ts`** 即生效；负对照：一个 decline（返回 `undefined`）的策略落入下一策略、一个抛错的策略不被静默忽略
-- [ ] 现有五个算法各自成策略：`placeStubsNearTargets` / `stackLayerRows` / `shelfPackBlocks` / `orderedShelfPack` / `gridPack` 各自封装成一个 `PlacementStrategy`，`placeBlocks` 里不再有按 `pack`/`partitions.size`/`blocks.size` 硬编码的 if/else 分支
-- [ ] 无行为回归：两个 fixture 经 `createRenderer({ layout: 'elk' })` 渲染的 SVG 与改动前 sha256 逐一相等；`npm run typecheck` 与 `npx vitest run` 全绿，既有测试不改断言
-- [ ] 无新目录环：重新 `archguard_analyze` 后 `archguard_detect_cycles(outputScope="package")` 的环数不高于现状
+- [x] 改动前红：`grep -n "if \|else if \|pack\|partitions.size\|blocks.size" src/layout/compound.ts` 显示 `placeBlocks` 内存在 ≥3 处的策略选择分支，证明放置策略靠 if/else 硬编码
+- [x] `PlacementStrategy` 接口 + 链式选择：新增 `PlacementStrategy` 接口（`name` + `place(...) → Placement | undefined`，decline 返回 `undefined`）；`placeBlocks` 遍历策略链取第一个非 decline 结果
+- [x] 加策略 = 注册（扩展点判据）：新增 `tests/placement-strategy.test.ts`，注入一个合成 `PlacementStrategy` 返回固定 `Placement`，**不改 `src/layout/compound.ts`** 即生效；负对照：一个 decline（返回 `undefined`）的策略落入下一策略、一个抛错的策略不被静默忽略
+- [x] 现有五个算法各自成策略：`placeStubsNearTargets` / `stackLayerRows` / `shelfPackBlocks` / `orderedShelfPack` / `gridPack` 各自封装成一个 `PlacementStrategy`，`placeBlocks` 里不再有按 `pack`/`partitions.size`/`blocks.size` 硬编码的 if/else 分支
+- [x] 无行为回归：两个 fixture 经 `createRenderer({ layout: 'elk' })` 渲染的 SVG 与改动前 sha256 逐一相等；`npm run typecheck` 与 `npx vitest run` 全绿，既有测试不改断言
+- [x] 无新目录环：重新 `archguard_analyze` 后 `archguard_detect_cycles(outputScope="package")` 的环数不高于现状
 
 ## DoD
 
