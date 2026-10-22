@@ -40,6 +40,14 @@ extra:
 - src/layout/placement-strategy.ts (new)
 - tests/placement-strategy.test.ts (new)
 
+## Evidence
+
+- 2026-10-22 续做验证（reuse 既有 worktree + ea58ae2 实现，未重做代码）：
+  - AC1 改动前红：`git show develop:src/layout/compound.ts` 的 `placeBlocks` 内有 ≥3 处选择分支——`if (stubKeys.size > 0 && stubKeys.size < blocks.size)`、`const pack = blocks.size > PACK_BLOCK_THRESHOLD || sparseMid`、`if (!pack && options.partitions.size > 0) return stackLayerRows(blocks, options)`、`if (!pack && partition !== undefined && options.partitions.size > 0)`。
+  - AC2/AC3/AC4：`src/layout/placement-strategy.ts` 新增 `PlacementStrategy` + `runPlacementStrategies`（首个非 decline 获胜）；`placeBlocks` 现在只剩 `requirePlacement(await runPlacementStrategies(strategies, ctx), 'block placement')`，无 `pack`/`partitions.size`/`blocks.size` 分支；五个策略对象 `stubOrbitPlacementStrategy` / `layerRowsPlacementStrategy` / `shelfPackBlocksPlacementStrategy` / `orderedShelfPackPlacementStrategy` / `gridPackPlacementStrategy` 与 `DEFAULT_PLACEMENT_STRATEGIES` 均在 `compound.ts` 导出；`tests/placement-strategy.test.ts` 覆盖「注入合成策略即生效」「decline 落入下一策略」「抛错不被静默忽略」。
+  - AC5：同一份临时渲染脚本分别跑本分支与 `git archive develop` 的代码（同一 node_modules），`createRenderer({ layout: 'elk' })` 的 SVG sha256 逐一相等——`archguard-class.puml` = `8cf07f47f23bb9ab1185885de9a625769101ed1feb76f40da258bf60fe6646cb`（25664 B），`archguard-package.puml` = `a6003c4e4381beb0a527503a9b552fe835151fbf236283ea8cc303cd50ae4426`（67570 B）。`npm run typecheck` 通过；`npx vitest run` 291 passed，exit 0。
+  - AC6：对本分支 `archguard_analyze`（src, typescript）后 `archguard_detect_cycles(outputScope="package")` 为 `cycles: []`（maxScc 1），develop 基线同为 `cycles: []`（maxScc 1），无新增目录环。
+
 ## Blocker
 
 **2026-10-22T08:20:13.319Z — worker 未落地（exited-not-landed）**
