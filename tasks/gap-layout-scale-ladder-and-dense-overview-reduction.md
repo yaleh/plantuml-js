@@ -35,6 +35,7 @@ extra:
 - tasks/gap-layout-scale-ladder-and-dense-overview-reduction.md
 - scripts/gen-class-ladder.mjs (new)
 - scripts/samples.json
+- scripts/samples-lib.mjs
 - scripts/render-samples.mjs
 - src/transform.ts
 - src/core.ts
@@ -46,3 +47,4 @@ extra:
 - tests/gen-class-ladder.test.ts (new)
 - tests/edge-reduction.test.ts (new)
 - tests/layout-metrics.test.ts
+- tests/small-layers.test.ts
