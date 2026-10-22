@@ -61,3 +61,12 @@ depends_on:
 - 未落地原因：AC 未全勾（checked 6/7，剩余未勾 1）——续做只需验证并勾选 AC
 - run_id：wk-prod-anchor
 - session_id：f31533ce-917c-4c5b-9368-7473ab832059
+
+## Needs-Human
+
+**执行 2026-10-22T00:22:36.410Z — 连续修满重试上限仍不合格（标 needs-human）**
+
+- 阻碍原因：worker-driver 连续 3 次 exited-not-landed 未落地（重试上限）
+- 失败步/判词：AC 未全勾（checked 6/7，剩余未勾 1）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：735e93f1-e0f5-4c46-9d4d-7eb50efe6f56
