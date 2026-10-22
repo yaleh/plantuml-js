@@ -65,7 +65,8 @@ describe('m-package Tests Layer', () => {
     const aspect = frame.width / frame.height;
     expect(aspect).toBeGreaterThanOrEqual(0.8);
     expect(aspect).toBeLessThanOrEqual(2.0);
-    const small = layout.packages!.filter((p) => ['Examples_Layer', 'Templates_Layer', '(root)_Layer'].includes(p.id) || /^(Root|Examples|Templates)/.test(p.id));
-    for (const p of small) expect(near(p.y, frame.y) || p.y <= frame.y).toBe(true);
+    const small = layout.packages!.filter((p) => p.id !== 'Src_Layer' && p.id !== frame.id && p.height <= 100);
+    expect(small.length).toBeGreaterThanOrEqual(2);
+    for (const p of small) expect(Math.abs(p.y - frame.y), p.id).toBeLessThanOrEqual(1);
   }, 60_000);
 });
