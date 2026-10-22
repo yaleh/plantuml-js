@@ -39,3 +39,11 @@ extra:
 - src/layout/compound.ts
 - src/layout/placement-strategy.ts (new)
 - tests/placement-strategy.test.ts (new)
+
+## Blocker
+
+**2026-10-22T08:20:13.319Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 0/6，剩余未勾 6）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：9fe01a88-eb59-4753-9456-ff511ff5a5d9
