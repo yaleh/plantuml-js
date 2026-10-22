@@ -15,8 +15,8 @@
  *   ?view=neighborhood&entity=<alias>&hops=<n>
  */
 
-import { parsePlantUml } from '../src/parser';
-import { applyView, transformModel } from '../src/transform';
+import { parsePlantUml } from '../src/parse/parser';
+import { applyView, transformModel } from '../src/transform/transform';
 import { ElkLayoutEngine } from '../src/layout/elk';
 import { renderSvg } from '../src/render/svg';
 import { archguardToPlantUml, pathName, displayName } from '../src/archguard';

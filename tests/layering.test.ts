@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ElkLayoutEngine } from '../src/layout/elk.js';
-import { parsePlantUml } from '../src/parser.js';
+import { parsePlantUml } from '../src/parse/parser.js';
 
 /**
  * Semantic layering — the ELK engine stacks packages that follow the

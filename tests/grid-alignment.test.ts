@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parsePlantUml } from '../src/parser.js';
+import { parsePlantUml } from '../src/parse/parser.js';
 import { ElkLayoutEngine } from '../src/layout/elk.js';
 import { estimateEntitySize, layoutRows, GRID } from '../src/foundation/layout.js';
 

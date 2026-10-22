@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { ElkLayoutEngine } from '../src/layout/elk.js';
 import { createRenderer } from '../src/core.js';
-import { parsePlantUml } from '../src/parser.js';
+import { parsePlantUml } from '../src/parse/parser.js';
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 

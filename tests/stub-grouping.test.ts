@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { parsePlantUml, ElkLayoutEngine, renderDetailed } from '../src/index.js';
-import { applyView, groupStubs, DEFAULT_STUB_GROUP_THRESHOLD } from '../src/transform.js';
+import { applyView, groupStubs, DEFAULT_STUB_GROUP_THRESHOLD } from '../src/transform/transform.js';
 import { PlantUmlModel, PlantUmlEntity } from '../src/foundation/model.js';
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');

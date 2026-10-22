@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRenderer } from '../src/index.js';
-import { parsePlantUml } from '../src/parser.js';
+import { parsePlantUml } from '../src/parse/parser.js';
 import { applyDetail, autoDetail, COMPACT_MEMBER_ROWS } from '../src/foundation/layout.js';
 
 const dir = dirname(fileURLToPath(import.meta.url));

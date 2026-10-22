@@ -8,7 +8,7 @@
  */
 
 import { PlantUmlModel } from './foundation/model.js';
-import { parsePlantUml, parseWithDiagnostics, ENTITY_LINE, ENTITY_KEYWORD, extractDeclaredName, stripComment } from './parser.js';
+import { parsePlantUml, parseWithDiagnostics, ENTITY_LINE, ENTITY_KEYWORD, extractDeclaredName, stripComment } from './parse/parser.js';
 import { LayoutEngine, LayoutResult, DetailLevel, applyDetail } from './foundation/layout.js';
 import { ThemeOverrides } from './render/theme.js';
 import { ElkLayoutEngine, type ElkLayoutOptions } from './layout/elk.js';
@@ -20,7 +20,7 @@ import {
   SvgRenderer,
   SvgRendererOptions,
 } from './render/svg.js';
-import { applyView, transformModel, transformModelDetailed, shouldAutoReduce, INTER_PACKAGE_AGGREGATE_ENTITY_THRESHOLD, ViewSpec, TransformOptions } from './transform.js';
+import { applyView, transformModel, transformModelDetailed, shouldAutoReduce, INTER_PACKAGE_AGGREGATE_ENTITY_THRESHOLD, ViewSpec, TransformOptions } from './transform/transform.js';
 
 export type {
   PlantUmlModel,
@@ -535,7 +535,7 @@ function classifyLine(
 }
 
 export { parsePlantUml, ElkLayoutEngine, renderSvg, SvgRenderer };
-export { toPlantUml } from './serialize.js';
+export { toPlantUml } from './parse/serialize.js';
 export type { RenderSvgOptions, RenderEngine, RenderFrameOptions, SvgRendererOptions };
 export { computeLayoutMetrics } from './metrics/layout-metrics.js';
 export type { LayoutMetrics } from './metrics/layout-metrics.js';
@@ -547,8 +547,8 @@ export {
   summarizeHubs,
   markCycles,
   groupByPathPrefix,
-} from './transform.js';
-export type { ViewSpec, TransformOptions } from './transform.js';
+} from './transform/transform.js';
+export type { ViewSpec, TransformOptions } from './transform/transform.js';
 export {
   archguardToPlantUml,
   archguardAliasMap,
