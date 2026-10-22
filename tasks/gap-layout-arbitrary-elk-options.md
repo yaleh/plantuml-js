@@ -1,7 +1,7 @@
 ---
 id: gap-layout-arbitrary-elk-options
 title: layoutOptions 透传任意 elk 选项（递归注入每层容器），不只命名选项
-status: ready
+status: done
 labels:
   - gap
   - layout
