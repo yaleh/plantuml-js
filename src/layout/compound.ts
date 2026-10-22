@@ -26,6 +26,18 @@ import { measureTextWidth } from '../foundation/text-measure.js';
 import { routeOrthogonal, type RouteRequest } from './grid-router.js';
 import { mergeElkOptions } from './elk-graph.js';
 import { relationSemantics } from '../foundation/relation-semantics.js';
+import {
+  runPlacementStrategies,
+  type Block,
+  type BoxPlacementContext,
+  type Placement,
+  type PlacementStrategy,
+  type PlacementStrategyContext,
+  type PlacementStrategyOptions,
+  type StubOrbit,
+} from './placement-strategy.js';
+
+export type { StubOrbit } from './placement-strategy.js';
 
 const PACKAGE_PREFIX = 'pkg::';
 /** Block aspect ratio beyond which a flat block is repacked instead of layered. */
@@ -93,33 +105,15 @@ const CANVAS_MARGIN = 40;
 /** Node gap inside packed blocks of a dense (very large) graph; leaves one routing lane. */
 const DENSE_NODE_SPACING = 36;
 
-export interface CompoundOptions {
-  /** Pack every flat block tightly (very large graphs); edges are grid-routed. */
-  dense?: boolean;
-  /**
-   * Dense blocks use rect packing instead of dependency-ordered rows: tighter
-   * but order-blind, so only used when the rows exceed the canvas budget.
-   */
-  rectPackDense?: boolean;
+export interface CompoundOptions extends PlacementStrategyOptions {
   edgeRouting?: string;
-  /** Target canvas width/height (ELK `elk.aspectRatio`); default 1.6. */
-  aspectRatio?: number;
-  /** Raw ELK options injected into each block's root and package containers (escape hatch). */
-  elk?: Record<string, string>;
-  /** Block id → semantic-layer partition index (layered mode only). */
-  partitions: Map<string, number>;
   /** Rip-up passes of the cross-block router; its default when omitted. */
   ripupPasses?: number;
-  /** Where stub nodes orbit the placed blocks; default [[DEFAULT_STUB_ORBIT]]. */
-  stubOrbit?: StubOrbit;
-}
-
-/** Channel to the frame (`gap`) and spacing between neighbouring stubs (`spacing`), px. */
-export interface StubOrbit {
-  gap: number;
-  spacing: number;
-  /** Row/column a stub slides to: its targets' centroid (default) or the target nearest its side. */
-  anchor?: 'centroid' | 'nearest';
+  /**
+   * Extra block-placement strategies tried, in order, before the built-in
+   * chain; the first to return a placement wins (see [[./placement-strategy]]).
+   */
+  placementStrategies?: PlacementStrategy[];
 }
 /** Tightest gap between neighbouring stubs on the rail, px. */
 const RAIL_MIN_GAP = 24;
@@ -129,19 +123,6 @@ const CROSSING_COST = 12;
 /** Cost per px a rail runs past the frame side it follows (in px of target distance). */
 const RAIL_OVERFLOW_WEIGHT = 0.5;
 export const DEFAULT_STUB_ORBIT: StubOrbit = { gap: 48, spacing: 120, anchor: 'centroid' };
-
-interface Block {
-  /** Block key: package id, or entity id for a bare top-level entity. */
-  key: string;
-  width: number;
-  height: number;
-  nodes: NodeLayout[];
-  packages: PackageLayout[];
-  /** Intra-block edge polylines keyed by relation index, block-local coordinates. */
-  edges: Map<number, Point[]>;
-  /** Intra-block relations the block layout left for the grid router. */
-  unrouted?: number[];
-}
 
 function packageMinWidth(name: string): number {
   return measureTextWidth(name, PACKAGE_LABEL.fontSize) + PACKAGE_LABEL.tabPadding + 20;
@@ -404,12 +385,22 @@ async function layoutBlock(
     }
   }
   const gridable = !hasNested && relationIndexes.length === 0 && rootChildren.length >= GRID_MIN_NODES;
+  const flowRank = new Map(flowOrder.map((id, index) => [id, index]));
+  const ordered = rootChildren
+    .slice()
+    .sort((a, b) => (flowRank.get(a.id) ?? 0) - (flowRank.get(b.id) ?? 0));
   if (gridable) {
     // Unconnected boxes have no flow to follow: an equal-column grid reads
     // better than ragged shelf rows.
-    result = options.dense
-      ? gridPack(rootChildren, flowOrder, GRID_ASPECT, DENSE_GRID_GAP, DENSE_GRID_ROW_GAP, false)
-      : gridPack(rootChildren, flowOrder, GRID_ASPECT, GRID_GAP, GRID_ROW_GAP);
+    const placement = await runPlacementStrategies([gridPackPlacementStrategy], {
+      boxes: ordered,
+      order: flowOrder,
+      aspect: GRID_ASPECT,
+      gap: options.dense ? DENSE_GRID_GAP : GRID_GAP,
+      rowGap: options.dense ? DENSE_GRID_ROW_GAP : GRID_ROW_GAP,
+      tight: !options.dense,
+    });
+    result = elkNodeFromPlacement('block', requirePlacement(placement, 'grid packing'), ordered);
     repacked = true;
   } else if (!hasNested && (options.dense || sparse || aspect > BLOCK_MAX_ASPECT || aspect < 1 / BLOCK_MAX_ASPECT)) {
     // A single wide layer cannot be wrapped by the layered algorithm; pack the
@@ -431,7 +422,11 @@ async function layoutBlock(
             ),
             children: rootChildren,
           })
-        : packShelves(rootChildren, flowOrder, options, (h) => (hubs.length > 0 ? placeHubRail(hubs, h).width : 0));
+        : elkNodeFromPlacement(
+            'block',
+            await packShelves(ordered, flowOrder, options, (h) => (hubs.length > 0 ? placeHubRail(hubs, h).width : 0)),
+            ordered,
+          );
     repacked = true;
   }
 
@@ -631,20 +626,69 @@ export function gridPack(
   return { id: 'block', width: g.width, height: g.height, children: byFlow };
 }
 
+/** Box placement strategies: the equal-column grid and the ordered shelf pack. */
+export const gridPackPlacementStrategy: PlacementStrategy<BoxPlacementContext> = {
+  name: 'grid-pack',
+  place(ctx) {
+    const packed = gridPack([...ctx.boxes], [...ctx.order], ctx.aspect, ctx.gap, ctx.rowGap ?? ctx.gap, ctx.tight ?? true);
+    return placementOfElkNode(packed);
+  },
+};
+
+export const orderedShelfPackPlacementStrategy: PlacementStrategy<BoxPlacementContext> = {
+  name: 'ordered-shelf-pack',
+  place(ctx) {
+    const packed = orderedShelfPack([...ctx.boxes], [...ctx.order], ctx.aspect, ctx.gap);
+    return placementOfElkNode(packed);
+  },
+};
+
+/** Positions of an arranged ELK node's children, plus the node's own size. */
+function placementOfElkNode(node: ElkNode): Placement {
+  const positions = new Map<string, Point>();
+  for (const child of node.children ?? []) {
+    positions.set(child.id, { x: child.x ?? 0, y: child.y ?? 0 });
+  }
+  return { positions, width: node.width ?? 0, height: node.height ?? 0 };
+}
+
+/** Materialise a placement as the ELK node result the block layout flattens. */
+function elkNodeFromPlacement(id: string, placement: Placement, children: readonly ElkNode[]): ElkNode {
+  return {
+    id,
+    width: placement.width,
+    height: placement.height,
+    children: children.map((c) => {
+      const at = placement.positions.get(c.id);
+      return at === undefined ? { ...c } : { ...c, x: at.x, y: at.y };
+    }),
+  };
+}
+
+function requirePlacement(placement: Placement | undefined, what: string): Placement {
+  if (placement === undefined) throw new Error(`compound: ${what} strategy declined`);
+  return placement;
+}
+
 /** Ordered shelf packing of a flat block; a block that comes out too wide is repacked taller. */
-function packShelves(
+async function packShelves(
   children: ElkNode[],
   order: string[],
   options: CompoundOptions,
   railWidth: (blockHeight: number) => number,
-): ElkNode {
+): Promise<Placement> {
   const aspect = options.aspectRatio ?? 1.6;
   const gap = options.dense ? DENSE_NODE_SPACING : SHELF_GAP;
-  if (options.dense) return orderedShelfPack(children, order, aspect * DENSE_SHELF_ASPECT_SCALE, gap);
-  let packed = orderedShelfPack(children, order, aspect * SHELF_ASPECT_SCALE, gap);
+  const pack = async (ratio: number): Promise<Placement> =>
+    requirePlacement(
+      await runPlacementStrategies([orderedShelfPackPlacementStrategy], { boxes: children, order, aspect: ratio, gap }),
+      'ordered shelf packing',
+    );
+  if (options.dense) return pack(aspect * DENSE_SHELF_ASPECT_SCALE);
+  let packed = await pack(aspect * SHELF_ASPECT_SCALE);
   for (const scale of SHELF_NARROW_SCALES) {
-    if ((packed.width ?? 0) + railWidth(packed.height ?? 0) <= SHELF_MAX_WIDTH) break;
-    packed = orderedShelfPack(children, order, aspect * scale, gap);
+    if (packed.width + railWidth(packed.height) <= SHELF_MAX_WIDTH) break;
+    packed = await pack(aspect * scale);
   }
   return packed;
 }
@@ -835,12 +879,6 @@ function sectionPoints(section: ElkEdgeSection): Point[] {
   return pts;
 }
 
-interface Placement {
-  positions: Map<string, Point>;
-  width: number;
-  height: number;
-}
-
 /** Arrange blocks as fixed-size nodes; block-level edges bias the order. */
 async function placeBlocks(
   elk: ElkInstance,
@@ -850,113 +888,209 @@ async function placeBlocks(
   blockOfEntity: Map<string, string>,
   options: CompoundOptions,
 ): Promise<Placement> {
-  const stubKeys = new Set(
-    [...blocks.keys()].filter((k) => model.entities.find((e) => e.id === k)?.stub === true),
-  );
-  if (stubKeys.size > 0 && stubKeys.size < blocks.size) {
-    const main = new Map([...blocks].filter(([k]) => !stubKeys.has(k)));
-    const mainPlacement = await placeBlocks(elk, model, main, crossRelations, blockOfEntity, options);
-    return placeStubsNearTargets(model, blocks, stubKeys, mainPlacement, crossRelations, blockOfEntity, options.stubOrbit ?? DEFAULT_STUB_ORBIT);
-  }
-  const blockEdgeCount = new Set(
-    crossRelations.map((i) => `${blockOfEntity.get(model.relations[i].source)}\u0000${blockOfEntity.get(model.relations[i].target)}`),
-  ).size;
-  // Mid-scale root layers (a dozen-ish packages) with few block-level edges gain
-  // nothing from layering: it strings them into a column. Pack them instead.
-  const sparseMid =
-    blocks.size >= MID_PACK_BLOCK_THRESHOLD &&
-    options.partitions.size === 0 &&
-    blockEdgeCount * 2 < blocks.size;
-  const pack = blocks.size > PACK_BLOCK_THRESHOLD || sparseMid;
-  if (!pack && options.partitions.size > 0) return stackLayerRows(blocks, options);
-  const children: ElkNode[] = [...blocks.values()].map((b) => {
-    const node: ElkNode = { id: b.key, width: b.width, height: b.height };
-    const partition = options.partitions.get(b.key.slice(PACKAGE_PREFIX.length));
-    if (!pack && partition !== undefined && options.partitions.size > 0) {
-      node.layoutOptions = { 'elk.partitioning.partition': String(partition) };
-    }
-    return node;
-  });
+  const strategies = [...(options.placementStrategies ?? []), ...DEFAULT_PLACEMENT_STRATEGIES];
+  const ctx: PlacementStrategyContext = { elk, model, blocks, crossRelations, blockOfEntity, options, strategies };
+  return requirePlacement(await runPlacementStrategies(strategies, ctx), 'block placement');
+}
 
+/** Blocks as the fixed-size nodes ELK places. */
+function blockChildren(ctx: PlacementStrategyContext): ElkNode[] {
+  return [...ctx.blocks.values()].map((b) => ({ id: b.key, width: b.width, height: b.height }));
+}
+
+/** Number of distinct block pairs linked by a cross-block relation. */
+function blockEdgeCount(ctx: PlacementStrategyContext): number {
+  return new Set(
+    ctx.crossRelations.map(
+      (i) => `${ctx.blockOfEntity.get(ctx.model.relations[i].source)}\u0000${ctx.blockOfEntity.get(ctx.model.relations[i].target)}`,
+    ),
+  ).size;
+}
+
+/**
+ * Mid-scale root layers (a dozen-ish packages) with few block-level edges gain
+ * nothing from layering: it strings them into a column. Pack them instead.
+ */
+function isSparseMidScale(ctx: PlacementStrategyContext): boolean {
+  return (
+    ctx.blocks.size >= MID_PACK_BLOCK_THRESHOLD &&
+    ctx.options.partitions.size === 0 &&
+    blockEdgeCount(ctx) * 2 < ctx.blocks.size
+  );
+}
+
+function shouldPackBlocks(ctx: PlacementStrategyContext): boolean {
+  return ctx.blocks.size > PACK_BLOCK_THRESHOLD || isSparseMidScale(ctx);
+}
+
+/** Block-level edges biasing ELK's block order (one edge per linked pair). */
+function blockEdges(ctx: PlacementStrategyContext): ElkExtendedEdge[] {
   const seen = new Set<string>();
   const edges: ElkExtendedEdge[] = [];
-  for (const index of crossRelations) {
-    const relation = model.relations[index];
-    const a = blockOfEntity.get(relation.source)!;
-    const b = blockOfEntity.get(relation.target)!;
-    if (!blocks.has(a) || !blocks.has(b)) continue; // an orbiting stub: placed after the main blocks
+  for (const index of ctx.crossRelations) {
+    const relation = ctx.model.relations[index];
+    const a = ctx.blockOfEntity.get(relation.source)!;
+    const b = ctx.blockOfEntity.get(relation.target)!;
+    if (!ctx.blocks.has(a) || !ctx.blocks.has(b)) continue; // an orbiting stub: placed after the main blocks
     const pair = `${a}\u0000${b}`;
     if (seen.has(pair)) continue;
     seen.add(pair);
     edges.push({ id: `blk-${edges.length}`, sources: [a], targets: [b] });
   }
+  return edges;
+}
 
-  const defaults: Record<string, string> = pack
-    ? {
-        'elk.algorithm': 'rectpacking',
-        'elk.aspectRatio': '1.6',
-        'elk.spacing.nodeNode': String(BLOCK_SPACING),
-        'elk.padding': `[top=${CANVAS_MARGIN},left=${CANVAS_MARGIN},bottom=${CANVAS_MARGIN},right=${CANVAS_MARGIN}]`,
-      }
-    : {
-        'elk.algorithm': 'layered',
-        'elk.direction': 'DOWN',
-        'elk.aspectRatio': '1.6',
-        'elk.edgeRouting': 'ORTHOGONAL',
-        'elk.spacing.nodeNode': String(BLOCK_SPACING),
-        'elk.layered.spacing.nodeNodeBetweenLayers': String(BLOCK_SPACING),
-        'elk.layered.wrapping.strategy': 'MULTI_EDGE',
-        'elk.separateConnectedComponents': 'true',
-        'elk.padding': `[top=${CANVAS_MARGIN},left=${CANVAS_MARGIN},bottom=${CANVAS_MARGIN},right=${CANVAS_MARGIN}]`,
-      };
+function rectPackLayoutOptions(ctx: PlacementStrategyContext): Record<string, string> {
   const named: Record<string, string> = {};
-  if (options.aspectRatio !== undefined) named['elk.aspectRatio'] = String(options.aspectRatio);
-  if (!pack && options.partitions.size > 0) named['elk.partitioning.activate'] = 'true';
-  const layoutOptions = mergeElkOptions(defaults, named, options.elk);
+  if (ctx.options.aspectRatio !== undefined) named['elk.aspectRatio'] = String(ctx.options.aspectRatio);
+  return mergeElkOptions(
+    {
+      'elk.algorithm': 'rectpacking',
+      'elk.aspectRatio': '1.6',
+      'elk.spacing.nodeNode': String(BLOCK_SPACING),
+      'elk.padding': `[top=${CANVAS_MARGIN},left=${CANVAS_MARGIN},bottom=${CANVAS_MARGIN},right=${CANVAS_MARGIN}]`,
+    },
+    named,
+    ctx.options.elk,
+  );
+}
 
-  let result: ElkNode;
-  if (pack && blocks.size > MAX_CANDIDATE_BLOCKS) {
-    // Very many blocks: a single rectpacking run (the candidates below only pay off at mid scale).
-    result = await elk.layout({ id: 'blocks', layoutOptions, children, edges: [] });
-  } else if (pack) {
+function layeredLayoutOptions(ctx: PlacementStrategyContext): Record<string, string> {
+  const named: Record<string, string> = {};
+  if (ctx.options.aspectRatio !== undefined) named['elk.aspectRatio'] = String(ctx.options.aspectRatio);
+  return mergeElkOptions(
+    {
+      'elk.algorithm': 'layered',
+      'elk.direction': 'DOWN',
+      'elk.aspectRatio': '1.6',
+      'elk.edgeRouting': 'ORTHOGONAL',
+      'elk.spacing.nodeNode': String(BLOCK_SPACING),
+      'elk.layered.spacing.nodeNodeBetweenLayers': String(BLOCK_SPACING),
+      'elk.layered.wrapping.strategy': 'MULTI_EDGE',
+      'elk.separateConnectedComponents': 'true',
+      'elk.padding': `[top=${CANVAS_MARGIN},left=${CANVAS_MARGIN},bottom=${CANVAS_MARGIN},right=${CANVAS_MARGIN}]`,
+    },
+    named,
+    ctx.options.elk,
+  );
+}
+
+/** Stubs orbit the placed main blocks instead of taking part in their placement. */
+export const stubOrbitPlacementStrategy: PlacementStrategy = {
+  name: 'stub-orbit',
+  async place(ctx) {
+    const stubKeys = new Set(
+      [...ctx.blocks.keys()].filter((k) => ctx.model.entities.find((e) => e.id === k)?.stub === true),
+    );
+    if (stubKeys.size === 0 || stubKeys.size >= ctx.blocks.size) return undefined;
+    const main = new Map([...ctx.blocks].filter(([k]) => !stubKeys.has(k)));
+    const strategies = ctx.strategies.filter((s) => s !== stubOrbitPlacementStrategy);
+    const mainPlacement = await runPlacementStrategies(strategies, { ...ctx, blocks: main, strategies });
+    if (mainPlacement === undefined) return undefined;
+    return placeStubsNearTargets(
+      ctx.model,
+      ctx.blocks,
+      stubKeys,
+      mainPlacement,
+      ctx.crossRelations,
+      ctx.blockOfEntity,
+      ctx.options.stubOrbit ?? DEFAULT_STUB_ORBIT,
+    );
+  },
+};
+
+/** Semantic layers as stacked bands of blocks. */
+export const layerRowsPlacementStrategy: PlacementStrategy = {
+  name: 'layer-rows',
+  place(ctx) {
+    if (ctx.options.partitions.size === 0 || shouldPackBlocks(ctx)) return undefined;
+    return stackLayerRows(ctx.blocks, ctx.options);
+  },
+};
+
+/**
+ * Height-sorted shelf packing of the blocks; [[packedBlocksPlacementStrategy]]
+ * keeps it as one candidate beside ELK's own rect-packing runs.
+ */
+export const shelfPackBlocksPlacementStrategy: PlacementStrategy = {
+  name: 'shelf-pack-blocks',
+  place(ctx) {
+    if (!shouldPackBlocks(ctx)) return undefined;
+    const target = ctx.options.aspectRatio ?? 1.6;
+    return placementOfElkNode(shelfPackBlocks(blockChildren(ctx), target));
+  },
+};
+
+/**
+ * Rect packing of the blocks: height-sorted shelves are tried beside ELK's own
+ * rectpacking at a few ratios, and the tightest canvas near the target wins.
+ */
+export const packedBlocksPlacementStrategy: PlacementStrategy = {
+  name: 'packed-blocks',
+  async place(ctx) {
+    if (!shouldPackBlocks(ctx)) return undefined;
+    const children = blockChildren(ctx);
+    const layoutOptions = rectPackLayoutOptions(ctx);
+    if (ctx.blocks.size > MAX_CANDIDATE_BLOCKS) {
+      // Very many blocks: a single rectpacking run (the candidates below only pay off at mid scale).
+      return placementOfElkNode(await ctx.elk.layout({ id: 'blocks', layoutOptions, children, edges: [] }));
+    }
     // rectpacking only honours a target ratio loosely and can leave a lone block
     // on the last row; also try height-sorted shelves and keep the tightest
     // canvas whose ratio stays near the target.
-    const target = options.aspectRatio ?? 1.6;
-    const candidates: ElkNode[] = [shelfPackBlocks(children, target)];
+    const target = ctx.options.aspectRatio ?? 1.6;
+    const shelf = await runPlacementStrategies([shelfPackBlocksPlacementStrategy], ctx);
+    const candidates: Placement[] = shelf === undefined ? [] : [shelf];
     for (const ratio of PACK_ASPECT_CANDIDATES.map((f) => target * f)) {
       candidates.push(
-        await elk.layout({
-          id: 'blocks',
-          layoutOptions: { ...layoutOptions, 'elk.aspectRatio': String(ratio) },
-          children: children.map((c) => ({ ...c })),
-          edges: [],
-        }),
+        placementOfElkNode(
+          await ctx.elk.layout({
+            id: 'blocks',
+            layoutOptions: { ...layoutOptions, 'elk.aspectRatio': String(ratio) },
+            children: children.map((c) => ({ ...c })),
+            edges: [],
+          }),
+        ),
       );
     }
-    const area = (n: ElkNode): number => (n.width ?? 0) * (n.height ?? 0);
-    const inBand = (n: ElkNode): boolean => {
-      const a = (n.width ?? 0) / Math.max(1, n.height ?? 0);
+    const area = (n: Placement): number => n.width * n.height;
+    const inBand = (n: Placement): boolean => {
+      const a = n.width / Math.max(1, n.height);
       return a >= PACK_BAND_MIN && a <= PACK_BAND_MAX;
     };
-    if (options.aspectRatio !== undefined) {
+    if (ctx.options.aspectRatio !== undefined) {
       // An explicit caller ratio wins over compactness: closest candidate.
-      const miss = (n: ElkNode): number => Math.abs(Math.log((n.width ?? 1) / Math.max(1, n.height ?? 1) / target));
-      result = candidates.reduce((best, c) => (miss(c) < miss(best) ? c : best));
-    } else {
-      const pool = candidates.some(inBand) ? candidates.filter(inBand) : candidates;
-      result = pool.reduce((best, c) => (area(c) < area(best) ? c : best));
+      const miss = (n: Placement): number => Math.abs(Math.log(n.width / Math.max(1, n.height) / target));
+      return candidates.reduce((best, c) => (miss(c) < miss(best) ? c : best));
     }
-  } else {
-    result = await elk.layout({ id: 'blocks', layoutOptions, children, edges });
-  }
+    const pool = candidates.some(inBand) ? candidates.filter(inBand) : candidates;
+    return pool.reduce((best, c) => (area(c) < area(best) ? c : best));
+  },
+};
 
-  const positions = new Map<string, Point>();
-  for (const child of result.children ?? []) {
-    positions.set(child.id, { x: child.x ?? 0, y: child.y ?? 0 });
-  }
-  return { positions, width: result.width ?? 0, height: result.height ?? 0 };
-}
+/** Blocks placed by ELK's layered algorithm (no partitions, few enough to layer). */
+export const elkLayeredPlacementStrategy: PlacementStrategy = {
+  name: 'elk-layered-blocks',
+  async place(ctx) {
+    if (shouldPackBlocks(ctx) || ctx.options.partitions.size > 0) return undefined;
+    return placementOfElkNode(
+      await ctx.elk.layout({
+        id: 'blocks',
+        layoutOptions: layeredLayoutOptions(ctx),
+        children: blockChildren(ctx),
+        edges: blockEdges(ctx),
+      }),
+    );
+  },
+};
+
+/** Built-in block placement chain, tried after any injected strategies. */
+export const DEFAULT_PLACEMENT_STRATEGIES: readonly PlacementStrategy[] = [
+  stubOrbitPlacementStrategy,
+  layerRowsPlacementStrategy,
+  packedBlocksPlacementStrategy,
+  elkLayeredPlacementStrategy,
+];
 
 
 /**
@@ -968,11 +1102,11 @@ async function placeBlocks(
  */
 function placeStubsNearTargets(
   model: PlantUmlModel,
-  blocks: Map<string, Block>,
-  stubKeys: Set<string>,
+  blocks: ReadonlyMap<string, Block>,
+  stubKeys: ReadonlySet<string>,
   main: Placement,
-  crossRelations: number[],
-  blockOfEntity: Map<string, string>,
+  crossRelations: readonly number[],
+  blockOfEntity: ReadonlyMap<string, string>,
   orbit: StubOrbit,
 ): Placement {
   const centre = new Map<string, Point>();
@@ -1138,7 +1272,7 @@ const SMALL_BLOCK_HEIGHT = 600;
  * block sideways to sit under its parents, so the canvas stays as narrow as
  * its widest block.
  */
-function stackLayerRows(blocks: Map<string, Block>, options: CompoundOptions): Placement {
+function stackLayerRows(blocks: ReadonlyMap<string, Block>, options: PlacementStrategyOptions): Placement {
   const bands = new Map<number, Block[]>();
   for (const block of blocks.values()) {
     const partition = options.partitions.get(block.key.slice(PACKAGE_PREFIX.length));
