@@ -24,7 +24,7 @@ depends_on:
 ## AC
 
 - [x] `computeLayoutMetrics` 新增 `trunkDetourCount`（路径长度 > 2 倍曼哈顿距离的边数）与 `nestedLoopCount`（同一包框内，由 ≥ 3 条边段围成、互相嵌套的闭合矩形回路数，可用"边路径的包围盒互相嵌套且边的端点不在该包围盒内"近似），`tests/layout-metrics.test.ts` 用合成布局断言确定值（含一个绕簇反例）
-- [ ] 干线走行间通道（`tests/trunk-lanes.test.ts` 对合成的"一源多目标、中间夹一簇节点"布局断言干线不绕出该簇的包围盒），并且 S/M/L/XL 全部样例的 `trunkDetourCount` ≤ 2；`nestedLoopCount` 在 `m-package`、`l-plugins`、`xl-all-classes` 上不得高于本任务实现后的实测值（当前实测 9 / 4 / 11，写入 `scripts/samples.json` 作为上限阈值，`--compare` 无回退）；进一步把 `nestedLoopCount` 降到 0 另立后续任务，本任务不要求
+- [x] 干线走行间通道（`tests/trunk-lanes.test.ts` 对合成的"一源多目标、中间夹一簇节点"布局断言干线不绕出该簇的包围盒），并且 S/M/L/XL 全部样例的 `trunkDetourCount` ≤ 2；`nestedLoopCount` 在 `m-package`、`l-plugins`、`xl-all-classes` 上不得高于本任务实现后的实测值（当前实测 9 / 4 / 11，写入 `scripts/samples.json` 作为上限阈值，`--compare` 无回退）；进一步把 `nestedLoopCount` 降到 0 另立后续任务，本任务不要求
 - [x] `tests/grid-columns.test.ts`：12 个互不相连的节点渲染后，同一列的节点左边缘 x 相同、同一行的节点顶边 y 相同（容差 1px），最后一行之外无空洞；`m-package` 的 Tests Layer 宽高比在 0.8–2.0 之间，且与同层小框顶对齐
 - [x] 新增 `edgeNodeFlush`（边段与其端点节点的上/下/左/右边框平行且间距 < 4px、长度 ≥ 40px 的数量），对 `m-package`、`m-architecture`、`s-*` 样例为 0
 - [x] 单包视图 stub 分组：`stubGroupThreshold` 选项（默认 8），stub 数超过阈值时按名称前缀（去掉末尾单词）分组，`tests/stub-grouping.test.ts` 断言 25 个 stub 合并后 ≤ 8 个组 stub，组 stub 上的边带 `×N` 与 `<title>`；`m-types-view` 的 stub 数 ≤ 8，画布高度相对第八轮（2068）降低 ≥ 15%
