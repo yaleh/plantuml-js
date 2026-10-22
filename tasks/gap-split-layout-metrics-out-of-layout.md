@@ -1,7 +1,7 @@
 ---
 id: gap-split-layout-metrics-out-of-layout
 title: 把 layout-metrics 从 layout 拆到独立 metrics 域（产生布局 vs 评价布局分离）
-status: ready
+status: todo
 labels:
   - gap
   - layout
