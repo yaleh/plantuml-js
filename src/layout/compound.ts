@@ -349,7 +349,7 @@ async function layoutBlock(
 
   const edges: ElkExtendedEdge[] = relationIndexes.map((index) => {
     const relation = model.relations[index];
-    const reversed = relationSemantics(relation.type).reversed;
+    const reversed = relationSemantics(relation.type).isReversed();
     return {
       id: `rel-${index}`,
       sources: [reversed ? relation.target : relation.source],
@@ -460,7 +460,7 @@ async function layoutBlock(
     for (const edge of result.edges ?? []) {
       const index = Number((edge.id ?? '').slice('rel-'.length));
       const relation: PlantUmlRelation = model.relations[index];
-      const reversed = relationSemantics(relation.type).reversed;
+      const reversed = relationSemantics(relation.type).isReversed();
       const points = elkEdgePoints(edge, nodeById, offsets);
       edgeMap.set(index, reversed ? points.slice().reverse() : points);
     }

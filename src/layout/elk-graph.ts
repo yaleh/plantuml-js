@@ -25,12 +25,12 @@ export function packageMinWidth(name: string): number {
 
 /** Source endpoint of the edge *as laid out* (reversed for inheritance/implementation). */
 export function layoutSource(relation: PlantUmlRelation): string {
-  return relationSemantics(relation.type).reversed ? relation.target : relation.source;
+  return relationSemantics(relation.type).isReversed() ? relation.target : relation.source;
 }
 
 /** Target endpoint of the edge *as laid out* (reversed for inheritance/implementation). */
 export function layoutTarget(relation: PlantUmlRelation): string {
-  return relationSemantics(relation.type).reversed ? relation.source : relation.target;
+  return relationSemantics(relation.type).isReversed() ? relation.source : relation.target;
 }
 
 /** True when any relation connects entities that live in different containers. */

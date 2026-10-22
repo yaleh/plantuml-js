@@ -118,7 +118,7 @@ export const AUTO_REDUCTION_EDGE_NODE_RATIO = 3;
  */
 export function shouldAutoReduce(model: PlantUmlModel): boolean {
   if (model.relations.length === 0) return false;
-  if (!model.relations.every((r) => relationSemantics(r.type).bundlable)) return false;
+  if (!model.relations.every((r) => relationSemantics(r.type).isBundlable())) return false;
   const nodes = model.entities.length;
   const distinct = new Set(model.relations.map((r) => `${r.source}\u0000${r.target}`)).size;
   return distinct > AUTO_REDUCTION_EDGE_NODE_RATIO * nodes;
@@ -229,7 +229,7 @@ export function aggregateInterPackage(model: PlantUmlModel): PlantUmlModel {
     if (!('items' in r)) return r;
     const types = new Set(r.items.map((i) => i.type));
     const only = r.items.length === 1 ? r.items[0].type : [...types][0];
-    const type = types.size === 1 && relationSemantics(only).bundlable ? only : 'dependency';
+    const type = types.size === 1 && relationSemantics(only).isBundlable() ? only : 'dependency';
     return {
       source: top(r.srcCount),
       target: top(r.dstCount),

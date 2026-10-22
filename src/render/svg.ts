@@ -275,7 +275,7 @@ function findEdgeBundles(model: PlantUmlModel, edgesById: Map<string, EdgeLayout
   model.relations.forEach((rel, i) => {
     const edge = edgesById.get(`rel-${i}`);
     if (!edge || edge.points.length < 2 || rel.label || rel.feedback || rel.descriptions) return;
-    if (!relationSemantics(rel.type).bundlable) return;
+    if (!relationSemantics(rel.type).isBundlable()) return;
     const from = edge.points[0];
     const next = edge.points[1];
     const dx = next.x - from.x;
@@ -300,8 +300,8 @@ function renderBundle(
 ): string {
   const first = members[0].rel;
   const semantics = relationSemantics(first.type);
-  const color = semantics.weak ? theme.color.edgeWeak : theme.color.edge;
-  const dash = semantics.dashed ? theme.dash.weak : undefined;
+  const color = semantics.isWeak() ? theme.color.edgeWeak : theme.color.edge;
+  const dash = semantics.isDashed() ? theme.dash.weak : undefined;
   const totalWeight = members.reduce((sum, m) => sum + (m.rel.weight && m.rel.weight > 1 ? m.rel.weight : 1), 0);
   const strokeWidth = Math.min(theme.stroke.edge + Math.log2(members.length) * theme.stroke.weightStep, theme.stroke.edgeWidthMax);
 
@@ -358,18 +358,19 @@ function renderEdge(
   if (edge.points.length < 2) return '';
   const points = edge.points;
   const semantics = relationSemantics(rel.type);
-  const color = rel.feedback ? theme.color.warn : semantics.weak ? theme.color.edgeWeak : theme.color.edge;
+  const color = rel.feedback ? theme.color.warn : semantics.isWeak() ? theme.color.edgeWeak : theme.color.edge;
   // Line type carries relation kind only: the dashed fact comes from the
   // relation-semantics table; a cycle feedback edge is dash-dot. Weight is
   // width + opacity, never dashes.
-  const dash = rel.feedback ? theme.dash.feedback : semantics.dashed ? theme.dash.weak : undefined;
+  const dash = rel.feedback ? theme.dash.feedback : semantics.isDashed() ? theme.dash.weak : undefined;
   const { arrow } = theme;
 
-  const sourceTrim = semantics.arrowKind === 'diamond' ? arrow.diamond : 0;
+  const arrowKind = semantics.arrowKind();
+  const sourceTrim = arrowKind === 'diamond' ? arrow.diamond : 0;
   const targetTrim =
-    semantics.arrowKind === 'triangle'
+    arrowKind === 'triangle'
       ? arrow.triangle
-      : semantics.arrowKind === 'chevron'
+      : arrowKind === 'chevron'
         ? arrow.chevron
         : 0;
 
@@ -391,13 +392,13 @@ function renderEdge(
       ` stroke-linejoin="round"${nonScaling(theme)}${feedbackClass}/>`,
   );
 
-  if (semantics.arrowKind === 'diamond') {
-    parts.push(renderDiamond(points, semantics.filled, color, theme));
+  if (arrowKind === 'diamond') {
+    parts.push(renderDiamond(points, semantics.isFilled(), color, theme));
   }
-  if (semantics.arrowKind === 'triangle') {
+  if (arrowKind === 'triangle') {
     parts.push(renderTriangle(points, rel.type, color, theme));
   }
-  if (semantics.arrowKind === 'chevron') {
+  if (arrowKind === 'chevron') {
     parts.push(renderChevron(points, rel.type, color, theme));
   }
 

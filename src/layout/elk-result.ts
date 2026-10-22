@@ -125,7 +125,7 @@ export function mapElkResult(model: PlantUmlModel, result: ElkNode): LayoutResul
   const nodeById = new Map(nodes.map((n) => [n.id, n]));
   const laidEdges: EdgeLayout[] = (result.edges ?? []).map((edge, i) => {
     const relation = model.relations[i];
-    const reversed = relation !== undefined && relationSemantics(relation.type).reversed;
+    const reversed = relation !== undefined && relationSemantics(relation.type).isReversed();
     const points = edgePoints(edge, nodeById, offsets);
     return {
       id: edge.id ?? `rel-${i}`,

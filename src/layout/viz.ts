@@ -204,7 +204,7 @@ function clusterIndex(name: string): number | null {
 function edgeAttrs(relation: PlantUmlRelation): string {
   const attrs: string[] = [];
   const semantics = relationSemantics(relation.type);
-  switch (semantics.arrowKind) {
+  switch (semantics.arrowKind()) {
     case 'triangle':
       attrs.push('arrowhead="empty"');
       break;
@@ -212,10 +212,10 @@ function edgeAttrs(relation: PlantUmlRelation): string {
       attrs.push('arrowhead="vee"');
       break;
     case 'diamond':
-      attrs.push(`arrowhead="${semantics.filled ? 'diamond' : 'odiamond'}"`);
+      attrs.push(`arrowhead="${semantics.isFilled() ? 'diamond' : 'odiamond'}"`);
       break;
   }
-  if (semantics.dashed) attrs.push('style="dashed"');
+  if (semantics.isDashed()) attrs.push('style="dashed"');
   if (relation.label) attrs.push(`label=${quoteDotLabel(relation.label)}`);
   return attrs.length > 0 ? ` [${attrs.join(', ')}]` : '';
 }

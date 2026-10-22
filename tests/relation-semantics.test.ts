@@ -24,6 +24,18 @@ function implementationDash(svg: string): string | undefined {
   return / stroke-dasharray="([^"]+)"/.exec(group![1])?.[1];
 }
 
+/** The six facts of one relation type, read through the public method surface. */
+function factsOf(semantics: RelationSemantics) {
+  return {
+    reversed: semantics.isReversed(),
+    dashed: semantics.isDashed(),
+    arrowKind: semantics.arrowKind(),
+    filled: semantics.isFilled(),
+    weak: semantics.isWeak(),
+    bundlable: semantics.isBundlable(),
+  };
+}
+
 describe('relation semantics', () => {
   it('holds exactly one fact set per RelationType', () => {
     expect(Object.keys(RELATION_SEMANTICS).sort()).toEqual([...RELATION_TYPES].sort());
@@ -33,7 +45,7 @@ describe('relation semantics', () => {
   });
 
   it('locks the semantic fact of each relation type', () => {
-    const expected: Record<RelationType, RelationSemantics> = {
+    const expected: Record<RelationType, ReturnType<typeof factsOf>> = {
       inheritance: { reversed: true, dashed: false, arrowKind: 'triangle', filled: false, weak: false, bundlable: false },
       implementation: { reversed: true, dashed: true, arrowKind: 'triangle', filled: false, weak: false, bundlable: false },
       dependency: { reversed: false, dashed: true, arrowKind: 'chevron', filled: false, weak: true, bundlable: true },
@@ -41,7 +53,23 @@ describe('relation semantics', () => {
       aggregation: { reversed: false, dashed: false, arrowKind: 'diamond', filled: false, weak: false, bundlable: false },
       composition: { reversed: false, dashed: false, arrowKind: 'diamond', filled: true, weak: false, bundlable: false },
     };
-    expect(RELATION_SEMANTICS).toEqual(expected);
+    for (const type of RELATION_TYPES) {
+      expect(factsOf(relationSemantics(type))).toEqual(expected[type]);
+    }
+  });
+
+  it('falls back to anonymous-line facts for out-of-domain types', () => {
+    const unknown = relationSemantics('call' as RelationType);
+    expect(factsOf(unknown)).toEqual({
+      reversed: false,
+      dashed: false,
+      arrowKind: 'none',
+      filled: false,
+      weak: false,
+      bundlable: false,
+    });
+    // One shared fallback value object, not a fresh one per lookup.
+    expect(relationSemantics('call' as RelationType)).toBe(unknown);
   });
 
   it('renders the implementation edge dashed in BOTH the elk and viz engines', async () => {
