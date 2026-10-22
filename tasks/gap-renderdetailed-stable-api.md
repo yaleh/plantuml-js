@@ -1,7 +1,7 @@
 ---
 id: gap-renderdetailed-stable-api
 title: renderDetailed 作为公开、带类型、稳定 API 发布
-status: ready
+status: done
 labels:
   - gap
 parent: null
