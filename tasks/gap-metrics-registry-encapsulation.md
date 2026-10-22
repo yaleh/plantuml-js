@@ -1,7 +1,7 @@
 ---
 id: gap-metrics-registry-encapsulation
 title: 把 layout-metrics 的 25 个度量封装成 Metric 接口 + 注册表（加度量 = 注册而非改返回字面量）
-status: todo
+status: ready
 labels:
   - gap
   - layout
