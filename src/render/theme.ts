@@ -61,7 +61,7 @@ export interface Theme {
     /** Width of the label halo stroke. */
     labelHalo: number;
   };
-  /** Line types: weak = dependency (dashed), feedback = cycle back edge (dash-dot). Every other relation kind is solid. */
+  /** Line types: weak = dashed relation kinds (dependency, implementation); feedback = cycle back edge (dash-dot). Every other relation kind is solid. */
   dash: { weak: string; stub: string; feedback: string };
   arrow: { triangle: number; chevron: number; diamond: number };
   /** Spacing grid (px); node sizes snap to it. */

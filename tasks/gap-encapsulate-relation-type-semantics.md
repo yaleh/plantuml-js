@@ -1,7 +1,7 @@
 ---
 id: gap-encapsulate-relation-type-semantics
 title: 封装 RelationType 语义到单一来源，修掉 elk/viz 对 implementation 线型不一致的 bug
-status: ready
+status: done
 labels:
   - gap
   - layout
