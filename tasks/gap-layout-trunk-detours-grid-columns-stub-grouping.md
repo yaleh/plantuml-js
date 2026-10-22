@@ -53,3 +53,11 @@ depends_on:
 - tests/layout-metrics.test.ts
 - tests/stub-rail.test.ts
 - tests/stub-placement.test.ts
+
+## Blocker
+
+**2026-10-22T00:21:16.692Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 6/7，剩余未勾 1）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：f31533ce-917c-4c5b-9368-7473ab832059
