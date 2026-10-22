@@ -7,7 +7,7 @@
  */
 
 import { VizLayoutEngine } from './layout/viz.js';
-import { renderDot } from './foundation/render-dot.js';
+import { renderDot } from './layout/render-dot.js';
 import {
   createRenderer as createCoreRenderer,
   Renderer,
@@ -15,7 +15,7 @@ import {
 } from './core.js';
 
 export * from './core.js';
-export type { GraphvizEngine } from './foundation/render-dot.js';
+export type { GraphvizEngine } from './layout/render-dot.js';
 export { renderDot, VizLayoutEngine };
 
 /**
