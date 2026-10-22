@@ -22,11 +22,11 @@ extra:
 
 ## AC
 
-- [ ] `foundation` 零外部渲染依赖：`grep -rn "@viz-js/viz" src/foundation` 无命中；重新 `archguard_analyze` 后 package 图里 `foundation` 不再有指向 `@viz-js/viz` 的边
-- [ ] render-dot 归位：`src/layout/render-dot.ts` 存在且内容与移动前一致（git 视为 rename），`src/foundation/render-dot.ts` 不再存在
-- [ ] 消费者更新：`src/layout/viz.ts` 与 `src/index.ts` 的 `render-dot` import 改为新路径；`grep -rn "foundation/render-dot" src` 无命中
-- [ ] 目录环保持 0：`archguard_detect_cycles(outputScope="package")` 的环数仍为 0
-- [ ] 无行为回归：`npm run typecheck` 与 `npx vitest run` 全绿，`tests/viz.test.ts` 不改断言即通过；`renderDot` 的公开导出不变（`src/index.ts` 仍 re-export）；`npm run build` 退出码 0
+- [x] `foundation` 零外部渲染依赖：`grep -rn "@viz-js/viz" src/foundation` 无命中；重新 `archguard_analyze` 后 package 图里 `foundation` 不再有指向 `@viz-js/viz` 的边
+- [x] render-dot 归位：`src/layout/render-dot.ts` 存在且内容与移动前一致（git 视为 rename），`src/foundation/render-dot.ts` 不再存在
+- [x] 消费者更新：`src/layout/viz.ts` 与 `src/index.ts` 的 `render-dot` import 改为新路径；`grep -rn "foundation/render-dot" src` 无命中
+- [x] 目录环保持 0：`archguard_detect_cycles(outputScope="package")` 的环数仍为 0
+- [x] 无行为回归：`npm run typecheck` 与 `npx vitest run` 全绿，`tests/viz.test.ts` 不改断言即通过；`renderDot` 的公开导出不变（`src/index.ts` 仍 re-export）；`npm run build` 退出码 0
 
 ## DoD
 
@@ -35,6 +35,7 @@ extra:
 ## Touches
 
 - tasks/gap-move-render-dot-out-of-foundation.md
+- src/foundation/layout.ts
 - src/layout/render-dot.ts (new)
 - src/layout/viz.ts
 - src/index.ts
