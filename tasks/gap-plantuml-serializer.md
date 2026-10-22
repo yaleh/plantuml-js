@@ -32,3 +32,11 @@ Architecture-tab 用 `toPlantUml(renderDetailed().model)` 复制「当前可见�
 - src/core.ts
 - tests/serialize.test.ts
 - tasks/gap-plantuml-serializer.md
+
+## Blocker
+
+**2026-10-22T09:00:39.025Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 0/3，剩余未勾 3）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：54dda3ba-4032-4c27-a83f-b9be38b07af9
