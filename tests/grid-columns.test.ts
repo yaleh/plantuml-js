@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { parsePlantUml, ElkLayoutEngine, transformFullGraph } from '../src/index.js';
+import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
 import { gridPack } from '../src/layout/compound.js';
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
@@ -51,6 +52,26 @@ describe('gridPack: unconnected boxes in equal columns', () => {
   });
 });
 
+describe('gridPack: tight columns', () => {
+  const boxes = Array.from({ length: 12 }, (_, i) => ({ id: `n${i}`, width: 64 + i * 40, height: 40 }));
+  const packed = gridPack(boxes, boxes.map((b) => b.id), 1.3, 24, 24);
+  const cells = packed.children ?? [];
+
+  it('spaces adjacent columns by the column widest box plus the gap, and wraps the frame round them', () => {
+    const lefts = [...new Set(cells.map((c) => Math.round(c.x ?? 0)))].sort((a, b) => a - b);
+    expect(lefts.length).toBeGreaterThan(1);
+    const widths: number[] = [];
+    lefts.forEach((left, k) => {
+      const col = cells.filter((c) => Math.round(c.x ?? 0) === left);
+      const widest = Math.max(...col.map((c) => c.width ?? 0));
+      widths.push(widest);
+      if (k > 0) expect(left - lefts[k - 1]).toBeLessThanOrEqual(widths[k - 1] + 32);
+    });
+    const inner = 20; // SHELF_PADDING side × 2
+    expect(packed.width ?? 0).toBeLessThanOrEqual(widths.reduce((a, b) => a + b, 0) + 24 * (lefts.length - 1) + inner + 1e-6);
+  });
+});
+
 describe('m-package Tests Layer', () => {
   it('is a tidy grid, top-aligned with the small boxes beside it', async () => {
     const parsed = parsePlantUml(readFileSync(join(fixtures, 'archguard-package.puml'), 'utf8'));
@@ -62,6 +83,16 @@ describe('m-package Tests Layer', () => {
     const nodes = layout.nodes.filter((n) => ids.has(n.id));
     expect(nodes.length).toBe(12);
     expectGrid(nodes);
+    const lefts = [...new Set(nodes.map((n) => Math.round(n.x)))].sort((a, b) => a - b);
+    lefts.forEach((left, k) => {
+      if (k === 0) return;
+      const prev = nodes.filter((n) => Math.round(n.x) === lefts[k - 1]);
+      expect(left - lefts[k - 1]).toBeLessThanOrEqual(Math.max(...prev.map((n) => n.width)) + 32);
+    });
+    const colSum = lefts.reduce((s, left) => s + Math.max(...nodes.filter((n) => Math.round(n.x) === left).map((n) => n.width)), 0);
+    expect(frame.width).toBeLessThanOrEqual(colSum + 32 * (lefts.length - 1) + 40);
+    expect(computeLayoutMetrics({ ...model, entities: model.entities.filter((e) => ids.has(e.id)) }, { ...layout, nodes, edges: [], packages: [frame], width: layout.width, height: layout.height }).frameFillRatio).toBeGreaterThanOrEqual(0.4);
+    expect(layout.width).toBeLessThanOrEqual(1700);
     const aspect = frame.width / frame.height;
     expect(aspect).toBeGreaterThanOrEqual(0.8);
     expect(aspect).toBeLessThanOrEqual(2.0);

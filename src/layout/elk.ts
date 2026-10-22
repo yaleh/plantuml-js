@@ -50,7 +50,7 @@ import { buildElkGraph } from './elk-graph.js';
 import { clipPackageEndpoints } from './package-endpoints.js';
 import { mapElkResult } from './elk-result.js';
 import { spreadParallelLanes } from './lane-spread.js';
-import { straightenTrunkDetours } from './trunk-lanes.js';
+import { straightenTrunkDetours, liftFlushSegments, uncoilWraps } from './trunk-lanes.js';
 import { mergeFanoutTrunks } from './fanout-trunk.js';
 import { runStrategies, type LayoutStrategy } from './strategy.js';
 
@@ -166,6 +166,42 @@ interface RunOptions {
 }
 
 
+/** Clear space kept between any edge point and the canvas side. */
+export const CANVAS_EDGE_MARGIN = 16;
+
+/**
+ * Translate and grow the canvas so no edge point (or node/frame) sits closer
+ * than [[CANVAS_EDGE_MARGIN]] to a canvas side — a line hugging the border is
+ * easily cropped.
+ */
+export function fitCanvas(layout: LayoutResult): LayoutResult {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  const take = (x: number, y: number): void => {
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  };
+  for (const e of layout.edges ?? []) for (const p of e.points) take(p.x, p.y);
+  if (minX === Infinity) return layout;
+  const dx = Math.max(0, CANVAS_EDGE_MARGIN - minX);
+  const dy = Math.max(0, CANVAS_EDGE_MARGIN - minY);
+  const width = Math.max(layout.width + dx, maxX + dx + CANVAS_EDGE_MARGIN);
+  const height = Math.max(layout.height + dy, maxY + dy + CANVAS_EDGE_MARGIN);
+  if (dx === 0 && dy === 0 && width === layout.width && height === layout.height) return layout;
+  return {
+    ...layout,
+    nodes: layout.nodes.map((n) => ({ ...n, x: n.x + dx, y: n.y + dy })),
+    edges: layout.edges.map((e) => ({ ...e, points: e.points.map((p) => ({ x: p.x + dx, y: p.y + dy })) })),
+    packages: layout.packages?.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy })),
+    width,
+    height,
+  };
+}
+
 export class ElkLayoutEngine implements LayoutEngine {
   private readonly elk = new ElkConstructor();
   private readonly options: ElkLayoutOptions;
@@ -176,8 +212,15 @@ export class ElkLayoutEngine implements LayoutEngine {
 
   async layout(model: PlantUmlModel): Promise<LayoutResult> {
     const finish = (raw: LayoutResult): LayoutResult =>
-      straightenTrunkDetours(
-        mergeFanoutTrunks(model, spreadParallelLanes(clipPackageEndpoints(model, alignIsolatedFrames(model, alignRows(model, raw))))),
+      fitCanvas(
+        liftFlushSegments(
+          // stub views price crossings high on purpose: their rail edges are not un-coiled
+          (model.entities.some((e) => e.stub) ? (l: LayoutResult) => l : uncoilWraps)(
+            straightenTrunkDetours(
+              mergeFanoutTrunks(model, spreadParallelLanes(clipPackageEndpoints(model, alignIsolatedFrames(model, alignRows(model, raw))))),
+            ),
+          ),
+        ),
       );
     if (!model.entities.some((e) => e.stub)) return finish((await this.layoutRaw(model)).layout);
     // Where the orbiting stubs sit decides how the router weaves their edges

@@ -581,7 +581,7 @@ export function groupStubs(
     } else if (list[0] === e) {
       const id = `stub::group::${key}`;
       for (const m of list) groupId.set(m.id, id);
-      entities.push({ ...e, id, name: `${key} … (×${list.length})` });
+      entities.push({ ...e, id, name: `${list.length} other ${key} packages`, groupMembers: list.map((m) => m.name) });
     }
   }
   const merged = new Map<string, PlantUmlRelation>();

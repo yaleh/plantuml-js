@@ -47,6 +47,8 @@ export interface PlantUmlEntity {
    * no members and are drawn with a distinct frame.
    */
   stub?: boolean;
+  /** Names of the stubs merged into a group stub; listed in its `<title>`. */
+  groupMembers?: string[];
   /**
    * True when the entity was never declared and only exists because a relation
    * named it (an implicit/external type such as `Error`). Drawn with a weaker

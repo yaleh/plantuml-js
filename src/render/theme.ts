@@ -43,9 +43,9 @@ export interface Theme {
     package: number;
     edge: number;
     arrow: number;
-    /** Extra width per merged relation and the cap. */
+    /** Width grows by two steps per ×`heavyWeight` merged relations (log-scaled); `edgeWidthMax` caps it. */
     weightStep: number;
-    weightMax: number;
+    edgeWidthMax: number;
     /** Width of a cycle feedback edge (weight can only widen it). */
     feedback: number;
     /** Weight (merged relations) from which an edge counts as heavy. */
@@ -100,7 +100,7 @@ export const defaultTheme: Theme = {
     edge: 1,
     arrow: 1,
     weightStep: 0.5,
-    weightMax: 6,
+    edgeWidthMax: 4,
     feedback: 1.5,
     heavyWeight: 3,
     opacity: { light: 0.8, medium: 0.9, strong: 1, feedback: 0.95 },

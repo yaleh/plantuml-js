@@ -59,17 +59,26 @@ const SPARSE_MIN_NODES = 30;
 const FLOW_LAYER_GAP = 24;
 /** Dense graphs pack their blocks taller so the placed blocks do not stretch the canvas. */
 const DENSE_SHELF_ASPECT_SCALE = 0.6;
-/** Rows read better a little wider than the canvas target; the layers above add height. */
+/** Block rows aim for the canvas ratio itself: wider rows stretch the canvas past what the layers above can balance. */
 const SHELF_ASPECT_SCALE = 1.25;
+/**
+ * A repacked block wider than this is packed again at a lower ratio (see
+ * [[SHELF_NARROW_SCALES]]): one wide block sets the canvas width of the whole diagram.
+ */
+const SHELF_MAX_WIDTH = 1600;
+const SHELF_NARROW_SCALES = [1.0, 0.8];
 /** Node gap of a repacked block: wide enough channels for several edge lanes. */
 const SHELF_GAP = 72;
 /** Unconnected boxes from this many up are laid out as an equal-column grid. */
 const GRID_MIN_NODES = 6;
 /** Canvas ratio an equal-column grid aims for, and the gap between its cells. */
 const GRID_ASPECT = 1.3;
-const GRID_GAP = 40;
-/** Row gap: wider, since the cross-block edges to the boxes run through it. */
-const GRID_ROW_GAP = 50;
+const GRID_GAP = 24;
+/** Dense (very large) graphs keep the uniform grid: the looser blocks pack into a smaller canvas. */
+const DENSE_GRID_GAP = 40;
+const DENSE_GRID_ROW_GAP = 50;
+/** Row gap, as tight as the column gap: the grid router finds its lanes between rows either way. */
+const GRID_ROW_GAP = 24;
 const SHELF_PADDING = { top: 26, side: 10, bottom: 10 };
 const SPARSE_DENSITY = 0.16;
 
@@ -386,7 +395,9 @@ async function layoutBlock(
   if (gridable) {
     // Unconnected boxes have no flow to follow: an equal-column grid reads
     // better than ragged shelf rows.
-    result = gridPack(rootChildren, flowOrder, GRID_ASPECT, GRID_GAP, GRID_ROW_GAP);
+    result = options.dense
+      ? gridPack(rootChildren, flowOrder, GRID_ASPECT, DENSE_GRID_GAP, DENSE_GRID_ROW_GAP, false)
+      : gridPack(rootChildren, flowOrder, GRID_ASPECT, GRID_GAP, GRID_ROW_GAP);
     repacked = true;
   } else if (!hasNested && (options.dense || sparse || aspect > BLOCK_MAX_ASPECT || aspect < 1 / BLOCK_MAX_ASPECT)) {
     // A single wide layer cannot be wrapped by the layered algorithm; pack the
@@ -404,12 +415,7 @@ async function layoutBlock(
             },
             children: rootChildren,
           })
-        : orderedShelfPack(
-            rootChildren,
-            flowOrder,
-            (options.aspectRatio ?? 1.6) * (options.dense ? DENSE_SHELF_ASPECT_SCALE : SHELF_ASPECT_SCALE),
-            options.dense ? DENSE_NODE_SPACING : SHELF_GAP,
-          );
+        : packShelves(rootChildren, flowOrder, options, (h) => (hubs.length > 0 ? placeHubRail(hubs, h).width : 0));
     repacked = true;
   }
 
@@ -544,39 +550,87 @@ function orderedShelfPack(children: ElkNode[], order: string[], aspect: number, 
  * Equal-column grid for unconnected boxes: the column width is the widest box,
  * rows are as tall as their tallest box and boxes are top-left aligned, so
  * columns and rows line up. The column count is the one whose block lands
- * closest to `aspect`; the last row alone may be short.
+ * closest to `aspect`; the last row alone may be short. `tight` sizes each column
+ * to its own widest box and hands the narrowest boxes to the first columns; without
+ * it every column is as wide as the widest box overall and the flow order is kept.
  */
-export function gridPack(children: ElkNode[], order: string[], aspect: number, gap: number, rowGap = gap): ElkNode {
+export function gridPack(
+  children: ElkNode[],
+  order: string[],
+  aspect: number,
+  gap: number,
+  rowGap = gap,
+  tight = true,
+): ElkNode {
   const rank = new Map(order.map((id, i) => [id, i]));
-  const items = children.slice().sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+  const byFlow = children.slice().sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+  // Narrowest first: filling the columns top-down in that order keeps similar
+  // widths together, so each column is only as wide as its own widest box.
+  const byWidth = tight ? byFlow.slice().sort((a, b) => (a.width ?? 0) - (b.width ?? 0)) : byFlow;
+  const widest = Math.max(0, ...byFlow.map((c) => c.width ?? 0));
   const { top, side, bottom } = SHELF_PADDING;
-  const colW = Math.max(0, ...items.map((c) => c.width ?? 0));
-  const heightFor = (cols: number): { rowH: number[]; height: number } => {
+  const arrange = (cols: number) => {
+    // Slots fill row by row (only the last row may be short) but are handed
+    // out column by column.
+    const slots = byWidth.map((_, i) => ({ r: Math.floor(i / cols), c: i % cols }));
+    slots.sort((p, q) => p.c - q.c || p.r - q.r);
+    const cells = byWidth.map((item, i) => ({ item, ...slots[i] }));
+    const colW: number[] = Array.from({ length: cols }, () => 0);
     const rowH: number[] = [];
-    items.forEach((c, i) => {
-      const r = Math.floor(i / cols);
-      rowH[r] = Math.max(rowH[r] ?? 0, c.height ?? 0);
-    });
-    return { rowH, height: top + bottom + rowH.reduce((a, b) => a + b, 0) + rowGap * (rowH.length - 1) };
+    for (const { item, r, c } of cells) {
+      colW[c] = tight ? Math.max(colW[c], item.width ?? 0) : widest;
+      rowH[r] = Math.max(rowH[r] ?? 0, item.height ?? 0);
+    }
+    return {
+      cells,
+      colW,
+      rowH,
+      width: 2 * side + colW.reduce((a, b) => a + b, 0) + (cols - 1) * gap,
+      height: top + bottom + rowH.reduce((a, b) => a + b, 0) + rowGap * (rowH.length - 1),
+    };
   };
   let best = { cols: 1, miss: Infinity };
-  for (let cols = 1; cols <= items.length; cols++) {
-    const w = 2 * side + cols * colW + (cols - 1) * gap;
-    const miss = Math.abs(Math.log(w / Math.max(1, heightFor(cols).height) / aspect));
+  for (let cols = 1; cols <= byWidth.length; cols++) {
+    const g = arrange(cols);
+    const miss = Math.abs(Math.log(g.width / Math.max(1, g.height) / aspect));
     if (miss < best.miss - 1e-9) best = { cols, miss };
   }
-  const { rowH, height } = heightFor(best.cols);
+  const g = arrange(best.cols);
+  const colX: number[] = [];
+  let x = side;
+  for (const w of g.colW) {
+    colX.push(x);
+    x += w + gap;
+  }
   const rowY: number[] = [];
   let y = top;
-  for (const h of rowH) {
+  for (const h of g.rowH) {
     rowY.push(y);
     y += h + rowGap;
   }
-  items.forEach((c, i) => {
-    c.x = side + (i % best.cols) * (colW + gap);
-    c.y = rowY[Math.floor(i / best.cols)];
-  });
-  return { id: 'block', width: 2 * side + best.cols * colW + (best.cols - 1) * gap, height, children: items };
+  for (const { item, r, c } of g.cells) {
+    item.x = colX[c];
+    item.y = rowY[r];
+  }
+  return { id: 'block', width: g.width, height: g.height, children: byFlow };
+}
+
+/** Ordered shelf packing of a flat block; a block that comes out too wide is repacked taller. */
+function packShelves(
+  children: ElkNode[],
+  order: string[],
+  options: CompoundOptions,
+  railWidth: (blockHeight: number) => number,
+): ElkNode {
+  const aspect = options.aspectRatio ?? 1.6;
+  const gap = options.dense ? DENSE_NODE_SPACING : SHELF_GAP;
+  if (options.dense) return orderedShelfPack(children, order, aspect * DENSE_SHELF_ASPECT_SCALE, gap);
+  let packed = orderedShelfPack(children, order, aspect * SHELF_ASPECT_SCALE, gap);
+  for (const scale of SHELF_NARROW_SCALES) {
+    if ((packed.width ?? 0) + railWidth(packed.height ?? 0) <= SHELF_MAX_WIDTH) break;
+    packed = orderedShelfPack(children, order, aspect * scale, gap);
+  }
+  return packed;
 }
 
 /** Node area ÷ block area of a layered result; low means a sparse, mostly empty block. */
@@ -810,6 +864,7 @@ async function placeBlocks(
     const relation = model.relations[index];
     const a = blockOfEntity.get(relation.source)!;
     const b = blockOfEntity.get(relation.target)!;
+    if (!blocks.has(a) || !blocks.has(b)) continue; // an orbiting stub: placed after the main blocks
     const pair = `${a}\u0000${b}`;
     if (seen.has(pair)) continue;
     seen.add(pair);

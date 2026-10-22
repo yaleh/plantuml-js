@@ -117,6 +117,18 @@ export interface LayoutMetrics {
    * is hard to tell from its outline.
    */
   edgeNodeFlush: number;
+  /**
+   * Smallest node-area ÷ frame-area over the package frames holding at least
+   * [[FRAME_FILL_MIN_NODES]] nodes (1 when no frame qualifies): low means a
+   * stretched, mostly empty frame.
+   */
+  frameFillRatio: number;
+  /**
+   * Smallest distance from any edge point to a canvas side (the shorter canvas
+   * side when there are no edges): a line hugging the canvas edge is easily
+   * cropped.
+   */
+  edgeCanvasMargin: number;
 }
 
 export function computeLayoutMetrics(
@@ -155,6 +167,8 @@ export function computeLayoutMetrics(
     trunkDetourCount: countTrunkDetours(edges),
     nestedLoopCount: countNestedLoops(edges, layout),
     edgeNodeFlush: countEdgeNodeFlush(edges, layout),
+    frameFillRatio: computeFrameFillRatio(layout),
+    edgeCanvasMargin: computeEdgeCanvasMargin(edges, layout),
   };
 }
 
@@ -163,6 +177,41 @@ export const TRUNK_DETOUR_FACTOR = 2;
 /** Distance (px) and run (px) for [[LayoutMetrics.edgeNodeFlush]]. */
 export const EDGE_NODE_FLUSH_DISTANCE = 4;
 export const EDGE_NODE_FLUSH_MIN_LENGTH = 40;
+
+/** Frames with at least this many nodes count for [[LayoutMetrics.frameFillRatio]]. */
+export const FRAME_FILL_MIN_NODES = 6;
+
+function computeFrameFillRatio(layout: LayoutResult): number {
+  const frames = (layout.packages ?? []).slice().sort((p, q) => p.width * p.height - q.width * q.height);
+  const stats = new Map<string, { area: number; count: number }>();
+  for (const n of layout.nodes) {
+    const cx = n.x + n.width / 2;
+    const cy = n.y + n.height / 2;
+    const f = frames.find((p) => cx >= p.x && cx <= p.x + p.width && cy >= p.y && cy <= p.y + p.height);
+    if (!f) continue;
+    const s = stats.get(f.id) ?? { area: 0, count: 0 };
+    s.area += n.width * n.height;
+    s.count++;
+    stats.set(f.id, s);
+  }
+  let ratio = 1;
+  for (const f of frames) {
+    const s = stats.get(f.id);
+    if (!s || s.count < FRAME_FILL_MIN_NODES || f.width * f.height <= 0) continue;
+    ratio = Math.min(ratio, s.area / (f.width * f.height));
+  }
+  return ratio;
+}
+
+function computeEdgeCanvasMargin(edges: EdgeLayout[], layout: LayoutResult): number {
+  let margin = Math.min(layout.width, layout.height);
+  for (const e of edges) {
+    for (const p of e.points) {
+      margin = Math.min(margin, p.x, p.y, layout.width - p.x, layout.height - p.y);
+    }
+  }
+  return margin;
+}
 
 function countTrunkDetours(edges: EdgeLayout[]): number {
   let count = 0;

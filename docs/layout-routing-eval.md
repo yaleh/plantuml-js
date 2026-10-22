@@ -355,3 +355,33 @@ siblings of one row that arch over the nodes between them (no lane exists there)
 thresholds are the measured values (m-package 9, l-plugins 4, XL 11), not 0. `m-package`'s `edgeFlushCount`
 and `overlappingEdgeLength` move with the grid row gap (50 px) in a chaotic way; 50 was the value that kept every
 threshold.
+
+## Round 10: tight grid columns, readable group stubs, capped line width, un-coil, canvas margin
+
+`gap-layout-grid-density-stub-labels-nested-loops`. Two new metrics: `frameFillRatio` (smallest node-area ÷
+frame-area over frames with ≥ 6 nodes) and `edgeCanvasMargin` (closest edge point to a canvas side; every sample
+now needs ≥ 12 px).
+
+- **Grid columns**: `gridPack` sizes each column to its own widest box, hands the narrowest boxes to the first
+  columns and uses a 24 px column/row gap. `m-package` Tests Layer 924×526 (fill 0.28) → 780×396 (fill 0.44).
+  Dense graphs keep the uniform grid (40/50 px): the tighter blocks packed the 660-entity canvas past the
+  100M px budget. A flat block that repacks wider than 1600 px (hub rail included) is packed again taller, so one
+  block does not set the canvas width (`m-package` 1876 → 1644 wide).
+- **Group stubs** read `19 other Src packages` and list every member in their `<title>`.
+- **Line width** is log-scaled (two `weightStep`s per ×`heavyWeight`) and capped by `theme.stroke.edgeWidthMax` = 4.
+- **Un-coil** (`uncoilWraps`, after the fan-out merge; skipped in stub views): an edge whose U-turn encloses a
+  node is re-routed on the lattice with crossings priced 6 / 3 / 1.5, against every other edge as a fixed wire, and
+  kept when it wraps fewer nodes, adds ≤ 5 crossings and opens no new comb. Doing it inside the router's own
+  rip-up loop reshuffled the fan-out merge's input and left a comb in the l-plugins Java frame; after the merge it
+  does not. `liftFlushSegments` moves a segment hugging an end node's side 8–40 px off it, preferring a lift that
+  keeps clear of neighbouring lanes. `fitCanvas` grows the canvas so no edge is within 16 px of its border.
+
+| sample | crossings | nested loops | canvas |
+| --- | --- | --- | --- |
+| `m-package` | 244 → 287 | 9 → 2 | 1876×1418 → 1644×1652 |
+| `m-types-view` | 78 → 35 | 0 → 0 | 2188×1700 → 2206×1832 |
+| `l-plugins` | 137 → 171 | 4 → 1 | 2746×3006 → ≈ unchanged |
+| `xl-all-classes` | 614 → 664 | 11 → 2 | ≈ unchanged |
+
+Cost: un-coiling trades loops for crossings (`l-plugins` sits 0.25 under the +25% `--compare` limit); thresholds
+are m-package 3, l-plugins 1, XL 4.

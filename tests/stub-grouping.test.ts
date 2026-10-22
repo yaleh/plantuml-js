@@ -38,7 +38,15 @@ describe('single-package view stub grouping', () => {
     const view = applyView(manyStubModel(), { kind: 'package', id: 'P' });
     const stubs = view.entities.filter((e) => e.stub);
     expect(stubs.length).toBeLessThanOrEqual(8);
-    expect(stubs.some((s) => /…\s*\(×\d+\)/.test(s.name))).toBe(true);
+    const groups = stubs.filter((s) => s.groupMembers);
+    expect(groups.length).toBeGreaterThan(0);
+    for (const g of groups) {
+      // readable label: member count and the "other packages" meaning, never `Src … (×N)`
+      expect(g.name).toMatch(/^\d+ other .+ packages$/);
+      expect(g.name).toContain(String(g.groupMembers!.length));
+      expect(g.name).not.toMatch(/…|\(×/);
+    }
+    expect(stubs.some((s) => /…\s*\(×\d+\)/.test(s.name))).toBe(false);
     const grouped = view.relations.filter((r) => (r.weight ?? 1) > 1);
     expect(grouped.length).toBeGreaterThan(0);
     // every original edge is still accounted for, one description each
@@ -53,6 +61,17 @@ describe('single-package view stub grouping', () => {
     });
     expect(svg).toMatch(/×\d+/);
     expect(svg).toMatch(/<title>[^<]*dependency[^<]*<\/title>/);
+  }, 60_000);
+
+  it('lists every member of a group stub in its <title>', async () => {
+    const { svg, model } = await renderDetailed(manyStubModel(), {
+      layout: new ElkLayoutEngine(),
+      view: { kind: 'package', id: 'P' },
+    });
+    for (const g of model.entities.filter((e) => e.groupMembers)) {
+      const title = new RegExp(`<title>([^<]*${g.groupMembers![0]}[^<]*)</title>`).exec(svg)?.[1] ?? '';
+      for (const member of g.groupMembers!) expect(title).toContain(member);
+    }
   }, 60_000);
 
   it('leaves the view alone at or below the threshold, and honours stubGroupThreshold', () => {
@@ -76,5 +95,18 @@ describe('single-package view stub grouping', () => {
     });
     expect(model.entities.filter((e) => e.stub).length).toBeLessThanOrEqual(8);
     expect(layout.height).toBeLessThanOrEqual(2068 * 0.85);
+  }, 120_000);
+
+  it('m-types-view: group stubs carry readable names, no `… (×N)` literals', async () => {
+    const parsed = parsePlantUml(readFileSync(join(fixtures, 'all-classes.puml'), 'utf8'));
+    const { svg, model } = await renderDetailed(parsed, {
+      layout: new ElkLayoutEngine(),
+      view: { kind: 'package', id: 'Src_Types_Layer' },
+    });
+    expect(svg).not.toContain('… (×');
+    expect(svg).not.toContain('…（×');
+    const groups = model.entities.filter((e) => e.groupMembers);
+    expect(groups.length).toBeGreaterThan(0);
+    for (const g of groups) expect(g.name).toMatch(/^\d+ other .+ packages$/);
   }, 120_000);
 });

@@ -369,6 +369,8 @@ describe('computeLayoutMetrics', () => {
       trunkDetourCount: 0,
       nestedLoopCount: 0,
       edgeNodeFlush: 0,
+      frameFillRatio: 1,
+      edgeCanvasMargin: 0,
     });
   });
 
@@ -769,5 +771,38 @@ describe('computeLayoutMetrics: trunk detours, nested loops, node-flush edges', 
       edges: [edge('rel-0', 'A', 'B', [[100, 40], [100, 120], [300, 120]])],
     };
     expect(computeLayoutMetrics(emptyModel, clear).edgeNodeFlush).toBe(0);
+  });
+});
+
+describe('computeLayoutMetrics: frameFillRatio and edgeCanvasMargin', () => {
+  const emptyModel: PlantUmlModel = { diagramType: 'class', entities: [], relations: [], packages: [] };
+  const node = (id: string, x: number, y: number) => ({ id, x, y, width: 50, height: 20 });
+
+  it('measures the emptiest frame holding at least 6 nodes', () => {
+    const nodes = Array.from({ length: 6 }, (_, i) => node(`n${i}`, 10 + (i % 2) * 100, 10 + Math.floor(i / 2) * 40));
+    const layout: LayoutResult = {
+      nodes: [...nodes, node('lone', 400, 10)],
+      edges: [],
+      packages: [
+        { id: 'Big', x: 0, y: 0, width: 200, height: 150 },
+        { id: 'Small', x: 390, y: 0, width: 100, height: 100 },
+      ],
+      width: 500,
+      height: 200,
+    };
+    // 6 nodes × 1000 px² in a 200×150 frame; the 1-node frame is ignored
+    expect(computeLayoutMetrics(emptyModel, layout).frameFillRatio).toBeCloseTo(6000 / 30000, 6);
+    expect(computeLayoutMetrics(emptyModel, { ...layout, packages: [] }).frameFillRatio).toBe(1);
+  });
+
+  it('measures the closest edge point to any canvas side', () => {
+    const layout: LayoutResult = {
+      nodes: [node('A', 30, 30), node('B', 200, 30)],
+      edges: [{ id: 'rel-0', source: 'A', target: 'B', points: [{ x: 80, y: 40 }, { x: 80, y: 7 }, { x: 225, y: 7 }, { x: 225, y: 30 }] }],
+      width: 300,
+      height: 100,
+    };
+    expect(computeLayoutMetrics(emptyModel, layout).edgeCanvasMargin).toBe(7);
+    expect(computeLayoutMetrics(emptyModel, { ...layout, edges: [] }).edgeCanvasMargin).toBe(100);
   });
 });

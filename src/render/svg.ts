@@ -144,6 +144,7 @@ function renderEntity(entity: PlantUmlEntity, node: NodeLayout, theme: Theme): s
   const { color, font } = theme;
 
   const parts: string[] = [];
+  if (entity.groupMembers) parts.push(`<title>${entity.groupMembers.map(escapeXml).join('\n')}</title>`);
   const weak = stub || entity.external === true;
   const stubAttrs = weak
     ? ` class="${stub ? 'uml-stub' : 'uml-external'}" stroke-dasharray="${theme.dash.stub}"`
@@ -287,7 +288,7 @@ function renderBundle(
   const color = weak ? theme.color.edgeWeak : theme.color.edge;
   const dash = weak ? theme.dash.weak : undefined;
   const totalWeight = members.reduce((sum, m) => sum + (m.rel.weight && m.rel.weight > 1 ? m.rel.weight : 1), 0);
-  const strokeWidth = Math.min(theme.stroke.edge + Math.log2(members.length) * theme.stroke.weightStep, theme.stroke.weightMax);
+  const strokeWidth = Math.min(theme.stroke.edge + Math.log2(members.length) * theme.stroke.weightStep, theme.stroke.edgeWidthMax);
 
   const seen = new Set<string>();
   const segments: string[] = [];
@@ -365,7 +366,7 @@ function renderEdge(
   // semi-transparent line, plus a `×N` label when more than one relation
   // collapsed into this edge.
   const weight = rel.weight && rel.weight > 1 ? rel.weight : 1;
-  const weightWidth = Math.min(theme.stroke.edge + (weight - 1) * theme.stroke.weightStep, theme.stroke.weightMax);
+  const weightWidth = Math.min(theme.stroke.edge + 2 * theme.stroke.weightStep * (Math.log(weight) / Math.log(theme.stroke.heavyWeight)), theme.stroke.edgeWidthMax);
   const strokeWidth = rel.feedback ? Math.max(theme.stroke.feedback, weightWidth) : weightWidth;
   const opacity = ` stroke-opacity="${edgeOpacity(weight, !!rel.feedback, theme)}"`;
   const feedbackClass = rel.feedback ? ' class="uml-feedback"' : '';

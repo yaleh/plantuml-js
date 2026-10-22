@@ -58,6 +58,22 @@ describe('line semantics', () => {
     expect(dash.feedback).not.toBe(dash.weak);
   });
 
+  it('caps the width of heavy edges and scales it logarithmically', () => {
+    const widthOf = (weight: number): number => {
+      const m: PlantUmlModel = {
+        ...model,
+        relations: [{ source: 'H', target: 'L', type: 'association', weight }],
+      };
+      const l: LayoutResult = { ...layout, edges: [{ ...layout.edges[types.length], id: 'rel-0' }] };
+      return Number(attr(path(renderSvg(m, l), 'H', 'L'), 'stroke-width'));
+    };
+    for (const weight of [2, 5, 11, 20, 51, 500, 100000]) expect(widthOf(weight)).toBeLessThanOrEqual(defaultTheme.stroke.edgeWidthMax);
+    expect(defaultTheme.stroke.edgeWidthMax).toBeLessThanOrEqual(4);
+    expect(widthOf(51)).not.toBe(widthOf(20));
+    expect(widthOf(51)).toBeGreaterThan(widthOf(20));
+    expect(widthOf(20)).toBeGreaterThan(widthOf(11));
+  });
+
   it('encodes weight with width and opacity, not dashes', () => {
     const heavy = path(svg, 'H', 'L');
     const light = path(svg, 'H', 'W');

@@ -13,6 +13,7 @@
       "source": "archguard-class.puml",
       "thresholds": {
         "edgeNodeFlush": { "max": 0 },
+        "edgeCanvasMargin": { "min": 12 },
         "parallelBundleCount": { "max": 1 },
         "edgeFlushCount": { "max": 0 },
         "edgeNodeIntersections": { "max": 0 },
@@ -26,6 +27,7 @@
       "source": "archguard-architecture-manual.puml",
       "thresholds": {
         "edgeNodeFlush": { "max": 0 },
+        "edgeCanvasMargin": { "min": 12 },
         "parallelBundleCount": { "max": 1 },
         "edgeNodeIntersections": { "max": 0 },
         "aspectRatio": { "min": 0.6, "max": 2.2 },
@@ -39,6 +41,7 @@
       "view": { "kind": "package", "id": "Src_Cli_Utils_Layer" },
       "thresholds": {
         "edgeNodeFlush": { "max": 0 },
+        "edgeCanvasMargin": { "min": 12 },
         "parallelBundleCount": { "max": 1 },
         "edgeNodeIntersections": { "max": 0 },
         "aspectRatio": { "min": 0.6, "max": 2.2 },
@@ -51,6 +54,7 @@
       "source": "archguard-architecture.puml",
       "thresholds": {
         "edgeNodeFlush": { "max": 0 },
+        "edgeCanvasMargin": { "min": 12 },
         "trunkDetourCount": { "max": 3 },
         "nestedLoopCount": { "max": 1 },
         "parallelBundleCount": { "max": 1 },
@@ -66,8 +70,9 @@
       "source": "archguard-package.puml",
       "thresholds": {
         "edgeNodeFlush": { "max": 0 },
+        "edgeCanvasMargin": { "min": 12 },
         "trunkDetourCount": { "max": 3 },
-        "nestedLoopCount": { "max": 9 },
+        "nestedLoopCount": { "max": 3 },
         "parallelBundleCount": { "max": 1 },
         "overlappingEdgeLength": { "max": 6000 },
         "maxEmptyBlockRatio": { "max": 0.14 },
@@ -82,6 +87,7 @@
       "view": { "kind": "package", "id": "Src_Mermaid_Layer" },
       "thresholds": {
         "edgeNodeFlush": { "max": 0 },
+        "edgeCanvasMargin": { "min": 12 },
         "trunkDetourCount": { "max": 3 },
         "nestedLoopCount": { "max": 1 },
         "parallelBundleCount": { "max": 1 },
@@ -98,6 +104,7 @@
       "view": { "kind": "package", "id": "Src_Types_Layer" },
       "thresholds": {
         "edgeNodeFlush": { "max": 0 },
+        "edgeCanvasMargin": { "min": 12 },
         "trunkDetourCount": { "max": 3 },
         "nestedLoopCount": { "max": 1 },
         "parallelBundleCount": { "max": 1 },
@@ -116,8 +123,9 @@
       "expectedEntities": { "min": 100, "max": 200 },
       "thresholds": {
         "edgeNodeFlush": { "max": 0 },
+        "edgeCanvasMargin": { "min": 12 },
         "trunkDetourCount": { "max": 1 },
-        "nestedLoopCount": { "max": 4 },
+        "nestedLoopCount": { "max": 1 },
         "edgeFrameCrossings": { "max": 2 },
         "parallelBundleCount": { "max": 1 },
         "aspectRatio": { "min": 0.6, "max": 2.5 },
@@ -133,8 +141,9 @@
       "source": "all-classes.puml",
       "thresholds": {
         "edgeNodeFlush": { "max": 0 },
+        "edgeCanvasMargin": { "min": 12 },
         "trunkDetourCount": { "max": 1 },
-        "nestedLoopCount": { "max": 11 },
+        "nestedLoopCount": { "max": 4 },
         "edgeFrameCrossings": { "max": 16 },
         "parallelBundleCount": { "max": 1 },
         "overlappingEdgeLength": { "max": 47687 },
