@@ -136,47 +136,143 @@ export interface LayoutMetrics {
   layoutMs?: number;
 }
 
+/**
+ * A named, pure measurement over a layout. The metrics registry is the single
+ * source of truth for which measurements [[computeLayoutMetrics]] reports:
+ * adding a metric means registering a `Metric`, not editing the function's
+ * return literal.
+ */
+export interface Metric {
+  /** Key the value is exposed under on [[LayoutMetrics]]. */
+  readonly name: string;
+  compute(model: PlantUmlModel, layout: LayoutResult): number;
+}
+
+const registry: Metric[] = [];
+
+/** Register a metric; the next [[computeLayoutMetrics]] call reports it. */
+export function registerMetric(metric: Metric): void {
+  if (registry.some((m) => m.name === metric.name)) {
+    throw new Error(`metric already registered: ${metric.name}`);
+  }
+  registry.push(metric);
+}
+
+/** Remove a registered metric by name; returns whether one was removed. */
+export function unregisterMetric(name: string): boolean {
+  const index = registry.findIndex((m) => m.name === name);
+  if (index < 0) return false;
+  registry.splice(index, 1);
+  return true;
+}
+
+/** Names of the currently registered metrics, in evaluation order. */
+export function listMetrics(): readonly string[] {
+  return registry.map((m) => m.name);
+}
+
+registerMetric({
+  name: 'edgeCrossings',
+  compute: (_model, layout) => countEdgeCrossings((layout.edges ?? []).map((e) => e.points)),
+});
+registerMetric({
+  name: 'edgeNodeIntersections',
+  compute: (_model, layout) => countEdgeBoxIntersections(layout.edges ?? [], layout.nodes),
+});
+registerMetric({
+  name: 'nonOrthogonalEdgeCount',
+  compute: (_model, layout) =>
+    (layout.edges ?? []).filter(
+      (e) => e.points.length >= 2 && countNonOrthogonalSegments(e.points) > 0,
+    ).length,
+});
+registerMetric({
+  name: 'totalEdgeLength',
+  compute: (_model, layout) =>
+    (layout.edges ?? []).reduce((sum, e) => sum + polylineLength(e.points), 0),
+});
+registerMetric({
+  name: 'areaUtilization',
+  compute: (_model, layout) => {
+    const nodeArea = layout.nodes.reduce((sum, n) => sum + n.width * n.height, 0);
+    const canvasArea = layout.width * layout.height;
+    return canvasArea > 0 ? nodeArea / canvasArea : 0;
+  },
+});
+registerMetric({
+  name: 'aspectRatio',
+  compute: (_model, layout) => (layout.height > 0 ? layout.width / layout.height : 0),
+});
+registerMetric({ name: 'textOverflowCount', compute: countTextOverflow });
+registerMetric({ name: 'labelOverlapCount', compute: countLabelOverlap });
+registerMetric({
+  name: 'overlappingEdgeLength',
+  compute: (_model, layout) => {
+    const edges = layout.edges ?? [];
+    return countOverlappingEdgeLength(
+      edges.map((e) => e.points),
+      edges.map((e): [string, string] => [e.source, e.target]),
+    );
+  },
+});
+registerMetric({ name: 'badgeLabelOverlap', compute: countBadgeLabelOverlap });
+registerMetric({ name: 'edgeLabelOverlap', compute: countEdgeLabelOverlap });
+registerMetric({ name: 'labelNodeOverlap', compute: countLabelNodeOverlap });
+registerMetric({ name: 'labelEdgeOverlap', compute: countLabelEdgeOverlap });
+registerMetric({ name: 'labelLabelOverlap', compute: countLabelLabelOverlap });
+registerMetric({
+  name: 'hubArrowStack',
+  compute: (_model, layout) => countHubArrowStack(layout.edges ?? []),
+});
+registerMetric({ name: 'maxEmptyBlockRatio', compute: (_model, layout) => computeMaxEmptyBlockRatio(layout) });
+registerMetric({
+  name: 'edgeFlushCount',
+  compute: (_model, layout) => countEdgeFlush(layout.edges ?? [], layout),
+});
+registerMetric({
+  name: 'parallelBundleCount',
+  compute: (_model, layout) => countParallelBundles(layout.edges ?? []),
+});
+registerMetric({
+  name: 'edgeFrameCrossings',
+  compute: (model, layout) => countEdgeFrameCrossings(model, layout.edges ?? [], layout),
+});
+registerMetric({
+  name: 'trunkDetourCount',
+  compute: (_model, layout) => countTrunkDetours(layout.edges ?? []),
+});
+registerMetric({
+  name: 'nestedLoopCount',
+  compute: (_model, layout) => countNestedLoops(layout.edges ?? [], layout),
+});
+registerMetric({
+  name: 'edgeNodeFlush',
+  compute: (_model, layout) => countEdgeNodeFlush(layout.edges ?? [], layout),
+});
+registerMetric({ name: 'frameFillRatio', compute: (_model, layout) => computeFrameFillRatio(layout) });
+registerMetric({
+  name: 'edgeCanvasMargin',
+  compute: (_model, layout) => computeEdgeCanvasMargin(layout.edges ?? [], layout),
+});
+
+/**
+ * Computes every registered metric. The registry drives the assembly, so a new
+ * measurement participates without touching this function; [[LayoutMetrics]]
+ * remains the strong, hand-written shape the registered names must cover.
+ * `layoutMs` is not a measurement of the layout — it is the caller's wall-time
+ * reading — so it is attached directly rather than registered.
+ */
 export function computeLayoutMetrics(
   model: PlantUmlModel,
   layout: LayoutResult,
   layoutMs?: number,
 ): LayoutMetrics {
-  const edges = layout.edges ?? [];
-  const nodeArea = layout.nodes.reduce((sum, n) => sum + n.width * n.height, 0);
-  const canvasArea = layout.width * layout.height;
-
-  return {
-    edgeCrossings: countEdgeCrossings(edges.map((e) => e.points)),
-    edgeNodeIntersections: countEdgeBoxIntersections(edges, layout.nodes),
-    nonOrthogonalEdgeCount: edges.filter(
-      (e) => e.points.length >= 2 && countNonOrthogonalSegments(e.points) > 0,
-    ).length,
-    totalEdgeLength: edges.reduce((sum, e) => sum + polylineLength(e.points), 0),
-    areaUtilization: canvasArea > 0 ? nodeArea / canvasArea : 0,
-    aspectRatio: layout.height > 0 ? layout.width / layout.height : 0,
-    textOverflowCount: countTextOverflow(model, layout),
-    labelOverlapCount: countLabelOverlap(model, layout),
-    overlappingEdgeLength: countOverlappingEdgeLength(
-      edges.map((e) => e.points),
-      edges.map((e): [string, string] => [e.source, e.target]),
-    ),
-    badgeLabelOverlap: countBadgeLabelOverlap(model, layout),
-    edgeLabelOverlap: countEdgeLabelOverlap(model, layout),
-    labelNodeOverlap: countLabelNodeOverlap(model, layout),
-    labelEdgeOverlap: countLabelEdgeOverlap(model, layout),
-    labelLabelOverlap: countLabelLabelOverlap(model, layout),
-    hubArrowStack: countHubArrowStack(edges),
-    maxEmptyBlockRatio: computeMaxEmptyBlockRatio(layout),
-    edgeFlushCount: countEdgeFlush(edges, layout),
-    parallelBundleCount: countParallelBundles(edges),
-    edgeFrameCrossings: countEdgeFrameCrossings(model, edges, layout),
-    trunkDetourCount: countTrunkDetours(edges),
-    nestedLoopCount: countNestedLoops(edges, layout),
-    edgeNodeFlush: countEdgeNodeFlush(edges, layout),
-    frameFillRatio: computeFrameFillRatio(layout),
-    edgeCanvasMargin: computeEdgeCanvasMargin(edges, layout),
-    ...(layoutMs !== undefined ? { layoutMs } : {}),
-  };
+  const result: Record<string, number> = {};
+  for (const metric of registry) {
+    result[metric.name] = metric.compute(model, layout);
+  }
+  if (layoutMs !== undefined) result.layoutMs = layoutMs;
+  return result as unknown as LayoutMetrics;
 }
 
 /** Polyline length ÷ Manhattan distance above which an edge counts as a detour. */
