@@ -20,11 +20,11 @@ extra:
 
 ## AC
 
-- [ ] 评价域独立：`src/metrics/layout-metrics.ts` 存在且内容与移动前一致（git 视为 rename），`src/layout/layout-metrics.ts` 不再存在
-- [ ] 无反向依赖：`src/metrics/` 只依赖 `foundation/`，不依赖 `layout/`、`render/`、根包；`grep -rn "from '\.\./layout\|from '\.\./render\|from '\.\./core" src/metrics` 无命中
-- [ ] 消费者更新：`core.ts`、`layout/elk.ts`、`layout/elk-graph.ts`、`layout/fanout-trunk.ts`、`layout/trunk-lanes.ts` 的 import 改为新路径；`grep -rn "layout/layout-metrics" src` 无命中
-- [ ] 目录环保持 0：重新 `archguard_analyze` 后 `archguard_detect_cycles(outputScope="package")` 的环数仍为 0；`layout` 包的 fanOut 因不再含度量依赖而下降或持平
-- [ ] 无行为回归：`npm run typecheck` 与 `npx vitest run` 全绿，`tests/layout-metrics.test.ts`、`tests/metric-registry.test.ts` 不改断言即通过；两个 fixture 渲染 SVG sha256 与改动前相等；`npm run build` 退出码 0
+- [x] 评价域独立：`src/metrics/layout-metrics.ts` 存在且内容与移动前一致（git 视为 rename），`src/layout/layout-metrics.ts` 不再存在
+- [x] 无反向依赖：`src/metrics/` 只依赖 `foundation/`，不依赖 `layout/`、`render/`、根包；`grep -rn "from '\.\./layout\|from '\.\./render\|from '\.\./core" src/metrics` 无命中
+- [x] 消费者更新：`core.ts`、`layout/elk.ts`、`layout/elk-graph.ts`、`layout/fanout-trunk.ts`、`layout/trunk-lanes.ts` 的 import 改为新路径；`grep -rn "layout/layout-metrics" src` 无命中
+- [x] 目录环保持 0：重新 `archguard_analyze` 后 `archguard_detect_cycles(outputScope="package")` 的环数仍为 0；`layout` 包的 fanOut 因不再含度量依赖而下降或持平
+- [x] 无行为回归：`npm run typecheck` 与 `npx vitest run` 全绿，`tests/layout-metrics.test.ts`、`tests/metric-registry.test.ts` 不改断言即通过；两个 fixture 渲染 SVG sha256 与改动前相等；`npm run build` 退出码 0
 
 ## DoD
 
@@ -34,10 +34,30 @@ extra:
 
 - tasks/gap-split-layout-metrics-out-of-layout.md
 - src/metrics/layout-metrics.ts (new)
+- src/layout/layout-metrics.ts (removed)
 - src/core.ts
 - src/layout/elk.ts
 - src/layout/elk-graph.ts
 - src/layout/fanout-trunk.ts
 - src/layout/trunk-lanes.ts
+- src/foundation/labels.ts (new)
+- src/render/labels.ts (removed)
+- src/render/svg.ts
 - tests/layout-metrics.test.ts
 - tests/metric-registry.test.ts
+- tests/cross-package-routing.test.ts
+- tests/fanout-trunk.test.ts
+- tests/grid-columns.test.ts
+- tests/gutter-routing.test.ts
+- tests/hub-badge.test.ts
+- tests/label-dedupe.test.ts
+- tests/layout-compound-proportion.test.ts
+- tests/layout-foundation.test.ts
+- tests/overview-labels.test.ts
+- tests/packing.test.ts
+- tests/root-packing.test.ts
+- tests/stub-placement.test.ts
+- tests/stub-rail.test.ts
+- tests/text-measure.test.ts
+- tests/trunk-lanes.test.ts
+- tests/undeclared-endpoints.test.ts
