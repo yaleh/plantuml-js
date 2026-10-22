@@ -56,3 +56,11 @@ extra:
 - tests/relations.test.ts
 - tests/line-semantics.test.ts
 - tests/viz.test.ts
+
+## Blocker
+
+**2026-10-22T07:26:57.746Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=suite: suite red
+- run_id：wk-prod-anchor
+- session_id：4bc29db5-ddf4-42c7-b797-4ff9e4bc1324
