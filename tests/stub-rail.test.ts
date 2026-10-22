@@ -9,7 +9,7 @@ const fixture = readFileSync(new URL('./fixtures/all-classes.puml', import.meta.
 async function stubView(packageId: string) {
   const { model, layout } = await renderDetailed(parsePlantUml(fixture), {
     layout: new ElkLayoutEngine(),
-    view: { kind: 'package', id: packageId },
+    view: { kind: 'package', id: packageId, stubGroupThreshold: Infinity },
   });
   const frame = layout.packages!.find((p) => p.id === packageId)!;
   const nodes = new Map(layout.nodes.map((n) => [n.id, n]));

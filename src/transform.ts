@@ -54,11 +54,14 @@ export interface TransformOptions {
  */
 export type ViewSpec =
   | { kind: 'overview'; depth?: number }
-  | { kind: 'package'; id: string }
+  | { kind: 'package'; id: string; stubGroupThreshold?: number }
   | { kind: 'neighborhood'; entity: string; hops: number };
 
 /** Entity count above which inter-package edges aggregate into corridors by default. */
 export const INTER_PACKAGE_AGGREGATE_ENTITY_THRESHOLD = 150;
+
+/** Stub count above which a single-package view groups stubs by name prefix. */
+export const DEFAULT_STUB_GROUP_THRESHOLD = 8;
 
 const ROOT = '__root__';
 
@@ -345,7 +348,7 @@ export function applyView(model: PlantUmlModel, view?: ViewSpec): PlantUmlModel 
       }
       return overviewView(model);
     case 'package':
-      return packageView(model, view.id);
+      return packageView(model, view.id, view.stubGroupThreshold ?? DEFAULT_STUB_GROUP_THRESHOLD);
     case 'neighborhood':
       return neighborhoodView(model, view.entity, view.hops);
   }
@@ -460,7 +463,7 @@ export function groupByPathPrefix(model: PlantUmlModel, depth: number): PlantUml
  * merged by aggregation). Entities and relations entirely outside the package
  * are dropped.
  */
-function packageView(model: PlantUmlModel, id: string): PlantUmlModel {
+function packageView(model: PlantUmlModel, id: string, stubGroupThreshold: number): PlantUmlModel {
   const pkgById = new Map(model.packages.map((p) => [p.id, p]));
   const selected = pkgById.get(id);
   if (!selected) {
@@ -521,12 +524,88 @@ function packageView(model: PlantUmlModel, id: string): PlantUmlModel {
     relations.push(sourceIn ? { ...relation, target: stub.id } : { ...relation, source: stub.id });
   }
 
+  const grouped = groupStubs({ entities, relations }, stubGroupThreshold);
   return {
     diagramType: 'class',
-    entities,
-    relations,
+    entities: grouped.entities,
+    relations: grouped.relations,
     packages: [{ ...selected, parentId: undefined }],
   };
+}
+
+/** Name with its last word dropped (`Src Cli Utils` → `Src Cli`); a one-word name stays as is. */
+function namePrefix(name: string): string {
+  const words = name.trim().split(/\s+/);
+  return words.length > 1 ? words.slice(0, -1).join(' ') : name;
+}
+
+/**
+ * Past `threshold` stubs, merge stubs sharing a name prefix into one group stub
+ * (`Src Cli … (×6)`), dropping trailing words until the group count fits (or nothing shortens any
+ * more). The edges to the members of a group collapse onto
+ * the group stub per (entity, direction): `weight` counts the originals and
+ * `descriptions` keeps each one for the edge's `<title>`.
+ */
+export function groupStubs(
+  model: Pick<PlantUmlModel, 'entities' | 'relations'>,
+  threshold: number,
+): Pick<PlantUmlModel, 'entities' | 'relations'> {
+  const stubs = model.entities.filter((e) => e.stub);
+  if (stubs.length <= threshold) return model;
+  let keyOf = new Map(stubs.map((e) => [e.id, e.name]));
+  for (;;) {
+    if (new Set(keyOf.values()).size <= threshold) break;
+    const next = new Map([...keyOf].map(([id, k]) => [id, namePrefix(k)]));
+    if ([...next].every(([id, k]) => k === keyOf.get(id))) break;
+    keyOf = next;
+  }
+  const members = new Map<string, PlantUmlEntity[]>();
+  for (const stub of stubs) {
+    const key = keyOf.get(stub.id)!;
+    const list = members.get(key);
+    if (list) list.push(stub);
+    else members.set(key, [stub]);
+  }
+  const groupId = new Map<string, string>();
+  const entities: PlantUmlEntity[] = [];
+  for (const e of model.entities) {
+    if (!e.stub) {
+      entities.push(e);
+      continue;
+    }
+    const key = keyOf.get(e.id)!;
+    const list = members.get(key)!;
+    if (list.length === 1) {
+      groupId.set(e.id, e.id);
+      entities.push(e);
+    } else if (list[0] === e) {
+      const id = `stub::group::${key}`;
+      for (const m of list) groupId.set(m.id, id);
+      entities.push({ ...e, id, name: `${key} … (×${list.length})` });
+    }
+  }
+  const merged = new Map<string, PlantUmlRelation>();
+  const out: PlantUmlRelation[] = [];
+  const label = (r: PlantUmlRelation): string => `${r.source} ${r.type} ${r.target}`;
+  for (const r of model.relations) {
+    const source = groupId.get(r.source) ?? r.source;
+    const target = groupId.get(r.target) ?? r.target;
+    if (source === r.source && target === r.target) {
+      out.push(r);
+      continue;
+    }
+    const key = `${source}\u0000${target}`;
+    const existing = merged.get(key);
+    if (existing) {
+      existing.weight = (existing.weight ?? 1) + (r.weight ?? 1);
+      existing.descriptions!.push(...(r.descriptions ?? [label(r)]));
+    } else {
+      const rel = { ...r, source, target, weight: r.weight ?? 1, descriptions: [...(r.descriptions ?? [label(r)])] };
+      merged.set(key, rel);
+      out.push(rel);
+    }
+  }
+  return { entities, relations: out };
 }
 
 /**

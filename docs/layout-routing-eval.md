@@ -325,3 +325,33 @@ and 1:1 crops): the Java and Python fan-outs are trees (a shared trunk and bus w
 though the Python frame still shows two sources fanning to the same targets side by side),
 corridors run in the gutters, the stubs sit on an even rail along the frame's right side. Self-score
 (1–5, not a reviewer score): fan-out readability 4, corridors 4, stub rail 4, runtime 2.
+
+## Round 9: trunk detours, grid columns, stub grouping
+
+New metrics (`computeLayoutMetrics`): `trunkDetourCount` (edges longer than 2× the Manhattan distance of
+their end points), `nestedLoopCount` (U-turns inside one frame that wrap a node and sit inside another such
+U-turn) and `edgeNodeFlush` (≥ 40 px segments parallel to a side of their own end node within 4 px).
+
+Changes: `src/layout/trunk-lanes.ts` redraws an overshooting edge as a Z on a lane between the rows (or slides
+the channel of an S-route to the nearest gap) when that is shorter, clear of nodes/frames and adds ≤ 2
+crossings; it runs after lane spreading and fan-out merging. Unconnected boxes (≥ 6, no relation inside the
+block) are laid out by `gridPack` in equal columns (column width = widest box, top-aligned rows) instead of
+shelf rows. A single-package view groups stubs by name prefix (`Src Cli … (×6)`) once there are more than
+`stubGroupThreshold` (default 8) of them; the edges onto a group stub carry `×N` and keep each original in
+the `<title>`.
+
+| sample | crossings | detours | nested loops | before → after (canvas) |
+| --- | --- | --- | --- | --- |
+| `m-package` | 255 → 244 | 0 → 0 | 8 → 9 | 1876×1388 → 1876×1418 (Tests Layer: 3-2-2-1… staircase → 2×6 grid, aspect 1.9) |
+| `m-types-view` | 29 → 78 | 0 → 0 | 3 → 0 | 2900×2068 → 2188×1700 (−17.8%), 25 stubs → 5 |
+| `l-plugins` | 132 → 137 | 4 → 1 | 5 → 4 | 2746×3006 unchanged |
+| `xl-all-classes` | 621 → 614 | 1 → 1 | 25 → 11 | 6720×3428 unchanged |
+
+Costs, stated plainly: grouping the 25 stubs into 5 gives each group stub many edges, so `m-types-view`
+crossings rise 29 → 78 (its thresholds are now `edgeCrossings` ≤ 90, `overlappingEdgeLength` ≤ 3500, and the
+baseline was refreshed); `tests/stub-rail.test.ts` / `stub-placement.test.ts` keep covering the ungrouped rail
+with `stubGroupThreshold: Infinity`. `nestedLoopCount` is not zero: the remaining U-turns are edges between
+siblings of one row that arch over the nodes between them (no lane exists there), so the per-sample
+thresholds are the measured values (m-package 9, l-plugins 4, XL 11), not 0. `m-package`'s `edgeFlushCount`
+and `overlappingEdgeLength` move with the grid row gap (50 px) in a chaotic way; 50 was the value that kept every
+threshold.

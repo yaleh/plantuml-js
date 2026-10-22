@@ -366,6 +366,9 @@ describe('computeLayoutMetrics', () => {
       edgeFlushCount: 0,
       parallelBundleCount: 0,
       edgeFrameCrossings: 0,
+      trunkDetourCount: 0,
+      nestedLoopCount: 0,
+      edgeNodeFlush: 0,
     });
   });
 
@@ -693,5 +696,78 @@ describe('computeLayoutMetrics: edgeFrameCrossings', () => {
       { x: 100, y: 180 },
     ];
     expect(computeLayoutMetrics(model, layoutWith(own, 'a', 'a')).edgeFrameCrossings).toBe(0);
+  });
+});
+
+describe('computeLayoutMetrics: trunk detours, nested loops, node-flush edges', () => {
+  const emptyModel: PlantUmlModel = { diagramType: 'class', entities: [], relations: [], packages: [] };
+  const node = (id: string, x: number, y: number, w = 40, h = 40) => ({ id, x, y, width: w, height: h });
+  const edge = (id: string, source: string, target: string, pts: Array<[number, number]>) => ({
+    id,
+    source,
+    target,
+    points: pts.map(([x, y]) => ({ x, y })),
+  });
+
+  it('counts a trunk that circles a cluster as a detour and a nested loop', () => {
+    const layout: LayoutResult = {
+      nodes: [node('S', 0, 100), node('T', 400, 100), node('C1', 150, 100), node('C2', 220, 100)],
+      edges: [
+        // direct lane between the rows: straight, no detour
+        edge('rel-0', 'S', 'T', [[40, 120], [400, 120]]),
+        // outer loop round the cluster: 40,120 -> up -> across -> down -> T
+        edge('rel-1', 'S', 'T', [[20, 100], [20, 0], [420, 0], [420, 100]]),
+        // inner loop round the cluster, strictly inside the outer one
+        edge('rel-2', 'S', 'T', [[30, 100], [30, 20], [410, 20], [410, 100]]),
+      ],
+      packages: [{ id: 'P', x: 0, y: 0, width: 460, height: 200 }],
+      width: 460,
+      height: 200,
+    };
+    const m = computeLayoutMetrics(emptyModel, layout);
+    expect(m.trunkDetourCount).toBe(0);
+    expect(m.nestedLoopCount).toBe(0); // the loops enclose no node: they are not coils yet
+    const wrapping: LayoutResult = {
+      ...layout,
+      nodes: [node('S', 0, 100), node('T', 400, 100), node('C1', 100, 40), node('C2', 200, 40)],
+      edges: [
+        edge('rel-1', 'S', 'T', [[20, 100], [20, 0], [420, 0], [420, 100]]),
+        edge('rel-2', 'S', 'T', [[30, 100], [30, 20], [410, 20], [410, 100]]),
+      ],
+    };
+    const w = computeLayoutMetrics(emptyModel, wrapping);
+    expect(w.nestedLoopCount).toBe(1);
+    expect(w.trunkDetourCount).toBe(0);
+    // a short hop that goes up, over and back down: 250px of line for 50px of distance
+    const hop = { ...wrapping, edges: [edge('rel-3', 'S', 'T', [[0, 100], [0, 0], [50, 0], [50, 100]])] };
+    expect(computeLayoutMetrics(emptyModel, hop).trunkDetourCount).toBe(1);
+  });
+
+  it('leaves a lane between rows alone', () => {
+    const layout: LayoutResult = {
+      nodes: [node('S', 0, 0), node('T', 300, 200), node('C', 150, 0)],
+      edges: [edge('rel-0', 'S', 'T', [[20, 40], [20, 120], [320, 120], [320, 200]])],
+      packages: [{ id: 'P', x: 0, y: 0, width: 400, height: 260 }],
+      width: 400,
+      height: 260,
+    };
+    const m = computeLayoutMetrics(emptyModel, layout);
+    expect(m.trunkDetourCount).toBe(0);
+    expect(m.nestedLoopCount).toBe(0);
+  });
+
+  it('counts a long segment hugging its own node as edgeNodeFlush', () => {
+    const hugging: LayoutResult = {
+      nodes: [node('A', 0, 0, 200, 40), node('B', 300, 100)],
+      edges: [edge('rel-0', 'A', 'B', [[0, 41], [200, 41], [200, 120], [300, 120]])],
+      width: 400,
+      height: 200,
+    };
+    expect(computeLayoutMetrics(emptyModel, hugging).edgeNodeFlush).toBe(1);
+    const clear: LayoutResult = {
+      ...hugging,
+      edges: [edge('rel-0', 'A', 'B', [[100, 40], [100, 120], [300, 120]])],
+    };
+    expect(computeLayoutMetrics(emptyModel, clear).edgeNodeFlush).toBe(0);
   });
 });

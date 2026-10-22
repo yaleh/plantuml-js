@@ -50,6 +50,7 @@ import { buildElkGraph } from './elk-graph.js';
 import { clipPackageEndpoints } from './package-endpoints.js';
 import { mapElkResult } from './elk-result.js';
 import { spreadParallelLanes } from './lane-spread.js';
+import { straightenTrunkDetours } from './trunk-lanes.js';
 import { mergeFanoutTrunks } from './fanout-trunk.js';
 import { runStrategies, type LayoutStrategy } from './strategy.js';
 
@@ -175,9 +176,8 @@ export class ElkLayoutEngine implements LayoutEngine {
 
   async layout(model: PlantUmlModel): Promise<LayoutResult> {
     const finish = (raw: LayoutResult): LayoutResult =>
-      mergeFanoutTrunks(
-        model,
-        spreadParallelLanes(clipPackageEndpoints(model, alignIsolatedFrames(model, alignRows(model, raw)))),
+      straightenTrunkDetours(
+        mergeFanoutTrunks(model, spreadParallelLanes(clipPackageEndpoints(model, alignIsolatedFrames(model, alignRows(model, raw))))),
       );
     if (!model.entities.some((e) => e.stub)) return finish((await this.layoutRaw(model)).layout);
     // Where the orbiting stubs sit decides how the router weaves their edges

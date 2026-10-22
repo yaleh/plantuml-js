@@ -63,6 +63,13 @@ const DENSE_SHELF_ASPECT_SCALE = 0.6;
 const SHELF_ASPECT_SCALE = 1.25;
 /** Node gap of a repacked block: wide enough channels for several edge lanes. */
 const SHELF_GAP = 72;
+/** Unconnected boxes from this many up are laid out as an equal-column grid. */
+const GRID_MIN_NODES = 6;
+/** Canvas ratio an equal-column grid aims for, and the gap between its cells. */
+const GRID_ASPECT = 1.3;
+const GRID_GAP = 40;
+/** Row gap: wider, since the cross-block edges to the boxes run through it. */
+const GRID_ROW_GAP = 50;
 const SHELF_PADDING = { top: 26, side: 10, bottom: 10 };
 const SPARSE_DENSITY = 0.16;
 
@@ -375,7 +382,13 @@ async function layoutBlock(
       sparse = blockDensity(rootChildren, result) < SPARSE_DENSITY;
     }
   }
-  if (!hasNested && (options.dense || sparse || aspect > BLOCK_MAX_ASPECT || aspect < 1 / BLOCK_MAX_ASPECT)) {
+  const gridable = !hasNested && relationIndexes.length === 0 && rootChildren.length >= GRID_MIN_NODES;
+  if (gridable) {
+    // Unconnected boxes have no flow to follow: an equal-column grid reads
+    // better than ragged shelf rows.
+    result = gridPack(rootChildren, flowOrder, GRID_ASPECT, GRID_GAP, GRID_ROW_GAP);
+    repacked = true;
+  } else if (!hasNested && (options.dense || sparse || aspect > BLOCK_MAX_ASPECT || aspect < 1 / BLOCK_MAX_ASPECT)) {
     // A single wide layer cannot be wrapped by the layered algorithm; pack the
     // boxes into a balanced rectangle, rows in dependency order, and let the
     // grid router draw the edges.
@@ -525,6 +538,45 @@ function orderedShelfPack(children: ElkNode[], order: string[], aspect: number, 
     y += best!.rowH[r] + gap;
   });
   return { id: 'block', width: best.width, height: best.height, children: items };
+}
+
+/**
+ * Equal-column grid for unconnected boxes: the column width is the widest box,
+ * rows are as tall as their tallest box and boxes are top-left aligned, so
+ * columns and rows line up. The column count is the one whose block lands
+ * closest to `aspect`; the last row alone may be short.
+ */
+export function gridPack(children: ElkNode[], order: string[], aspect: number, gap: number, rowGap = gap): ElkNode {
+  const rank = new Map(order.map((id, i) => [id, i]));
+  const items = children.slice().sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+  const { top, side, bottom } = SHELF_PADDING;
+  const colW = Math.max(0, ...items.map((c) => c.width ?? 0));
+  const heightFor = (cols: number): { rowH: number[]; height: number } => {
+    const rowH: number[] = [];
+    items.forEach((c, i) => {
+      const r = Math.floor(i / cols);
+      rowH[r] = Math.max(rowH[r] ?? 0, c.height ?? 0);
+    });
+    return { rowH, height: top + bottom + rowH.reduce((a, b) => a + b, 0) + rowGap * (rowH.length - 1) };
+  };
+  let best = { cols: 1, miss: Infinity };
+  for (let cols = 1; cols <= items.length; cols++) {
+    const w = 2 * side + cols * colW + (cols - 1) * gap;
+    const miss = Math.abs(Math.log(w / Math.max(1, heightFor(cols).height) / aspect));
+    if (miss < best.miss - 1e-9) best = { cols, miss };
+  }
+  const { rowH, height } = heightFor(best.cols);
+  const rowY: number[] = [];
+  let y = top;
+  for (const h of rowH) {
+    rowY.push(y);
+    y += h + rowGap;
+  }
+  items.forEach((c, i) => {
+    c.x = side + (i % best.cols) * (colW + gap);
+    c.y = rowY[Math.floor(i / best.cols)];
+  });
+  return { id: 'block', width: 2 * side + best.cols * colW + (best.cols - 1) * gap, height, children: items };
 }
 
 /** Node area ÷ block area of a layered result; low means a sparse, mostly empty block. */

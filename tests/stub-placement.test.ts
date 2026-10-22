@@ -10,7 +10,7 @@ describe('single-package view stubs', () => {
   it('sit close to the package nodes they connect to', async () => {
     const { model, layout } = await renderDetailed(parsePlantUml(fixture), {
       layout: new ElkLayoutEngine(),
-      view: { kind: 'package', id: 'Src_Types_Layer' },
+      view: { kind: 'package', id: 'Src_Types_Layer', stubGroupThreshold: Infinity },
     });
     const nodes = new Map(layout.nodes.map((n) => [n.id, n]));
     const stubs = model.entities.filter((e) => e.stub);

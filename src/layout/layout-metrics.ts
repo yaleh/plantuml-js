@@ -96,6 +96,27 @@ export interface LayoutMetrics {
    * gutters between frames, not across unrelated packages.
    */
   edgeFrameCrossings: number;
+  /**
+   * Edges whose polyline is longer than [[TRUNK_DETOUR_FACTOR]] times the
+   * Manhattan distance between their end points — a trunk that wanders round a
+   * cluster instead of running the lane between the rows.
+   */
+  trunkDetourCount: number;
+  /**
+   * Nested rectangular loops inside one package frame (edges between two nodes of the same frame): U-turns (three segments,
+   * the outer two running in opposite directions) whose bounding box encloses a
+   * node the edge does not end at (the route wraps a cluster) and lies inside
+   * another such U-turn's — counted once per inner loop. The concentric "coil" a trunk makes when it keeps
+   * circling the nodes it avoids.
+   */
+  nestedLoopCount: number;
+  /**
+   * Edge segments at least [[EDGE_NODE_FLUSH_MIN_LENGTH]] px long running
+   * parallel to a side of the node they end at, within
+   * [[EDGE_NODE_FLUSH_DISTANCE]] px — the line hugs the box it belongs to and
+   * is hard to tell from its outline.
+   */
+  edgeNodeFlush: number;
 }
 
 export function computeLayoutMetrics(
@@ -131,7 +152,103 @@ export function computeLayoutMetrics(
     edgeFlushCount: countEdgeFlush(edges, layout),
     parallelBundleCount: countParallelBundles(edges),
     edgeFrameCrossings: countEdgeFrameCrossings(model, edges, layout),
+    trunkDetourCount: countTrunkDetours(edges),
+    nestedLoopCount: countNestedLoops(edges, layout),
+    edgeNodeFlush: countEdgeNodeFlush(edges, layout),
   };
+}
+
+/** Polyline length ÷ Manhattan distance above which an edge counts as a detour. */
+export const TRUNK_DETOUR_FACTOR = 2;
+/** Distance (px) and run (px) for [[LayoutMetrics.edgeNodeFlush]]. */
+export const EDGE_NODE_FLUSH_DISTANCE = 4;
+export const EDGE_NODE_FLUSH_MIN_LENGTH = 40;
+
+function countTrunkDetours(edges: EdgeLayout[]): number {
+  let count = 0;
+  for (const e of edges) {
+    if (e.points.length < 3) continue;
+    const a = e.points[0];
+    const b = e.points[e.points.length - 1];
+    const manhattan = Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+    if (polylineLength(e.points) > TRUNK_DETOUR_FACTOR * Math.max(manhattan, 1)) count++;
+  }
+  return count;
+}
+
+function countNestedLoops(edges: EdgeLayout[], layout: LayoutResult): number {
+  const nodes = layout.nodes;
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
+  const frames = (layout.packages ?? []).slice().sort((p, q) => p.width * p.height - q.width * q.height);
+  const frameOf = (id: string): string | undefined => {
+    const n = nodeById.get(id);
+    if (!n) return undefined;
+    const cx = n.x + n.width / 2;
+    const cy = n.y + n.height / 2;
+    return frames.find((f) => cx >= f.x && cx <= f.x + f.width && cy >= f.y && cy <= f.y + f.height)?.id;
+  };
+  interface Loop { frame: string | undefined; x0: number; y0: number; x1: number; y1: number }
+  const loops: Loop[] = [];
+  for (const e of edges) {
+    const frame = frameOf(e.source);
+    if (frame === undefined || frame !== frameOf(e.target)) continue; // only coils inside one frame
+    // A U-turn: three consecutive segments whose outer two run in opposite
+    // directions — the route leaves, crosses over and comes back.
+    for (let i = 0; i + 3 < e.points.length; i++) {
+      const [p0, p1, p2, p3] = e.points.slice(i, i + 4);
+      const firstVertical = Math.abs(p0.x - p1.x) < 1e-6 && Math.abs(p0.y - p1.y) > 1e-6;
+      const firstHorizontal = Math.abs(p0.y - p1.y) < 1e-6 && Math.abs(p0.x - p1.x) > 1e-6;
+      const d1 = firstVertical ? p1.y - p0.y : p1.x - p0.x;
+      const d3 = firstVertical ? p3.y - p2.y : p3.x - p2.x;
+      const middleOk = firstVertical ? Math.abs(p1.y - p2.y) < 1e-6 : Math.abs(p1.x - p2.x) < 1e-6;
+      const lastOk = firstVertical ? Math.abs(p2.x - p3.x) < 1e-6 : Math.abs(p2.y - p3.y) < 1e-6;
+      if ((!firstVertical && !firstHorizontal) || !middleOk || !lastOk || d1 * d3 >= 0) continue;
+      const xs = [p0.x, p1.x, p2.x, p3.x];
+      const ys = [p0.y, p1.y, p2.y, p3.y];
+      const box = { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
+      const wraps = nodes.some(
+        (n) =>
+          n.id !== e.source &&
+          n.id !== e.target &&
+          n.x > box.x0 && n.x + n.width < box.x1 &&
+          n.y > box.y0 && n.y + n.height < box.y1,
+      );
+      if (wraps) loops.push({ frame, ...box });
+    }
+  }
+  let count = 0;
+  loops.forEach((inner, i) => {
+    const nested = loops.some(
+      (outer, j) =>
+        j !== i &&
+        outer.frame === inner.frame &&
+        outer.x0 <= inner.x0 && outer.y0 <= inner.y0 && outer.x1 >= inner.x1 && outer.y1 >= inner.y1 &&
+        (outer.x0 < inner.x0 || outer.y0 < inner.y0 || outer.x1 > inner.x1 || outer.y1 > inner.y1),
+    );
+    if (nested) count++;
+  });
+  return count;
+}
+
+function countEdgeNodeFlush(edges: EdgeLayout[], layout: LayoutResult): number {
+  const nodeById = new Map(layout.nodes.map((n) => [n.id, n]));
+  let count = 0;
+  for (const edge of edges) {
+    const ends = new Set([edge.source, edge.target]);
+    for (let i = 0; i + 1 < edge.points.length; i++) {
+      const a = edge.points[i];
+      const b = edge.points[i + 1];
+      const vertical = Math.abs(a.x - b.x) < 1e-6;
+      const horizontal = Math.abs(a.y - b.y) < 1e-6;
+      if (vertical === horizontal) continue;
+      if (Math.hypot(a.x - b.x, a.y - b.y) < EDGE_NODE_FLUSH_MIN_LENGTH) continue;
+      for (const id of ends) {
+        const n = nodeById.get(id);
+        if (n && segmentFlushRect(a, b, vertical, nodeRect(n), EDGE_NODE_FLUSH_DISTANCE)) count++;
+      }
+    }
+  }
+  return count;
 }
 
 function polylineLength(points: Point[]): number {
@@ -509,22 +626,22 @@ function countEdgeFlush(edges: EdgeLayout[], layout: LayoutResult): number {
 }
 
 /** True when the axis-aligned segment ab runs along a side of `r` within the flush distance. */
-function segmentFlushRect(a: Point, b: Point, vertical: boolean, r: Rect): boolean {
+function segmentFlushRect(a: Point, b: Point, vertical: boolean, r: Rect, distance = EDGE_FLUSH_DISTANCE): boolean {
   if (vertical) {
     const lo = Math.min(a.y, b.y);
     const hi = Math.max(a.y, b.y);
     if (Math.min(hi, r.y + r.height) - Math.max(lo, r.y) <= 1e-6) return false;
     return (
-      Math.abs(a.x - r.x) < EDGE_FLUSH_DISTANCE ||
-      Math.abs(a.x - (r.x + r.width)) < EDGE_FLUSH_DISTANCE
+      Math.abs(a.x - r.x) < distance ||
+      Math.abs(a.x - (r.x + r.width)) < distance
     );
   }
   const lo = Math.min(a.x, b.x);
   const hi = Math.max(a.x, b.x);
   if (Math.min(hi, r.x + r.width) - Math.max(lo, r.x) <= 1e-6) return false;
   return (
-    Math.abs(a.y - r.y) < EDGE_FLUSH_DISTANCE ||
-    Math.abs(a.y - (r.y + r.height)) < EDGE_FLUSH_DISTANCE
+    Math.abs(a.y - r.y) < distance ||
+    Math.abs(a.y - (r.y + r.height)) < distance
   );
 }
 
