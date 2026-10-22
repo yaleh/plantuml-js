@@ -1,7 +1,7 @@
 ---
 id: gap-move-render-dot-out-of-foundation
 title: 把 render-dot 从 foundation 移到 layout，恢复 foundation 零外部渲染依赖
-status: ready
+status: done
 labels:
   - gap
   - layout
