@@ -32,9 +32,9 @@ extra:
 
 ## AC
 
-- [ ] 复现与预算：把 `graph.entity`（2000 节点/3186 边）或等价合成嵌套固化进 fixture，`node scripts/bench-nested.mjs`（或新增 scale bench）断言 2000 节点嵌套布局 `layoutMs ≤ 30000`（当前 ~282s），且 800 节点 ≤ 10s、500 ≤ 5s（当前 800≈4-7s、500≈1.4s）。`node scripts/bench-nested.mjs` 退出 0。
-- [ ] 降级不塌质量：2000 节点在预算内时画布 `width/height ≤ 3`、`crossings` 不超合理上限、`edgeNodeIntersections === 0`。
-- [ ] 实现「超过 N 节点自动降级到更便宜布局策略」（或直接修掉 `splitNestedBlock` 的递归放大）：N 可配（默认值建议 ~800，依据上面 800→2000 的拐点）。`npm test` 与 `npm run typecheck` 退出 0；既有 789 nested 预算不回退。
+- [x] 复现与预算：把 `graph.entity`（2000 节点/3186 边）或等价合成嵌套固化进 fixture，`node scripts/bench-nested.mjs`（或新增 scale bench）断言 2000 节点嵌套布局 `layoutMs ≤ 30000`（当前 ~282s），且 800 节点 ≤ 10s、500 ≤ 5s（当前 800≈4-7s、500≈1.4s）。`node scripts/bench-nested.mjs` 退出 0。
+- [x] 降级不塌质量：2000 节点在预算内时画布 `width/height ≤ 3`、`crossings` 不超合理上限、`edgeNodeIntersections === 0`。
+- [x] 实现「超过 N 节点自动降级到更便宜布局策略」（或直接修掉 `splitNestedBlock` 的递归放大）：N 可配（默认值建议 ~800，依据上面 800→2000 的拐点）。`npm test` 与 `npm run typecheck` 退出 0；既有 789 nested 预算不回退。
 
 ## DoD
 
