@@ -1,7 +1,7 @@
 ---
 id: gap-renderer-engine-interface
 title: 把渲染维度对象化为 RenderEngine 接口 + SvgRenderer（对标 LayoutEngine 的多态对称）
-status: todo
+status: ready
 labels:
   - gap
   - layout
