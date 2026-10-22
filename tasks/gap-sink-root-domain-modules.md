@@ -28,11 +28,11 @@ extra:
 
 ## AC
 
-- [ ] 根包只剩门面：`ls src/*.ts` 只有 `index.ts` / `core.ts` / `elk.ts` / `archguard.ts`（四个门面）；`src/parser.ts`、`src/serialize.ts`、`src/transform.ts` 不再存在于根包
-- [ ] 领域模块归位：`src/parse/parser.ts`、`src/parse/serialize.ts`、`src/transform/transform.ts` 存在且内容与移动前一致（git 视为 rename）
-- [ ] 无反向依赖：`src/parse/`、`src/transform/` 只依赖 `foundation/`，不依赖 `layout/`、`render/`；`grep -rn "from '\.\./layout\|from '\.\./render\|from '\.\./core" src/parse src/transform` 无命中
-- [ ] 目录环保持 0：重新 `archguard_analyze` 后 `archguard_detect_cycles(outputScope="package")` 的环数仍为 0
-- [ ] 无行为回归：`npm run typecheck` 与 `npx vitest run` 全绿，所有既有测试不改断言即通过；两个 fixture 渲染 SVG sha256 与改动前相等；`npm run build` 退出码 0
+- [x] 根包只剩门面：`ls src/*.ts` 只有 `index.ts` / `core.ts` / `elk.ts` / `archguard.ts`（四个门面）；`src/parser.ts`、`src/serialize.ts`、`src/transform.ts` 不再存在于根包
+- [x] 领域模块归位：`src/parse/parser.ts`、`src/parse/serialize.ts`、`src/transform/transform.ts` 存在且内容与移动前一致（git 视为 rename）
+- [x] 无反向依赖：`src/parse/`、`src/transform/` 只依赖 `foundation/`，不依赖 `layout/`、`render/`；`grep -rn "from '\.\./layout\|from '\.\./render\|from '\.\./core" src/parse src/transform` 无命中
+- [x] 目录环保持 0：重新 `archguard_analyze` 后 `archguard_detect_cycles(outputScope="package")` 的环数仍为 0
+- [x] 无行为回归：`npm run typecheck` 与 `npx vitest run` 全绿，所有既有测试不改断言即通过；两个 fixture 渲染 SVG sha256 与改动前相等；`npm run build` 退出码 0
 
 ## DoD
 
@@ -57,3 +57,4 @@ extra:
 - tests/ports.test.ts
 - tests/layout-foundation.test.ts
 - tests/grid-alignment.test.ts
+- examples/demo.ts
