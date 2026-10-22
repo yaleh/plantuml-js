@@ -37,6 +37,41 @@ function nestedModel(): PlantUmlModel {
   return { diagramType: 'class', entities, relations, packages };
 }
 
+/** A nested model of `tops × 2 × 2 × classes` entities with local, deterministic edges. */
+function largeNestedModel(tops: number, classes: number): PlantUmlModel {
+  const packages: PlantUmlPackage[] = [];
+  const entities: PlantUmlEntity[] = [];
+  const byTop: PlantUmlEntity[][] = [];
+  for (let t = 0; t < tops; t++) {
+    const top = `t${t}`;
+    packages.push({ id: top, name: top });
+    const own: PlantUmlEntity[] = [];
+    for (let s = 0; s < 2; s++) {
+      const sub = `${top}/s${s}`;
+      packages.push({ id: sub, name: `s${s}`, parentId: top });
+      for (let l = 0; l < 2; l++) {
+        const leaf = `${sub}/l${l}`;
+        packages.push({ id: leaf, name: `l${l}`, parentId: sub });
+        for (let c = 0; c < classes; c++) {
+          const e: PlantUmlEntity = { id: `${leaf}/C${c}`, name: `K${t}_${s}_${l}_${c}`, kind: 'class', members: [], packageId: leaf };
+          entities.push(e);
+          own.push(e);
+        }
+      }
+    }
+    byTop.push(own);
+  }
+  const relations: PlantUmlRelation[] = [];
+  entities.forEach((e, i) => {
+    // Local (same top package) chain plus a cross-top edge every tenth entity:
+    // the cross-block router still has work, but the graph keeps the locality
+    // of a real package tree.
+    relations.push({ source: e.id, target: byTop[i % tops][(i + 1) % byTop[i % tops].length].id, type: 'dependency' });
+    if (i % 10 === 0 && i > 0) relations.push({ source: e.id, target: entities[(i * 7 + 13) % entities.length].id, type: 'dependency' });
+  });
+  return transformFullGraph({ diagramType: 'class', entities, relations, packages });
+}
+
 describe('compound layout proportion', { timeout: 60_000 }, () => {
   it('keeps a nested multi-package canvas proportioned and edge-clean', async () => {
     const model = nestedModel();
@@ -102,5 +137,32 @@ describe('compound layout proportion', { timeout: 60_000 }, () => {
     expect(layout.nodes).toHaveLength(flat.entities.length);
     expect(layout.packages ?? []).toHaveLength(0);
     expect(elkRuns).toBe(1);
+  });
+
+  it('degrades a large nested graph without collapsing its canvas or routing through nodes', async () => {
+    // 1000 entities is above the default 800 threshold, so this exercises the
+    // cheap large-graph pipeline (coarse routing lattice, no cosmetic passes).
+    const model = largeNestedModel(10, 25);
+    expect(model.entities.length).toBe(1000);
+    const layout = await new ElkLayoutEngine().layout(model);
+    const aspect = layout.width / layout.height;
+    expect(aspect).toBeLessThanOrEqual(3);
+    expect(aspect).toBeGreaterThanOrEqual(1 / 3);
+    expect(computeLayoutMetrics(model, layout).edgeNodeIntersections).toBe(0);
+    expect(layout.nodes).toHaveLength(model.entities.length);
+    expect(layout.edges.filter((e) => e.points.length >= 2)).toHaveLength(model.relations.length);
+  });
+
+  it('honours a configured large-graph threshold', async () => {
+    // 288 entities: above threshold 1 (degraded path) and below Infinity (full
+    // pipeline), so both branches of the switch are exercised.
+    const model = largeNestedModel(6, 12);
+    expect(model.entities.length).toBe(288);
+    for (const threshold of [1, Infinity]) {
+      const layout = await new ElkLayoutEngine({ largeGraphThreshold: threshold }).layout(model);
+      expect(layout.width / layout.height).toBeLessThanOrEqual(3);
+      expect(computeLayoutMetrics(model, layout).edgeNodeIntersections).toBe(0);
+      expect(layout.nodes).toHaveLength(model.entities.length);
+    }
   });
 });

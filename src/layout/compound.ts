@@ -105,10 +105,37 @@ const CANVAS_MARGIN = 40;
 /** Node gap inside packed blocks of a dense (very large) graph; leaves one routing lane. */
 const DENSE_NODE_SPACING = 36;
 
+/**
+ * Entity count above which the compound layout switches to its cheaper
+ * large-graph mode (see [[CompoundOptions.largeGraphThreshold]]).
+ *
+ * The cross-block router's A* cost grows with the lattice area, i.e. with the
+ * canvas the compound pack produced — 0.3.0 measured a 2000-node nested graph
+ * at ~282 s against 1.2 s at 300 nodes. The 800-node point is the knee of that
+ * curve in the reported scale ladder (500 ≈ 1.4 s, 800 ≈ 4-7 s, 2000 ≈ 282 s).
+ */
+export const DEFAULT_LARGE_GRAPH_THRESHOLD = 800;
+/**
+ * Lattice pitch of the large-graph router. The default pitch is tied to the
+ * canvas area and becomes very fine on a big canvas (one lattice vertex every
+ * ~9-20 px), which makes every A* search explore hundreds of thousands of
+ * states. A coarser lattice cuts that by roughly the square of the pitch ratio
+ * while still leaving the 64 px gutters between blocks routable. 22 px is the
+ * coarsest value that still finds a terminal vertex outside every node in the
+ * dense nested fixtures; at 24 px a small package can sit entirely between
+ * lattice rows and the router falls back to a node-crossing dog-leg.
+ */
+const LARGE_GRAPH_ROUTER_PITCH = 22;
+
 export interface CompoundOptions extends PlacementStrategyOptions {
   edgeRouting?: string;
   /** Rip-up passes of the cross-block router; its default when omitted. */
   ripupPasses?: number;
+  /**
+   * Entity count above which the cross-block router degrades to a coarser
+   * lattice with no rip-up passes. Default [[DEFAULT_LARGE_GRAPH_THRESHOLD]].
+   */
+  largeGraphThreshold?: number;
   /**
    * Extra block-placement strategies tried, in order, before the built-in
    * chain; the first to return a placement wins (see [[./placement-strategy]]).
@@ -239,12 +266,17 @@ export async function compoundLayout(
     target: model.relations[index].target,
     points,
   }));
+  // Large graphs route on a coarser lattice and skip the rip-up refinement:
+  // the A* search is the superlinear term (see DEFAULT_LARGE_GRAPH_THRESHOLD),
+  // and both knobs trade routing polish for a bounded layout time.
+  const large = model.entities.length > (options.largeGraphThreshold ?? DEFAULT_LARGE_GRAPH_THRESHOLD);
   const routed = routeOrthogonal(requests, nodes, {
     width: placed.width,
     height: placed.height,
     frames: packagesOut,
     existing: drawn,
-    ripupPasses: options.ripupPasses,
+    ripupPasses: large ? 0 : options.ripupPasses,
+    pitch: large ? LARGE_GRAPH_ROUTER_PITCH : undefined,
     crossingCost: model.entities.some((e) => e.stub) ? STUB_CROSSING_COST : CROSSING_COST,
   });
   for (const [id, points] of routed) edgePoints.set(Number(id), points);

@@ -43,7 +43,7 @@ import type {
 } from 'elkjs';
 import { PlantUmlModel } from '../foundation/model.js';
 import { LayoutEngine, LayoutResult, alignRows, alignIsolatedFrames } from '../foundation/layout.js';
-import { compoundLayout, type StubOrbit } from './compound.js';
+import { compoundLayout, DEFAULT_LARGE_GRAPH_THRESHOLD, type StubOrbit } from './compound.js';
 import { computeLayoutMetrics, computeMaxEmptyBlockRatio } from './layout-metrics.js';
 import { resolveLayerOrder, assignPartitions } from '../foundation/layers.js';
 import { buildElkGraph } from './elk-graph.js';
@@ -145,6 +145,21 @@ export interface ElkLayoutOptions {
    */
   aspectRatio?: number;
   /**
+   * Entity count above which the compound layout degrades to its cheaper
+   * large-graph mode: the cross-block router uses a coarser lattice with no
+   * rip-up passes, the dependency-ordered block packing is not retried with
+   * rect-packing, and the cosmetic edge-polishing passes (fan-out bundling,
+   * trunk straightening, un-coiling) are skipped. Those passes run A* and
+   * O(edges) crossing scans per candidate edge, which grows superlinearly with
+   * the canvas area — the 0.3.0 nested 2000-node graph measured ~282 s at the
+   * default and is bounded above this threshold.
+   *
+   * Default 800, the knee between the reported 800-node (~4-7 s) and
+   * 2000-node (~282 s) measurements. Set to `Infinity` to keep the full
+   * polishing pipeline at every scale.
+   */
+  largeGraphThreshold?: number;
+  /**
    * Extra layout strategies tried, in order, before the built-in decision
    * chain; the first to return a result wins (see [[./strategy]]).
    */
@@ -230,15 +245,22 @@ export class ElkLayoutEngine implements LayoutEngine {
   }
 
   async layout(model: PlantUmlModel): Promise<LayoutResult> {
+    const large = this.isLargeGraph(model);
+    const spread = (raw: LayoutResult): LayoutResult =>
+      spreadParallelLanes(clipPackageEndpoints(model, alignIsolatedFrames(model, alignRows(model, raw))));
+    // The edge-polishing passes are quadratic-ish in the canvas size (per-edge
+    // A* plus all-pairs crossing scans) and cannot be bounded by any budget on
+    // a 2000-node nested canvas, so a large graph keeps the raw compound
+    // geometry and only gets the cheap passes.
     const finish = (raw: LayoutResult): LayoutResult =>
       fitCanvas(
         liftFlushSegments(
-          // stub views price crossings high on purpose: their rail edges are not un-coiled
-          (model.entities.some((e) => e.stub) ? (l: LayoutResult) => l : uncoilWraps)(
-            straightenTrunkDetours(
-              mergeFanoutTrunks(model, spreadParallelLanes(clipPackageEndpoints(model, alignIsolatedFrames(model, alignRows(model, raw))))),
-            ),
-          ),
+          large
+            ? spread(raw)
+            : // stub views price crossings high on purpose: their rail edges are not un-coiled
+              (model.entities.some((e) => e.stub) ? (l: LayoutResult) => l : uncoilWraps)(
+                straightenTrunkDetours(mergeFanoutTrunks(model, spread(raw))),
+              ),
         ),
       );
     if (!model.entities.some((e) => e.stub)) return finish((await this.layoutRaw(model)).layout);
@@ -337,6 +359,7 @@ export class ElkLayoutEngine implements LayoutEngine {
     { orbit, quick }: RunOptions,
   ): Promise<RawLayout> {
     const dense = model.entities.length > COMPOUND_ENTITY_THRESHOLD;
+    const large = this.isLargeGraph(model);
     const run = (rectPackDense: boolean): Promise<LayoutResult> =>
       compoundLayout(this.elk, model, {
         edgeRouting: this.options.edgeRouting,
@@ -347,14 +370,22 @@ export class ElkLayoutEngine implements LayoutEngine {
         partitions: layers.length > 0 ? partitions : new Map(),
         stubOrbit: orbit,
         ripupPasses: quick ? 0 : undefined,
+        largeGraphThreshold: this.options.largeGraphThreshold,
       });
     const ordered = await run(false);
     // Dependency-ordered rows cost canvas on very large graphs; past the budget
-    // fall back to the tighter (order-blind) rect packing.
-    if (dense && ordered.width * ordered.height > COMPOUND_AREA_BUDGET) {
+    // fall back to the tighter (order-blind) rect packing. A large graph skips
+    // the retry: laying every nested block out twice doubles the dominant cost
+    // for a canvas-area gain that the large-graph router no longer needs.
+    if (!large && dense && ordered.width * ordered.height > COMPOUND_AREA_BUDGET) {
       return { layout: await run(true), orbited: true };
     }
     return { layout: ordered, orbited: true };
+  }
+
+  /** Entity count above which the cheap large-graph pipeline is used. */
+  private isLargeGraph(model: PlantUmlModel): boolean {
+    return model.entities.length > (this.options.largeGraphThreshold ?? DEFAULT_LARGE_GRAPH_THRESHOLD);
   }
 
   /** One ELK run over the whole nested graph (`INCLUDE_CHILDREN`). */
