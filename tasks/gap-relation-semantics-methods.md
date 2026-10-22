@@ -1,7 +1,7 @@
 ---
 id: gap-relation-semantics-methods
 title: 把 RelationSemantics 从字段暴露收紧为方法暴露（isDashed() 等）
-status: todo
+status: ready
 labels:
   - gap
   - layout
