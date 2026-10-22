@@ -50,10 +50,75 @@ export interface RenderSvgOptions {
   hiddenTransitive?: number;
 }
 
+/**
+ * Per-frame values handed to {@link RenderEngine.render}. Only values computed
+ * for the frame being rendered belong here; configuration that outlives a
+ * frame (theme, legend override) is constructor state of the engine.
+ */
+export interface RenderFrameOptions {
+  /** Edges hidden by transitive reduction in this frame; > 0 forces the legend and is reported there and in `data-hidden-transitive`. */
+  hiddenTransitive?: number;
+}
+
+/**
+ * The rendering counterpart of `LayoutEngine`: draw an already laid-out model.
+ * Synchronous because SVG assembly is synchronous, unlike layout. Inject one
+ * through `RendererOptions.renderer` to swap the rendering backend.
+ */
+export interface RenderEngine {
+  render(model: PlantUmlModel, layout: LayoutResult, frame?: RenderFrameOptions): string;
+}
+
+/** Configuration that outlives a frame — constructor state of {@link SvgRenderer}. */
+export interface SvgRendererOptions {
+  /** Draw a legend of the visual encodings. Default: on for models with more than 30 entities. */
+  legend?: boolean;
+  /** Theme token overrides over `defaultTheme`. */
+  theme?: ThemeOverrides;
+}
+
+/**
+ * The built-in {@link RenderEngine}: the SVG backend. Theme and legend
+ * configuration are fixed at construction; the per-frame `hiddenTransitive`
+ * count is passed to [[SvgRenderer.render]].
+ */
+export class SvgRenderer implements RenderEngine {
+  private readonly legend: boolean | undefined;
+  private readonly theme: ThemeOverrides | undefined;
+
+  constructor(options: SvgRendererOptions = {}) {
+    this.legend = options.legend;
+    this.theme = options.theme;
+  }
+
+  render(model: PlantUmlModel, layout: LayoutResult, frame: RenderFrameOptions = {}): string {
+    return drawSvg(model, layout, {
+      legend: this.legend,
+      theme: this.theme,
+      hiddenTransitive: frame.hiddenTransitive,
+    });
+  }
+}
+
+/**
+ * Convenience wrapper over {@link SvgRenderer}, kept for callers that build the
+ * SVG directly from a model + layout (the renderer class is preferred when
+ * injecting into `RendererOptions.renderer`).
+ */
 export function renderSvg(
   model: PlantUmlModel,
   layout: LayoutResult,
   options: RenderSvgOptions = {},
+): string {
+  return new SvgRenderer(options).render(model, layout, {
+    hiddenTransitive: options.hiddenTransitive,
+  });
+}
+
+function drawSvg(
+  model: PlantUmlModel,
+  layout: LayoutResult,
+  options: RenderSvgOptions,
 ): string {
   const theme = resolveTheme(options.theme);
   const nodesById = new Map(layout.nodes.map((n) => [n.id, n]));
