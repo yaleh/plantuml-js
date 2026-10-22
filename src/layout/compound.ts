@@ -24,6 +24,7 @@ import {
 } from '../foundation/layout.js';
 import { measureTextWidth } from '../foundation/text-measure.js';
 import { routeOrthogonal, type RouteRequest } from './grid-router.js';
+import { mergeElkOptions } from './elk-graph.js';
 
 const PACKAGE_PREFIX = 'pkg::';
 /** Block aspect ratio beyond which a flat block is repacked instead of layered. */
@@ -100,9 +101,11 @@ export interface CompoundOptions {
    * but order-blind, so only used when the rows exceed the canvas budget.
    */
   rectPackDense?: boolean;
-  edgeRouting: string;
+  edgeRouting?: string;
   /** Target canvas width/height (ELK `elk.aspectRatio`); default 1.6. */
   aspectRatio?: number;
+  /** Raw ELK options injected into each block's root and package containers (escape hatch). */
+  elk?: Record<string, string>;
   /** Block id → semantic-layer partition index (layered mode only). */
   partitions: Map<string, number>;
   /** Rip-up passes of the cross-block router; its default when omitted. */
@@ -305,11 +308,15 @@ async function layoutBlock(
     pkgNodes.set(pkg.id, {
       id: PACKAGE_PREFIX + pkg.id,
       children: [],
-      layoutOptions: {
-        'elk.padding': '[top=26,left=10,bottom=10,right=10]',
-        'elk.nodeSize.constraints': '[MINIMUM_SIZE]',
-        'elk.nodeSize.minimum': `[${packageMinWidth(pkg.name).toFixed(1)}, ${PACKAGE_LABEL.tabHeight + 36}]`,
-      },
+      layoutOptions: mergeElkOptions(
+        {
+          'elk.padding': '[top=26,left=10,bottom=10,right=10]',
+          'elk.nodeSize.constraints': '[MINIMUM_SIZE]',
+          'elk.nodeSize.minimum': `[${packageMinWidth(pkg.name).toFixed(1)}, ${PACKAGE_LABEL.tabHeight + 36}]`,
+        },
+        {},
+        options.elk,
+      ),
     });
   }
   const rootChildren: ElkNode[] = [];
@@ -352,21 +359,26 @@ async function layoutBlock(
 
   const pkg = packages.find((p) => p.id === topId)!;
   const hasNested = packages.length > 1;
-  const layoutOptions: Record<string, string> = {
+  const defaults: Record<string, string> = {
     'elk.algorithm': 'layered',
     'elk.direction': 'DOWN',
-    'elk.edgeRouting': options.edgeRouting,
+    'elk.edgeRouting': options.edgeRouting ?? 'ORTHOGONAL',
     'elk.spacing.nodeNode': '40',
     'elk.layered.spacing.nodeNodeBetweenLayers': '60',
     'elk.layered.portConstraints': 'FIXED_SIDE',
-    'elk.aspectRatio': String(options.aspectRatio ?? 1.6),
+    'elk.aspectRatio': '1.6',
     'elk.separateConnectedComponents': 'true',
     'elk.layered.nodePlacement.strategy': 'INTERACTIVE',
     'elk.spacing.edgeNode': String(EDGE_NODE_SPACING),
     'elk.spacing.edgeEdge': String(EDGE_EDGE_SPACING),
     'elk.padding': '[top=26,left=10,bottom=10,right=10]',
   };
-  if (hasNested) layoutOptions['elk.hierarchyHandling'] = 'INCLUDE_CHILDREN';
+  const named: Record<string, string> = {};
+  if (options.edgeRouting !== undefined) named['elk.edgeRouting'] = options.edgeRouting;
+  if (options.aspectRatio !== undefined) named['elk.aspectRatio'] = String(options.aspectRatio);
+  if (hasNested) defaults['elk.hierarchyHandling'] = 'INCLUDE_CHILDREN';
+
+  const layoutOptions = mergeElkOptions(defaults, named, options.elk);
 
   const graph: ElkNode = { id: 'block', layoutOptions, children: rootChildren, edges };
   let result = await elk.layout(graph);
@@ -407,12 +419,16 @@ async function layoutBlock(
       options.dense && options.rectPackDense
         ? await elk.layout({
             id: 'block',
-            layoutOptions: {
-              'elk.algorithm': 'rectpacking',
-              'elk.aspectRatio': String(options.aspectRatio ?? 1.6),
-              'elk.spacing.nodeNode': String(DENSE_NODE_SPACING),
-              'elk.padding': '[top=26,left=10,bottom=10,right=10]',
-            },
+            layoutOptions: mergeElkOptions(
+              {
+                'elk.algorithm': 'rectpacking',
+                'elk.aspectRatio': '1.6',
+                'elk.spacing.nodeNode': String(DENSE_NODE_SPACING),
+                'elk.padding': '[top=26,left=10,bottom=10,right=10]',
+              },
+              options.aspectRatio !== undefined ? { 'elk.aspectRatio': String(options.aspectRatio) } : {},
+              options.elk,
+            ),
             children: rootChildren,
           })
         : packShelves(rootChildren, flowOrder, options, (h) => (hubs.length > 0 ? placeHubRail(hubs, h).width : 0));
@@ -746,16 +762,20 @@ async function splitNestedBlock(
   }
   const packed: ElkNode = await elk.layout({
     id: 'block',
-    layoutOptions: {
-      'elk.algorithm': 'layered',
-      'elk.direction': 'DOWN',
-      'elk.aspectRatio': String(options.aspectRatio ?? 1.6),
-      'elk.spacing.nodeNode': String(DENSE_NODE_SPACING),
-      'elk.layered.spacing.nodeNodeBetweenLayers': String(BLOCK_SPACING),
-      'elk.layered.wrapping.strategy': 'MULTI_EDGE',
-      'elk.separateConnectedComponents': 'true',
-      'elk.padding': '[top=26,left=10,bottom=10,right=10]',
-    },
+    layoutOptions: mergeElkOptions(
+      {
+        'elk.algorithm': 'layered',
+        'elk.direction': 'DOWN',
+        'elk.aspectRatio': '1.6',
+        'elk.spacing.nodeNode': String(DENSE_NODE_SPACING),
+        'elk.layered.spacing.nodeNodeBetweenLayers': String(BLOCK_SPACING),
+        'elk.layered.wrapping.strategy': 'MULTI_EDGE',
+        'elk.separateConnectedComponents': 'true',
+        'elk.padding': '[top=26,left=10,bottom=10,right=10]',
+      },
+      options.aspectRatio !== undefined ? { 'elk.aspectRatio': String(options.aspectRatio) } : {},
+      options.elk,
+    ),
     children: elkChildren,
     edges: linkEdges,
   });
@@ -871,17 +891,17 @@ async function placeBlocks(
     edges.push({ id: `blk-${edges.length}`, sources: [a], targets: [b] });
   }
 
-  const layoutOptions: Record<string, string> = pack
+  const defaults: Record<string, string> = pack
     ? {
         'elk.algorithm': 'rectpacking',
-        'elk.aspectRatio': String(options.aspectRatio ?? 1.6),
+        'elk.aspectRatio': '1.6',
         'elk.spacing.nodeNode': String(BLOCK_SPACING),
         'elk.padding': `[top=${CANVAS_MARGIN},left=${CANVAS_MARGIN},bottom=${CANVAS_MARGIN},right=${CANVAS_MARGIN}]`,
       }
     : {
         'elk.algorithm': 'layered',
         'elk.direction': 'DOWN',
-        'elk.aspectRatio': String(options.aspectRatio ?? 1.6),
+        'elk.aspectRatio': '1.6',
         'elk.edgeRouting': 'ORTHOGONAL',
         'elk.spacing.nodeNode': String(BLOCK_SPACING),
         'elk.layered.spacing.nodeNodeBetweenLayers': String(BLOCK_SPACING),
@@ -889,7 +909,10 @@ async function placeBlocks(
         'elk.separateConnectedComponents': 'true',
         'elk.padding': `[top=${CANVAS_MARGIN},left=${CANVAS_MARGIN},bottom=${CANVAS_MARGIN},right=${CANVAS_MARGIN}]`,
       };
-  if (!pack && options.partitions.size > 0) layoutOptions['elk.partitioning.activate'] = 'true';
+  const named: Record<string, string> = {};
+  if (options.aspectRatio !== undefined) named['elk.aspectRatio'] = String(options.aspectRatio);
+  if (!pack && options.partitions.size > 0) named['elk.partitioning.activate'] = 'true';
+  const layoutOptions = mergeElkOptions(defaults, named, options.elk);
 
   let result: ElkNode;
   if (pack && blocks.size > MAX_CANDIDATE_BLOCKS) {

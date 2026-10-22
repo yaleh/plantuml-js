@@ -149,6 +149,25 @@ export interface ElkLayoutOptions {
    * chain; the first to return a result wins (see [[./strategy]]).
    */
   strategies?: LayoutStrategy[];
+  /**
+   * Raw ELK options (`elk.*` keys), the escape hatch for knobs that have no
+   * named option here — e.g.
+   * `{ 'elk.layered.layering.strategy': 'COFFMAN_GRAHAM',
+   *    'elk.layered.layering.coffmanGraham.layerBound': '2' }` to cap how many
+   * nodes sit side by side per layer, which a plain `aspectRatio` cannot do.
+   *
+   * Every key is injected into the root graph *and* every package container
+   * node, recursively, so nested packages honour it too. Values override the
+   * engine's built-in defaults, but an explicitly-set named option wins a
+   * same-key collision (`aspectRatio` over `elk.aspectRatio`, `edgeRouting`
+   * over `elk.edgeRouting`, `mergeEdges` over `elk.layered.mergeEdges`).
+   *
+   * Known elkjs crash: `INCLUDE_CHILDREN` + `COFFMAN_GRAHAM` +
+   * `coffmanGraham.layerBound=2` + `elk.aspectRatio=1.6` throws
+   * `TypeError: Cannot read properties of undefined (reading 'c')`; steer clear
+   * of that exact combination (bound=2 with a different ratio is fine).
+   */
+  elk?: Record<string, string>;
 }
 
 /** One raw layout plus whether the compound layout placed orbiting stubs in it. */
@@ -320,8 +339,9 @@ export class ElkLayoutEngine implements LayoutEngine {
     const dense = model.entities.length > COMPOUND_ENTITY_THRESHOLD;
     const run = (rectPackDense: boolean): Promise<LayoutResult> =>
       compoundLayout(this.elk, model, {
-        edgeRouting: this.options.edgeRouting ?? 'ORTHOGONAL',
+        edgeRouting: this.options.edgeRouting,
         aspectRatio: this.options.aspectRatio,
+        elk: this.options.elk,
         dense,
         rectPackDense,
         partitions: layers.length > 0 ? partitions : new Map(),
@@ -344,9 +364,10 @@ export class ElkLayoutEngine implements LayoutEngine {
     partitions: Map<string, number>,
   ): Promise<LayoutResult> {
     const graph = buildElkGraph(model, layers, partitions, {
-      edgeRouting: this.options.edgeRouting ?? 'ORTHOGONAL',
+      edgeRouting: this.options.edgeRouting,
       mergeEdges: this.options.mergeEdges,
       aspectRatio: this.options.aspectRatio,
+      elk: this.options.elk,
     });
     return mapElkResult(model, await this.elk.layout(graph));
   }

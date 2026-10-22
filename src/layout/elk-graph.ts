@@ -49,7 +49,24 @@ export function entityLeaf(entity: PlantUmlEntity): ElkNode {
 /** Packages with at least this many direct members are laid out top-down. */
 const FLOW_DOWN_MIN_MEMBERS = 12;
 
-export function buildChildren(model: PlantUmlModel, partitions: Map<string, number>): ElkNode[] {
+/**
+ * One ELK node's `layoutOptions`, weakest first: built-in defaults, then the
+ * caller's raw `elk` escape-hatch keys (they override our defaults), then the
+ * named options the caller explicitly set (they win any key collision).
+ */
+export function mergeElkOptions(
+  defaults: Record<string, string>,
+  named: Record<string, string>,
+  raw: Record<string, string> | undefined,
+): Record<string, string> {
+  return raw === undefined ? { ...defaults, ...named } : { ...defaults, ...raw, ...named };
+}
+
+export function buildChildren(
+  model: PlantUmlModel,
+  partitions: Map<string, number>,
+  rawElk?: Record<string, string>,
+): ElkNode[] {
   const pkgNodes = new Map<string, ElkNode>();
   const memberCount = new Map<string, number>(model.packages.map((p) => [p.id, 0]));
   for (const entity of model.entities) {
@@ -63,7 +80,7 @@ export function buildChildren(model: PlantUmlModel, partitions: Map<string, numb
     // a package holds only a single short-named entity.
     const minWidth = packageMinWidth(pkg.name);
     const minHeight = PACKAGE_LABEL.tabHeight + 26 + 10; // tab + top/bottom padding
-    const layoutOptions: Record<string, string> = {
+    const defaults: Record<string, string> = {
       'elk.padding': '[top=26,left=10,bottom=10,right=10]',
       'elk.nodeSize.constraints': '[MINIMUM_SIZE]',
       'elk.nodeSize.minimum': `[${minWidth.toFixed(1)}, ${minHeight.toFixed(1)}]`,
@@ -71,13 +88,16 @@ export function buildChildren(model: PlantUmlModel, partitions: Map<string, numb
     // A package's interior is laid out on its own (INHERIT hierarchy) and would
     // fall back to ELK's default RIGHT, turning the dependency flow sideways.
     // Big packages read top-down like the rest of the diagram; small ones stay compact.
-    if (memberCount.get(pkg.id)! >= FLOW_DOWN_MIN_MEMBERS) layoutOptions['elk.direction'] = 'DOWN';
+    if (memberCount.get(pkg.id)! >= FLOW_DOWN_MIN_MEMBERS) defaults['elk.direction'] = 'DOWN';
+    // The semantic-layer partition is named-option territory (layerOrder / "X Layer"
+    // packages), so it beats a same-key raw `elk` value.
+    const named: Record<string, string> = {};
     const partition = partitions.get(pkg.id);
-    if (partition !== undefined) layoutOptions['elk.partitioning.partition'] = String(partition);
+    if (partition !== undefined) named['elk.partitioning.partition'] = String(partition);
     pkgNodes.set(pkg.id, {
       id: PACKAGE_PREFIX + pkg.id,
       children: [],
-      layoutOptions,
+      layoutOptions: mergeElkOptions(defaults, named, rawElk),
     });
   }
 
@@ -149,9 +169,12 @@ export function buildChildren(model: PlantUmlModel, partitions: Map<string, numb
 }
 
 export interface ElkGraphOptions {
-  edgeRouting: string;
+  /** Edge routing mode; omitted means the built-in ORTHOGONAL default. */
+  edgeRouting?: string;
   mergeEdges?: boolean;
   aspectRatio?: number;
+  /** Raw ELK options injected into the root and every package container (escape hatch). */
+  elk?: Record<string, string>;
 }
 
 /** The root ELK graph for one hierarchical run over the whole nested model. */
@@ -166,17 +189,17 @@ export function buildElkGraph(
   // next to the default gaps, which leaves the canvas mostly empty.
   const compact =
     model.packages.length === 0 && model.entities.every((e) => e.members.length === 0);
-  const children = buildChildren(model, partitions);
+  const children = buildChildren(model, partitions, options.elk);
   const edges: ElkExtendedEdge[] = model.relations.map((relation, i) => ({
     id: `rel-${i}`,
     sources: [layoutSource(relation)],
     targets: [layoutTarget(relation)],
   }));
 
-  const layoutOptions: Record<string, string> = {
+  const defaults: Record<string, string> = {
     'elk.algorithm': 'layered',
     'elk.direction': 'DOWN',
-    'elk.edgeRouting': options.edgeRouting,
+    'elk.edgeRouting': 'ORTHOGONAL',
     'elk.spacing.nodeNode': compact ? '12' : '20',
     'elk.layered.spacing.nodeNodeBetweenLayers': compact ? '24' : '24',
     // Ports keep a fixed side per edge, so same-direction edges fan out across
@@ -188,7 +211,7 @@ export function buildElkGraph(
     // Soft targets: pack disconnected components into a balanced rectangle
     // instead of a long horizontal strip. (hierarchyHandling stays INHERIT
     // unless cross-package edges exist — see the header comment.)
-    'elk.aspectRatio': String(options.aspectRatio ?? 1.6),
+    'elk.aspectRatio': '1.6',
     'elk.separateConnectedComponents': 'true',
     // INTERACTIVE placement keeps each layer's boxes centred on the widest
     // partition instead of fanning them out sideways, which is what lets a
@@ -196,18 +219,28 @@ export function buildElkGraph(
     // docs/layout-routing-eval.md).
     'elk.layered.nodePlacement.strategy': 'INTERACTIVE',
   };
-  if (partitionsActive) layoutOptions['elk.partitioning.activate'] = 'true';
+  // Values that come from an explicitly-set named option: these beat a raw
+  // `elk` key of the same name (documented precedence).
+  const named: Record<string, string> = {};
+  if (options.edgeRouting !== undefined) named['elk.edgeRouting'] = options.edgeRouting;
+  if (options.aspectRatio !== undefined) named['elk.aspectRatio'] = String(options.aspectRatio);
+  if (options.mergeEdges) named['elk.layered.mergeEdges'] = 'true';
+  if (partitionsActive) named['elk.partitioning.activate'] = 'true';
   if (compact) {
-    layoutOptions['elk.layered.nodePlacement.strategy'] = 'NETWORK_SIMPLEX';
-    layoutOptions['elk.layered.spacing.edgeEdgeBetweenLayers'] = '5';
-    layoutOptions['elk.layered.spacing.edgeNodeBetweenLayers'] = '12';
+    defaults['elk.layered.nodePlacement.strategy'] = 'NETWORK_SIMPLEX';
+    defaults['elk.layered.spacing.edgeEdgeBetweenLayers'] = '5';
+    defaults['elk.layered.spacing.edgeNodeBetweenLayers'] = '12';
   }
   // Every edge that crosses a container boundary (package↔package or
   // package↔top-level stub) needs INCLUDE_CHILDREN to get a routing section.
   if (hasContainerCrossingEdge(model)) {
-    layoutOptions['elk.hierarchyHandling'] = 'INCLUDE_CHILDREN';
+    defaults['elk.hierarchyHandling'] = 'INCLUDE_CHILDREN';
   }
-  if (options.mergeEdges) layoutOptions['elk.layered.mergeEdges'] = 'true';
 
-  return { id: 'root', layoutOptions, children, edges };
+  return {
+    id: 'root',
+    layoutOptions: mergeElkOptions(defaults, named, options.elk),
+    children,
+    edges,
+  };
 }
