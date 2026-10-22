@@ -26,12 +26,12 @@ extra:
 
 ## AC
 
-- [ ] 改动前红：新增 `tests/render-engine.test.ts`，注入一个返回固定 SVG 字符串的合成 `RenderEngine` 并断言渲染结果来自它；改动前 `RendererOptions` 无 `renderer` 字段、测试红（无法注入），记录输出
-- [ ] `RenderEngine` 接口 + `SvgRenderer` 实现：`RenderEngine.render(model, layout)` 接口存在；`SvgRenderer implements RenderEngine`，静态配置（theme/legend）为构造属性、每帧动态值（hiddenTransitive）为 `render` 参数
-- [ ] 注入生效：`createRenderer({ renderer })` 用注入的 renderer 渲染，**不改 `src/core.ts` 的 renderParsed 调用结构之外的任何渲染分支**即生效；负对照：抛错的 renderer 不被静默忽略、错误可诊断地抛出
-- [ ] `renderSvg` 向后兼容：`renderSvg(model, layout, options)` 仍是 public export 且行为不变（内部委托 `SvgRenderer`），`grep -n "export .*renderSvg" src/core.ts` 仍命中
-- [ ] 无行为回归：两个 fixture 经 `createRenderer()` 渲染的 SVG 与改动前 sha256 逐一相等（含 `hiddenTransitive` 动态值传递正确）；`npm run typecheck` 与 `npx vitest run` 全绿，`tests/render.test.ts` 不改断言即通过
-- [ ] 对称性落地：`RendererOptions.layout`（注入 `LayoutEngine`）与 `RendererOptions.renderer`（注入 `RenderEngine`）两个注入点并存；`renderParsed` 不再硬编码 `renderSvg`（`grep -n "renderSvg" src/core.ts` 只剩 import/re-export 与便捷函数，不在 renderParsed 内直接调用）
+- [x] 改动前红：新增 `tests/render-engine.test.ts`，注入一个返回固定 SVG 字符串的合成 `RenderEngine` 并断言渲染结果来自它；改动前 `RendererOptions` 无 `renderer` 字段、测试红（无法注入），记录输出
+- [x] `RenderEngine` 接口 + `SvgRenderer` 实现：`RenderEngine.render(model, layout)` 接口存在；`SvgRenderer implements RenderEngine`，静态配置（theme/legend）为构造属性、每帧动态值（hiddenTransitive）为 `render` 参数
+- [x] 注入生效：`createRenderer({ renderer })` 用注入的 renderer 渲染，**不改 `src/core.ts` 的 renderParsed 调用结构之外的任何渲染分支**即生效；负对照：抛错的 renderer 不被静默忽略、错误可诊断地抛出
+- [x] `renderSvg` 向后兼容：`renderSvg(model, layout, options)` 仍是 public export 且行为不变（内部委托 `SvgRenderer`），`grep -n "export .*renderSvg" src/core.ts` 仍命中
+- [x] 无行为回归：两个 fixture 经 `createRenderer()` 渲染的 SVG 与改动前 sha256 逐一相等（含 `hiddenTransitive` 动态值传递正确）；`npm run typecheck` 与 `npx vitest run` 全绿，`tests/render.test.ts` 不改断言即通过
+- [x] 对称性落地：`RendererOptions.layout`（注入 `LayoutEngine`）与 `RendererOptions.renderer`（注入 `RenderEngine`）两个注入点并存；`renderParsed` 不再硬编码 `renderSvg`（`grep -n "renderSvg" src/core.ts` 只剩 import/re-export 与便捷函数，不在 renderParsed 内直接调用）
 
 ## DoD
 
@@ -44,3 +44,11 @@ extra:
 - src/core.ts
 - tests/render-engine.test.ts (new)
 - tests/render.test.ts
+
+## Blocker
+
+**2026-10-22T08:34:37.677Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 0/6，剩余未勾 6）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：06ed9057-55d1-49b4-8f4a-8d01eaa99589
