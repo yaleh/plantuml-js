@@ -1,7 +1,7 @@
 ---
 id: gap-layout-scale-ladder-and-dense-overview-reduction
 title: 合成规模阶梯样例（10→400 实体）+ 布局耗时度量 + 稠密依赖图的传递约简（可选，带图例说明）
-status: todo
+status: ready
 labels:
   - gap
   - layout
