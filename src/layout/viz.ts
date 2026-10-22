@@ -28,7 +28,7 @@ import {
   displayName,
   estimateEntitySize,
 } from '../foundation/layout.js';
-import { getViz, GraphvizEngine } from '../foundation/render-dot.js';
+import { getViz, GraphvizEngine } from './render-dot.js';
 import { measureTextWidth } from '../foundation/text-measure.js';
 import { relationSemantics } from '../foundation/relation-semantics.js';
 
