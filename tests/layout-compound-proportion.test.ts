@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { ElkLayoutEngine, transformFullGraph } from '../src/index.js';
-import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
+import { computeLayoutMetrics } from '../src/metrics/layout-metrics.js';
 import type { PlantUmlEntity, PlantUmlModel, PlantUmlPackage, PlantUmlRelation } from '../src/foundation/model.js';
 
 const testDir = dirname(fileURLToPath(import.meta.url));

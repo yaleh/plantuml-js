@@ -11,8 +11,8 @@ import {
   ElkLayoutEngine,
   renderSvg,
 } from '../src/index.js';
-import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
-import { placeEdgeLabels, rectsIntersect } from '../src/render/labels.js';
+import { computeLayoutMetrics } from '../src/metrics/layout-metrics.js';
+import { placeEdgeLabels, rectsIntersect } from '../src/foundation/labels.js';
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const packagePuml = readFileSync(join(testDir, 'fixtures', 'archguard-package.puml'), 'utf8');

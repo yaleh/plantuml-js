@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ElkLayoutEngine } from '../src/elk.js';
 import { parsePlantUml, renderDetailed } from '../src/core.js';
-import { findParallelBundles, computeLayoutMetrics } from '../src/layout/layout-metrics.js';
+import { findParallelBundles, computeLayoutMetrics } from '../src/metrics/layout-metrics.js';
 import type { Point } from '../src/foundation/layout.js';
 // @ts-expect-error — plain .mjs helper without type declarations
 import { filterPackagesMatching } from '../scripts/samples-lib.mjs';

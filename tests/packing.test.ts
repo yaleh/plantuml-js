@@ -8,7 +8,7 @@ import {
   transformModel,
   ElkLayoutEngine,
 } from '../src/index.js';
-import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
+import { computeLayoutMetrics } from '../src/metrics/layout-metrics.js';
 import { PlantUmlModel } from '../src/foundation/model.js';
 
 const testDir = dirname(fileURLToPath(import.meta.url));

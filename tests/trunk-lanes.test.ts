@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { straightenTrunkDetours } from '../src/layout/trunk-lanes.js';
-import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
+import { computeLayoutMetrics } from '../src/metrics/layout-metrics.js';
 import { LayoutResult } from '../src/foundation/layout.js';
 import { PlantUmlModel } from '../src/foundation/model.js';
 

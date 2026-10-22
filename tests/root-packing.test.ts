@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderDetailed, parsePlantUml } from '../src/core.js';
-import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
+import { computeLayoutMetrics } from '../src/metrics/layout-metrics.js';
 
 /** `count` top-level packages of varied size; only every fourth pair is linked. */
 function weaklyConnectedPackages(count: number): string {

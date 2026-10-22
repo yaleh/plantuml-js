@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { measureTextWidth } from '../src/foundation/text-measure.js';
 import { estimateEntitySize } from '../src/foundation/layout.js';
-import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
+import { computeLayoutMetrics } from '../src/metrics/layout-metrics.js';
 import { PlantUmlModel, PlantUmlEntity } from '../src/foundation/model.js';
 
 describe('text-measure (monospace)', () => {

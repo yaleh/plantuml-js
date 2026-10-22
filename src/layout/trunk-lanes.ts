@@ -11,7 +11,7 @@
 
 import { LayoutResult, NodeLayout, PackageLayout, Point } from '../foundation/layout.js';
 import { routeOrthogonal } from './grid-router.js';
-import { findParallelBundles } from './layout-metrics.js';
+import { findParallelBundles } from '../metrics/layout-metrics.js';
 
 /** Path length ÷ Manhattan distance above which an edge is considered for a Z. */
 const DETOUR_FACTOR = 2;

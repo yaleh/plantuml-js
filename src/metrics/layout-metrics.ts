@@ -19,7 +19,7 @@ import {
   placeEdgeLabels,
   rectHitsOtherEdge,
   rectsIntersect,
-} from '../render/labels.js';
+} from '../foundation/labels.js';
 
 export interface LayoutMetrics {
   /** Proper crossings between segments of two different edges. */

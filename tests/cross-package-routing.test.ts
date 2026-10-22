@@ -6,7 +6,7 @@ import { parsePlantUml } from '../src/parser.js';
 import { ElkLayoutEngine } from '../src/layout/elk.js';
 import { applyView, transformModel } from '../src/transform.js';
 import { transformFullGraph } from '../src/core.js';
-import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
+import { computeLayoutMetrics } from '../src/metrics/layout-metrics.js';
 import { countNonOrthogonalSegments } from '../src/foundation/edge-router.js';
 import type { PlantUmlModel } from '../src/foundation/model.js';
 
