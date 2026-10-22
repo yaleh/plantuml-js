@@ -24,9 +24,9 @@ flat 大图（无包）在 compound 重构后持续退化，且唯一护栏已�
 
 ## AC
 
-- [ ] `scripts/bench-nested.mjs` 的 import 改为当前文件位置（`dist/layout/layout-metrics.js` 等），`node scripts/bench-nested.mjs` 能跑通（不再 ERR_MODULE_NOT_FOUND），并按预算退出 0/1。
-- [ ] flat 789（无包）满足 bench 预算：`crossings ≤ 1000`、`layoutMs ≤ 2000`（当前 65s/15402；恢复到旧代码 456ms/545 量级或至少达标）。
-- [ ] 嵌套不回退：nested-full `width ≤ 10000` 或 `aspect ≤ 3`、`crossings ≤ 800`、`nodeIntersect === 0`、`layoutMs ≤ 5000`；`npm test` 与 `npm run typecheck` 退出 0。
+- [x] `scripts/bench-nested.mjs` 的 import 改为当前文件位置（`dist/layout/layout-metrics.js` 等），`node scripts/bench-nested.mjs` 能跑通（不再 ERR_MODULE_NOT_FOUND），并按预算退出 0/1。
+- [x] flat 789（无包）满足 bench 预算：`crossings ≤ 1000`、`layoutMs ≤ 2000`（当前 65s/15402；恢复到旧代码 456ms/545 量级或至少达标）。
+- [x] 嵌套不回退：nested-full `width ≤ 10000` 或 `aspect ≤ 3`、`crossings ≤ 800`、`nodeIntersect === 0`、`layoutMs ≤ 5000`；`npm test` 与 `npm run typecheck` 退出 0。
 
 ## DoD
 
