@@ -154,6 +154,25 @@ loop:
   #     trigger: "every(60)"
   #     probe: "health"
 
+  # ── Architecture analysis (quality driver; runs outside the fan-in hot path) ──
+  # architecture-analysis: one fresh-context LLM probe per interval (role meta-driver) that drives the
+  # archguard MCP; findings go to .quay/routine-findings.jsonl and are filed as tasks by the routine gate.
+  routines:
+    - name: "architecture-analysis"
+      trigger: "interval:1440m"
+      probe: "architecture-analysis"
+  # architecture_review is the quay-shaped judge (identity/guard-lineage/deletion-closure detectors);
+  # those read quay-repo surfaces and are structurally empty here, so keep it off (zero spawn).
+  architecture_review:
+    enabled: false
+  # report-only routines: read .archguard/query/ artifacts, zero LLM spawn.
+  arch_coverage_report:
+    enabled: true
+    interval: "interval:360m"
+  arch_cycle_report:
+    enabled: true
+    interval: "interval:360m"
+
 # ─────────────────────────────────────────────────────────────────────
 # Section 4: Serve — the web server's bind binding (OPTIONAL, COMMENTED OUT)
 # ─────────────────────────────────────────────────────────────────────
