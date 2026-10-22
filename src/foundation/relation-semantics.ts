@@ -17,8 +17,8 @@
 
 import type { RelationType } from './model.js';
 
-/** Shape a relation type puts at the arrow end. */
-export type RelationArrowKind = 'triangle' | 'chevron' | 'diamond';
+/** Shape a relation type puts at the arrow end (`none`: no head). */
+export type RelationArrowKind = 'triangle' | 'chevron' | 'diamond' | 'none';
 
 /**
  * The behavioural facts of one relation type. Each fact is a decision, not a
@@ -99,9 +99,25 @@ export const RELATION_SEMANTICS: Readonly<Record<RelationType, RelationSemantics
   },
 };
 
+/**
+ * Facts for a relation type outside the closed `RelationType` domain. External
+ * input (JSON fixtures, hosts) can carry such a type; every consumer used to
+ * treat it as an anonymous line via `Set.has()` / `===` checks — no reversal,
+ * no dash, no arrowhead, not weak, not bundlable. Keep exactly that instead of
+ * failing the lookup.
+ */
+const UNKNOWN_RELATION_SEMANTICS: RelationSemantics = {
+  reversed: false,
+  dashed: false,
+  arrowKind: 'none',
+  filled: false,
+  weak: false,
+  bundlable: false,
+};
+
 /** The behavioural facts of one relation type. */
 export function relationSemantics(type: RelationType): RelationSemantics {
-  return RELATION_SEMANTICS[type];
+  return RELATION_SEMANTICS[type] ?? UNKNOWN_RELATION_SEMANTICS;
 }
 
 /** Every relation type, in declaration order (for consumers that iterate the closed enum). */
