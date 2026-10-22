@@ -25,9 +25,9 @@ Architecture-tab 实测发现：`layoutOptions` 现在只有命名选项（`laye
 
 ## AC
 
-- [ ] `tests/layout-arbitrary-elk-options.test.ts`（新增）对合成模型 `new ElkLayoutEngine({ elk: { 'elk.layered.layering.strategy': 'COFFMAN_GRAHAM', 'elk.layered.layering.coffmanGraham.layerBound': '2' } })`：断言这两个键出现在 ELK 收到的 root 与每个子容器节点的 `layoutOptions`（探针注入或布局几何变化），且该合成模型 bound=2 时画布宽高比显著窄于 baseline。`npx vitest run tests/layout-arbitrary-elk-options.test.ts` 退出 0。
-- [ ] 递归性：≥2 层嵌套模型，`options.elk` 的每个键出现在每个包容器节点的 layoutOptions（单测逐容器断言）。
-- [ ] 不传 `elk` 时 `createRenderer().render(<既有 fixture>)` 输出与当前逐字一致（bytes 不变）；命名选项与 `elk` 同名键冲突时命名选项胜出；`npm test` 与 `npm run typecheck` 退出 0。
+- [x] `tests/layout-arbitrary-elk-options.test.ts`（新增）对合成模型 `new ElkLayoutEngine({ elk: { 'elk.layered.layering.strategy': 'COFFMAN_GRAHAM', 'elk.layered.layering.coffmanGraham.layerBound': '2' } })`：断言这两个键出现在 ELK 收到的 root 与每个子容器节点的 `layoutOptions`（探针注入或布局几何变化），且该合成模型 bound=2 时画布宽高比显著窄于 baseline。`npx vitest run tests/layout-arbitrary-elk-options.test.ts` 退出 0。
+- [x] 递归性：≥2 层嵌套模型，`options.elk` 的每个键出现在每个包容器节点的 layoutOptions（单测逐容器断言）。
+- [x] 不传 `elk` 时 `createRenderer().render(<既有 fixture>)` 输出与当前逐字一致（bytes 不变）；命名选项与 `elk` 同名键冲突时命名选项胜出；`npm test` 与 `npm run typecheck` 退出 0。
 
 ## DoD
 
