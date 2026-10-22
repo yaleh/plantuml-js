@@ -535,6 +535,7 @@ function classifyLine(
 }
 
 export { parsePlantUml, ElkLayoutEngine, renderSvg, SvgRenderer };
+export { toPlantUml } from './serialize.js';
 export type { RenderSvgOptions, RenderEngine, RenderFrameOptions, SvgRendererOptions };
 export { computeLayoutMetrics } from './layout/layout-metrics.js';
 export type { LayoutMetrics } from './layout/layout-metrics.js';
