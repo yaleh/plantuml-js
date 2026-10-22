@@ -1,7 +1,7 @@
 ---
 id: gap-layout-grid-density-stub-labels-nested-loops
 title: 网格列距收紧（Tests Layer 过稀）+ 组 stub 命名与粗线上限 + 同心回路降到近 0 + 边不贴画布边缘
-status: ready
+status: done
 labels:
   - gap
   - layout
