@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { ElkLayoutEngine } from '../src/layout/elk.js';
-import { parsePlantUml } from '../src/parser.js';
+import { parsePlantUml } from '../src/parse/parser.js';
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const packagePuml = readFileSync(

@@ -5,7 +5,7 @@ import {
   registerMetric,
   unregisterMetric,
   type LayoutMetrics,
-} from '../src/layout/layout-metrics.js';
+} from '../src/metrics/layout-metrics.js';
 import { PlantUmlModel } from '../src/foundation/model.js';
 import { LayoutResult } from '../src/foundation/layout.js';
 

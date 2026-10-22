@@ -2,7 +2,7 @@
  * LayoutEngine — the pluggable layout contract. A LayoutEngine is a pure
  * function from PlantUmlModel to concrete positions; the parser never talks
  * to a layout engine and the renderer never talks to the parser, so swapping
- * engines (elkjs, @viz-js/viz, a custom tuner) is an injection, not a rewrite.
+ * engines (ELK, Graphviz, a custom tuner) is an injection, not a rewrite.
  */
 
 import { PlantUmlModel, PlantUmlEntity, PlantUmlMember } from './model.js';

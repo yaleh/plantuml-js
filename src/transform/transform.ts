@@ -15,8 +15,8 @@ import {
   PlantUmlEntity,
   PlantUmlRelation,
   PlantUmlPackage,
-} from './foundation/model.js';
-import { relationSemantics } from './foundation/relation-semantics.js';
+} from '../foundation/model.js';
+import { relationSemantics } from '../foundation/relation-semantics.js';
 
 /** Options driving the model-transform pipeline. */
 export interface TransformOptions {

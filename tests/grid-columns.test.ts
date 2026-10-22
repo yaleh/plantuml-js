@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { parsePlantUml, ElkLayoutEngine, transformFullGraph } from '../src/index.js';
-import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
+import { computeLayoutMetrics } from '../src/metrics/layout-metrics.js';
 import { gridPack } from '../src/layout/compound.js';
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');

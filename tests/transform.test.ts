@@ -5,7 +5,7 @@ import {
   summarizeHubs,
   markCycles,
   transformModel,
-} from '../src/transform.js';
+} from '../src/transform/transform.js';
 import { PlantUmlModel } from '../src/foundation/model.js';
 
 type Entity = PlantUmlModel['entities'][number];

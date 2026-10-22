@@ -28,7 +28,7 @@ import type {
   PlantUmlRelation,
   RelationType,
   Visibility,
-} from './foundation/model.js';
+} from '../foundation/model.js';
 
 /** A bare PlantUML identifier (what `as <alias>` accepts). */
 const PLANTUML_ID = /^[A-Za-z_][A-Za-z0-9_]*$/;

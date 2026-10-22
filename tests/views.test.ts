@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createRenderer, parsePlantUml } from '../src/index.js';
-import { applyView, aggregateRelations } from '../src/transform.js';
+import { applyView, aggregateRelations } from '../src/transform/transform.js';
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const packagePuml = readFileSync(

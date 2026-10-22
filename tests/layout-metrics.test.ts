@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { computeLayoutMetrics } from '../src/layout/layout-metrics.js';
+import { computeLayoutMetrics } from '../src/metrics/layout-metrics.js';
 import { parsePlantUml, transformFullGraph, ElkLayoutEngine } from '../src/index.js';
 import { LayoutResult, PACKAGE_LABEL } from '../src/foundation/layout.js';
 import { PlantUmlModel } from '../src/foundation/model.js';
