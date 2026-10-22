@@ -19,12 +19,12 @@ extra:
 
 ## AC
 
-- [ ] `scripts/gen-class-ladder.mjs`：给定种子与实体数，确定性地生成 `.puml`（含 2–12 个包、嵌套包、5 种关系类型、成员行、少量孤立节点），同一种子两次输出字节一致；`tests/gen-class-ladder.test.ts` 断言同种子一致、不同种子不同、实体数与参数相符
-- [ ] `scripts/samples.json` 新增 `g-10`、`g-25`、`g-50`、`g-100`、`g-200`、`g-400` 六个阶梯样例（生成到 `rendered/generated/`，不提交产物），各自带档位与阈值：宽高比 0.6–2.5、`areaUtilization` ≥ 0.08、`edgeNodeIntersections` 0、`nonOrthogonalEdgeCount` 0、`textOverflowCount` 0、`nestedLoopCount` ≤ 3；`node scripts/render-samples.mjs --manifest <archguard 输出根目录> --compare` 渲染它们并按阈值判定，退出码 0
-- [ ] 新增度量 `layoutMs`（仅布局引擎耗时，不含 Chrome），写入 `metrics.json`；`samples.json` 为 XL 与 `g-400` 设阈值 ≤ 20000ms；`--compare` 对 `layoutMs` 增幅 > 50% 时失败（允许 `--ignore-timing` 在慢机器上跳过）
-- [ ] 传递约简：`RendererOptions.edgeReduction: 'auto' | 'transitive' | 'none'`，默认 `auto`；`tests/edge-reduction.test.ts` 断言：纯依赖的合成图（A→B、B→C、A→C）在 `auto` 下 A→C 被隐藏，SVG 含 `data-hidden-transitive="1"` 汇总信息，图例里出现隐藏条数；含继承/组合边的图在 `auto` 下不约简；`none` 恢复全部边
-- [ ] `m-package` 在 `auto` 下可见边数 ≤ 原边数的 70%，`edgeCrossings` 相对第十轮（287）降低 ≥ 25%；`m-architecture` 与所有 S 档样例（含类关系）不受影响（边数不变）
-- [ ] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
+- [x] `scripts/gen-class-ladder.mjs`：给定种子与实体数，确定性地生成 `.puml`（含 2–12 个包、嵌套包、5 种关系类型、成员行、少量孤立节点），同一种子两次输出字节一致；`tests/gen-class-ladder.test.ts` 断言同种子一致、不同种子不同、实体数与参数相符
+- [x] `scripts/samples.json` 新增 `g-10`、`g-25`、`g-50`、`g-100`、`g-200`、`g-400` 六个阶梯样例（生成到 `rendered/generated/`，不提交产物），各自带档位与阈值：宽高比 0.6–2.5、`areaUtilization` ≥ 0.08、`edgeNodeIntersections` 0、`nonOrthogonalEdgeCount` 0、`textOverflowCount` 0、`nestedLoopCount` ≤ 3；`node scripts/render-samples.mjs --manifest <archguard 输出根目录> --compare` 渲染它们并按阈值判定，退出码 0
+- [x] 新增度量 `layoutMs`（仅布局引擎耗时，不含 Chrome），写入 `metrics.json`；`samples.json` 为 XL 与 `g-400` 设阈值 ≤ 20000ms；`--compare` 对 `layoutMs` 增幅 > 50% 时失败（允许 `--ignore-timing` 在慢机器上跳过）
+- [x] 传递约简：`RendererOptions.edgeReduction: 'auto' | 'transitive' | 'none'`，默认 `auto`；`tests/edge-reduction.test.ts` 断言：纯依赖的合成图（A→B、B→C、A→C）在 `auto` 下 A→C 被隐藏，SVG 含 `data-hidden-transitive="1"` 汇总信息，图例里出现隐藏条数；含继承/组合边的图在 `auto` 下不约简；`none` 恢复全部边
+- [x] `m-package` 在 `auto` 下可见边数 ≤ 原边数的 70%，`edgeCrossings` 相对第十轮（287）降低 ≥ 25%；`m-architecture` 与所有 S 档样例（含类关系）不受影响（边数不变）
+- [x] `npm run typecheck` 与 `npx vitest run` 全部通过，渲染确定性
 
 ## DoD
 
