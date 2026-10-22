@@ -22,18 +22,20 @@ extra:
 
 这套复制已经造成一个**真实的跨引擎渲染 bug**：viz 引擎把 `implementation` 画成虚线（符合 PlantUML `..|>`），elk 引擎把它画成实线（`weak` 只判 dependency）。同一模型、两种引擎、视觉不一致。
 
-**方案**：把 `RelationType` 的语义**封装**进一个内聚模块 `src/relation-semantics.ts`——对外只暴露一张 `RelationType → 语义事实` 的映射（`reversed`、`dashed`、`arrowKind`、`filled`、`weak`、`bundlable`）。调用方只问这个模块，不再各自判定语义：svg/viz 负责把语义事实翻译成自己的输出格式（SVG DOM / DOT attrs），elk-graph/elk-result/compound 读 `reversed`，transform 读 `bundlable`。「哪种关系是虚线 / 哪种要反转 / 箭头类别」这类知识从此只定义一次。
+**方案**：把 `RelationType` 的语义**封装**进一个内聚模块 `src/foundation/relation-semantics.ts`——对外只暴露一张 `RelationType → 语义事实` 的映射（`reversed`、`dashed`、`arrowKind`、`filled`、`weak`、`bundlable`）。调用方只问这个模块，不再各自判定语义：svg/viz 负责把语义事实翻译成自己的输出格式（SVG DOM / DOT attrs），elk-graph/elk-result/compound 读 `reversed`，transform 读 `bundlable`。「哪种关系是虚线 / 哪种要反转 / 箭头类别」这类知识从此只定义一次。
 
 这是 OO 封装价值的直接应用：数据（RelationType）和它决定的行为（怎么画、怎么布局）收进同一个内聚单元，而不是让每个消费者各自知道细节。
 
+（落点说明：模块放在 `foundation/`——layout/render/transform 都消费它，而 `src/` 根已经 import 这些子目录；把模块放在 `src/` 根会让 `layout/render → 根 → layout/render` 形成新的目录环，违反最后一条 AC。`foundation/` 是所有人都可以依赖的叶子层。）
+
 ## AC
 
-- [ ] 改动前红：`grep -rc "REVERSED_RELATION_TYPES = new Set" src --include='*.ts'` 合计为 2（证明双定义）；一个断言「elk 与 viz 对同一 fixture 的 implementation 边线型一致」的新测试，改动前红（svg 实线 vs viz 虚线）
-- [ ] 封装单源：新增 `src/relation-semantics.ts`，`grep -rc "REVERSED_RELATION_TYPES = new Set" src --include='*.ts'` 降为 1（唯一持有者是 relation-semantics 或其语义表，elk-graph/compound 的局部定义删除）；`reversed`/`dashed`/`arrowKind`/`filled`/`weak`/`bundlable` 每个语义判定只在该模块出现一次
-- [ ] 线型一致：implementation 在 elk 与 viz 两引擎都渲染为虚线（对齐 PlantUML `..|>` 与 viz 现状，svg 从实线改为虚线）；新增 `tests/relation-semantics.test.ts` 断言两个引擎读到的 `dashed` 映射一致
-- [ ] 调用方不再各自判定语义：`src/layout/viz.ts` 的 `edgeAttrs` 与 `src/render/svg.ts` 的 `weak`/dash/箭头分支改为读 relation-semantics 的语义事实再翻译格式；`src/transform.ts shouldAutoReduce`、`src/render/svg.ts findEdgeBundles` 读 `bundlable`
-- [ ] 无行为回归（除 implementation 线型修复）：两个 fixture 的 elk SVG 除 implementation 边的 `stroke-dasharray` 外与改动前 sha256 一致；viz DOT 输出与改动前一致；`npm run typecheck` 与 `npx vitest run` 全绿，既有测试不改断言
-- [ ] 无新目录环：重新 `archguard_analyze` 后 `archguard_detect_cycles(outputScope="package")` 的环数不高于现状
+- [x] 改动前红：`grep -rc "REVERSED_RELATION_TYPES = new Set" src --include='*.ts'` 合计为 2（`elk-graph.ts:1` + `compound.ts:1`，证明双定义）；一个断言「elk 与 viz 对同一 fixture 的 implementation 边线型一致」的新测试，改动前红（改动前 viz 的 DOT 已输出 `style="dashed"`，但两引擎的最终 SVG renderer 都画实线 —— 新增测试断言虚线，改动前失败）
+- [x] 封装单源：新增 `src/foundation/relation-semantics.ts`，`grep -rc "REVERSED_RELATION_TYPES = new Set" src --include='*.ts'` 降为 1（唯一持有者在 relation-semantics，elk-graph/compound 的局部定义删除）；`reversed`/`dashed`/`arrowKind`/`filled`/`weak`/`bundlable` 每个语义判定只在该模块定义一次，消费者只读事实
+- [x] 线型一致：implementation 在 elk 与 viz 两引擎都渲染为虚线（对齐 PlantUML `..|>` 与 viz 现状，svg 从实线改为虚线）；新增 `tests/relation-semantics.test.ts` 断言两个引擎渲染出的 `stroke-dasharray` 都等于 `theme.dash.weak`
+- [x] 调用方不再各自判定语义：`src/layout/viz.ts` 的 `edgeAttrs` 与 `src/render/svg.ts` 的 `weak`/dash/箭头/trim 分支改为读 relation-semantics 的语义事实再翻译格式；`src/transform.ts shouldAutoReduce`、`src/render/svg.ts findEdgeBundles` 读 `bundlable`；elk-graph/elk-result/compound 读 `reversed`
+- [x] 无行为回归（除 implementation 线型修复）：两个 fixture（内联多关系小型模型 + `tests/fixtures/archguard-architecture.puml`）的 elk SVG——含 implementation 的那个逐字节相同（剥掉 implementation 组新增的 `stroke-dasharray="6,3"` 后 sha 一致），不含 implementation 的 sha 完全一致；viz DOT 两 fixture 逐字节一致；`npm run typecheck` 全绿、相关测试全绿（全量 `npx vitest run` 由 fan-in 执行）。既有测试断言只改了两处：`tests/relations.test.ts` 与 `tests/line-semantics.test.ts` 中「implementation 是实线」的断言——那正是本次修复的 bug 本身；其余断言未动
+- [x] 无新目录环：重新 `archguard_analyze` 后 `archguard_detect_cycles(outputScope="package")` 为 0 环（与 develop 现状 0 环持平；中途放在 `src/` 根时曾出现 `"" ↔ layout/render` 3 模块环，移入 `foundation/` 后消除）
 
 ## DoD
 
@@ -42,8 +44,9 @@ extra:
 ## Touches
 
 - tasks/gap-encapsulate-relation-type-semantics.md
-- src/relation-semantics.ts (new)
+- src/foundation/relation-semantics.ts (new)
 - src/render/svg.ts
+- src/render/theme.ts
 - src/layout/viz.ts
 - src/layout/elk-graph.ts
 - src/layout/elk-result.ts
@@ -51,4 +54,5 @@ extra:
 - src/transform.ts
 - tests/relation-semantics.test.ts (new)
 - tests/relations.test.ts
+- tests/line-semantics.test.ts
 - tests/viz.test.ts
