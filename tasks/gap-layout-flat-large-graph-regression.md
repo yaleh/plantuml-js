@@ -17,7 +17,7 @@ flat 大图（无包）在 compound 重构后持续退化，且唯一护栏已�
 
 - 当前 HEAD 对 789 flat（`tests/fixtures/archguard-neighborhood.json`）实测 **65s / 15402 crossings**（旧代码约 456ms / 545；`gap-compound-layout-proportion` 勾了 flat AC 但未实际达标）。
 - 护栏失效：`scripts/bench-nested.mjs` `import dist/layout-metrics.js`，文件已挪到 `dist/layout/layout-metrics.js`，脚本一跑就 ERR_MODULE_NOT_FOUND——flat/nested 预算根本没在执行。
-- Architecture-tab 补充（0.2.0/0.2.2 同码实测）：flat 单连通图上 `elk.aspectRatio` 配 `wrapping.strategy="2"` 是空操作（default/1.6/1.0/0.6/0.4 五次逐像素相同 1607×582）；`COFFMAN_GRAHAM`+`layerBound=2` 才折成 578×1006（0.57）。注意：本仓库 compound 用的 wrapping 枚举是字符串 `'MULTI_EDGE'`（`src/layout/compound.ts`），数值字符串 `"2"` 可能不被 ELK 识别——这是对方 wrapping 空操作的可疑根因，但 flat 宽度控制归 `gap-layout-arbitrary-elk-options`（layerBound），本任务只修「慢 + 高交叉」回归与守卫。
+- Architecture-tab 实测（0.2.0/0.2.2 同码）：flat 单连通图上 `elk.aspectRatio` 配 wrapping 是空操作——default/1.6/1.0/0.6/0.4 五次逐像素相同 1607×582，且 wrapping 四种写法（数值 "2"、MULTI_EDGE、MULTI_LAYER、SINGLE_EDGE）逐像素相同；结论是单层/少层宽图不在 wrapping 语义内（无可折层序列），不是枚举拼写问题。`COFFMAN_GRAHAM`+`layerBound=2` 才折成 578×1006（0.57）。flat 宽度控制归 `gap-layout-arbitrary-elk-options`（layerBound），本任务只修「慢 + 高交叉」回归与守卫。
 
 <!-- dedup-ref -->
 相关但不合并：`gap-compound-layout-proportion`（done）修嵌套成比例但 flat 未达标；`gap-layout-arbitrary-elk-options`（todo）给 flat 提供 layerBound 宽度旋钮；本任务只负责 flat 的性能/交叉回归 + 修 bench 守卫。
