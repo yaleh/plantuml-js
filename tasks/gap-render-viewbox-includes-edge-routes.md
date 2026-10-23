@@ -1,7 +1,7 @@
 ---
 id: gap-render-viewbox-includes-edge-routes
 title: gap-render-viewbox-includes-edge-routes
-status: todo
+status: ready
 labels:
   - gap
   - defect
