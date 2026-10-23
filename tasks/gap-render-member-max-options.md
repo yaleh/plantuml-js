@@ -26,9 +26,9 @@ extra:
 
 ## AC
 
-- [ ] 合成模型（含一个 >`memberMaxChars` 的长成员 + >`memberMaxRows` 的多个成员），`createRenderer({ memberMaxChars: 48, memberMaxRows: 6 })` 渲染：`data-w` ≤ 截断后最宽行 + padding，`data-h` 只算 `memberMaxRows`（+标记）行；SVG 里长成员以 `…` 结尾、超出行数成员不出现、`… +N more (M members)` 标记行存在。`npx vitest run tests/render-member-max.test.ts` 退出 0。
-- [ ] `renderDetailed(...).model` 里该长成员的 `raw` 仍为完整原文（未被改），仅 `display` 被截断。
-- [ ] 不传两选项时 `createRenderer().render(<fixture>)` 输出与当前逐字一致；`npm test` 与 `npm run typecheck` 退出 0。
+- [x] 合成模型（含一个 >`memberMaxChars` 的长成员 + >`memberMaxRows` 的多个成员），`createRenderer({ memberMaxChars: 48, memberMaxRows: 6 })` 渲染：`data-w` ≤ 截断后最宽行 + padding，`data-h` 只算 `memberMaxRows`（+标记）行；SVG 里长成员以 `…` 结尾、超出行数成员不出现、`… +N more (M members)` 标记行存在。`npx vitest run tests/render-member-max.test.ts` 退出 0。
+- [x] `renderDetailed(...).model` 里该长成员的 `raw` 仍为完整原文（未被改），仅 `display` 被截断。
+- [x] 不传两选项时 `createRenderer().render(<fixture>)` 输出与当前逐字一致；`npm test` 与 `npm run typecheck` 退出 0。
 
 ## DoD
 
