@@ -228,17 +228,54 @@ describe('gap-plantuml-serializer: subgraphs stay stable', () => {
     );
   });
 
-  it('round-trips the model renderDetailed actually drew, truncation rows included', async () => {
-    const { model } = await renderDetailed(parsePlantUml(classPuml), { detail: 'compact' });
-    const truncated = model.entities.flatMap((e) =>
-      e.members.filter((m) => m.raw.includes('… +')),
+  it('skips the synthetic truncation rows of a detail-compacted model', async () => {
+    const parsed = parsePlantUml(classPuml);
+    const { model } = await renderDetailed(parsed, { detail: 'compact' });
+    const synthetic = model.entities.flatMap((e) =>
+      e.members.filter((m) => m.synthetic === true),
     );
-    expect(truncated.length).toBeGreaterThan(0);
+    expect(synthetic.length).toBeGreaterThan(0);
 
     const text = expectStableRoundTrip(model);
-    for (const member of truncated) {
-      expect(text).toContain(member.raw);
+    // The `… +N more (M members)` stand-in is drawing scaffolding, not a
+    // member: no marker line may be emitted, and a reparse must not turn one
+    // into an authored member.
+    expect(text).not.toMatch(/… \+\d+ more \(\d+ members\)/);
+    const back = parsePlantUml(text);
+    expect(
+      back.entities.flatMap((e) => e.members).some((m) => m.raw.includes('more (')),
+    ).toBe(false);
+    // Every real member the drawn model kept is still exported.
+    for (const entity of model.entities) {
+      for (const member of entity.members.filter((m) => m.synthetic !== true)) {
+        expect(text).toContain(member.raw);
+      }
     }
+  });
+
+  it('exports sourceModel with the original member count and intact raw text', async () => {
+    const parsed = parsePlantUml(classPuml);
+    const { sourceModel } = await renderDetailed(parsed, {
+      detail: 'compact',
+      memberMaxRows: 2,
+      memberMaxChars: 12,
+    });
+
+    const sourceMembers = sourceModel.entities.flatMap((e) => e.members);
+    expect(sourceMembers.length).toBeGreaterThan(0);
+    expect(sourceMembers.some((m) => m.synthetic === true)).toBe(false);
+    // memberMaxChars only changes `display`; `raw` stays the authored text.
+    for (const member of sourceMembers) expect(member.raw).not.toContain('…');
+
+    const text = toPlantUmlFromIndex(sourceModel);
+    const syntax = checkSyntax(text);
+    expect(syntax.errors).toEqual([]);
+    expect(syntax.ok).toBe(true);
+    expect(text).not.toMatch(/… \+\d+ more \(\d+ members\)/);
+
+    const memberCounts = (m: PlantUmlModel): Map<string, number> =>
+      new Map(m.entities.map((e) => [e.name, e.members.length]));
+    expect(memberCounts(parsePlantUml(text))).toEqual(memberCounts(parsed));
   });
 });
 

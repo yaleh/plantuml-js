@@ -1,12 +1,18 @@
 /**
  * PlantUmlModel → PlantUML class-diagram text.
  *
- * The inverse of [[parsePlantUml]]: `toPlantUml(renderDetailed(...).model)`
- * reproduces the diagram that was actually drawn (after view/transform/detail)
- * as source a user can copy and paste. Pure and synchronous — the model is the
- * only input, so the caller composes the scope by picking the model
+ * The inverse of [[parsePlantUml]]. The model is the only input, so the caller
+ * composes the scope by picking the model
  * (`toPlantUml(applyView(model, {kind: 'neighborhood', entity, hops}))`); this
  * function never chooses a range on its own.
+ *
+ * For a **lossless export** of what `renderDetailed` parsed, pass its
+ * `sourceModel` (the post-view/transform, pre-detail model):
+ * `toPlantUml(renderDetailed(input).sourceModel)`. Passing `model` instead
+ * serializes the model that was drawn — detail truncation has already dropped
+ * rows there, so the text is only as complete as the drawing. Members marked
+ * `synthetic` (the `… +N more (M members)` count row `applyDetail` adds) are
+ * drawing scaffolding, not authored content, and are always skipped.
  *
  * Shapes that only exist after parsing (stub/external/usageCount, aggregated
  * edge weights, cycle markers) are rendering semantics with no PlantUML
@@ -172,9 +178,12 @@ function entityLines(
   const indent = INDENT.repeat(depth);
   const alias = aliases.alias(entity.id, entity.name);
   const head = `${entityKeyword(entity)} ${quoteName(entity.name)}${genericSuffix(entity)} as ${alias}`;
-  if (entity.members.length === 0) return [`${indent}${head}`];
+  // Synthetic rows (applyDetail's `… +N more` marker) stand in for members the
+  // drawing dropped; they are not authored content, so they never serialize.
+  const members = entity.members.filter((member) => member.synthetic !== true);
+  if (members.length === 0) return [`${indent}${head}`];
   const lines = [`${indent}${head} {`];
-  for (const member of entity.members) {
+  for (const member of members) {
     lines.push(`${indent}${INDENT}${memberLine(member)}`);
   }
   lines.push(`${indent}}`);
@@ -188,10 +197,9 @@ function genericSuffix(entity: PlantUmlEntity): string {
 
 /**
  * One member row. The authored `raw` text is authoritative (it carries the
- * visibility symbol and the exact signature), except for synthesized rows —
- * the detail pipeline's `… +N more (M members)` truncation marker has no
- * visibility symbol, so it gets one prefixed to stay parseable as a member
- * row while keeping the marker text verbatim.
+ * visibility symbol and the exact signature); a declaration without a leading
+ * visibility symbol gets one prefixed so the row stays parseable. Synthetic
+ * detail markers never reach this function (see [[entityLines]]).
  */
 function memberLine(member: PlantUmlMember): string {
   const raw = (member.raw ?? '').trim();

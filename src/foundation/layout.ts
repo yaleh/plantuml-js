@@ -250,6 +250,12 @@ export interface MemberDisplayLimits {
  * of each drawn line (`memberMaxChars`). Truncation only sets
  * `PlantUmlMember.display`; `raw` keeps the full declaration. Without limits
  * the result is byte-for-byte what it always was.
+ *
+ * Row caps replace dropped members with one `… +N more (M members)` row marked
+ * `synthetic: true`: it is drawing scaffolding, not authored content, so the
+ * serializer skips it and a lossless export reads the pre-detail model
+ * (`renderDetailed().sourceModel`). Re-applying `applyDetail` to an already
+ * detailed model counts only the real members, so markers never stack.
  */
 export function applyDetail(
   model: PlantUmlModel,
@@ -272,8 +278,9 @@ export function applyDetail(
   return {
     ...model,
     entities: model.entities.map((entity) => {
-      const total = entity.members.length;
-      if (level === 'names') return total === 0 ? entity : { ...entity, members: [] };
+      const authored = entity.members.filter((member) => member.synthetic !== true);
+      const total = authored.length;
+      if (level === 'names') return entity.members.length === 0 ? entity : { ...entity, members: [] };
       const rowCap =
         memberMaxRows !== undefined
           ? memberMaxRows
@@ -281,15 +288,17 @@ export function applyDetail(
             ? COMPACT_MEMBER_ROWS
             : total;
       if (total <= rowCap) {
-        return hasLimits ? { ...entity, members: entity.members.map(limitMember) } : entity;
+        if (!hasLimits && authored.length === entity.members.length) return entity;
+        return { ...entity, members: authored.map(limitMember) };
       }
-      const kept = entity.members.slice(0, rowCap).map(limitMember);
+      const kept = authored.slice(0, rowCap).map(limitMember);
       const more: PlantUmlMember = {
         visibility: 'public',
         name: '…',
         kind: 'field',
         modifiers: [],
         raw: `… +${total - rowCap} more (${total} members)`,
+        synthetic: true,
       };
       return { ...entity, members: [...kept, more] };
     }),

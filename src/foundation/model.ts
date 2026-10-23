@@ -30,6 +30,14 @@ export interface PlantUmlMember {
    * inspector views keep the full declaration.
    */
   display?: string;
+  /**
+   * True when the member never existed in the source: it is a drawn-only
+   * stand-in synthesized by `applyDetail` (the `… +N more (M members)` count
+   * row) to stand for the rows the detail level dropped. It is not part of the
+   * parsed model, so it must never be exported: [[toPlantUml]] skips it, and
+   * the lossless export path serializes `renderDetailed().sourceModel` instead.
+   */
+  synthetic?: true;
 }
 
 export interface PlantUmlEntity {

@@ -107,8 +107,8 @@ export interface RenderResult {
 
 /**
  * Everything {@link renderDetailed} computed for one diagram: the model that was
- * actually laid out and drawn, the geometry the renderer used, the SVG it
- * emitted, and the reduction bookkeeping.
+ * actually laid out and drawn, the pre-detail model to export from, the geometry
+ * the renderer used, the SVG it emitted, and the reduction bookkeeping.
  *
  * This is a **public, stable API** (available from both the `.` and `./elk`
  * entries). Consumers such as an architecture tab should read geometry from
@@ -129,8 +129,20 @@ export interface RenderResult {
  * they can be translated into a thumbnail directly.
  */
 export interface DetailedRender {
-  /** The model actually laid out and drawn (after view, transforms and detail). */
+  /**
+   * The model actually laid out and drawn (after view, transforms **and**
+   * detail). Detail truncation has already dropped members here — row caps
+   * replace them with a `synthetic` `… +N more` marker — so this model is for
+   * drawing/inspection, **not for export**. Export from {@link sourceModel}.
+   */
   model: PlantUmlModel;
+  /**
+   * The complete model after view/transforms but **before** detail truncation:
+   * every authored member, with `raw` intact. Serialize this to export what was
+   * parsed — `toPlantUml(renderDetailed(input).sourceModel)` — instead of
+   * `model`, whose rows detail may have capped.
+   */
+  sourceModel: PlantUmlModel;
   /** Geometry actually used by the renderer; its node/package/edge rectangles are a stable contract (see above). */
   layout: LayoutResult;
   svg: string;
@@ -235,8 +247,8 @@ async function renderParsed(
   engine: LayoutEngine,
   renderEngine: RenderEngine,
 ): Promise<DetailedRender> {
-  const { model: transformed, hiddenTransitive } = transformForRender(parsed, options);
-  const model = applyDetail(transformed, options.detail, {
+  const { model: sourceModel, hiddenTransitive } = transformForRender(parsed, options);
+  const model = applyDetail(sourceModel, options.detail, {
     memberMaxRows: options.memberMaxRows,
     memberMaxChars: options.memberMaxChars,
   });
@@ -253,13 +265,15 @@ async function renderParsed(
     placeEdgeLabels(model, raw).map((label) => label.rect),
   );
   const svg = renderEngine.render(model, layout, { hiddenTransitive });
-  return { model, layout, svg, layoutMs, hiddenTransitive };
+  return { sourceModel, model, layout, svg, layoutMs, hiddenTransitive };
 }
 
 /**
  * Render one diagram through the exact pipeline `createRenderer` uses
  * (view/transforms → detail → layout → svg) and return every intermediate, so
  * tooling can read real geometry instead of reverse-engineering the SVG.
+ * `model` is the post-detail model that was drawn; `sourceModel` is the
+ * pre-detail model to serialize for a lossless export.
  *
  * Accepts either a puml string (the counterpart of
  * `createRenderer(options).render(puml)`, with the same fail-closed

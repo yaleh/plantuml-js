@@ -134,7 +134,7 @@ describe('renderDetailed public contract', () => {
     expectTypeOf<FullDetailedRender>().toEqualTypeOf<ElkDetailedRender>();
   });
 
-  it('returns model, layout, svg, layoutMs and hiddenTransitive', async () => {
+  it('returns model, sourceModel, layout, svg, layoutMs and hiddenTransitive', async () => {
     const out = await renderDetailed(puml);
 
     // model: the post-view/transform/detail model that was actually drawn.
@@ -143,6 +143,13 @@ describe('renderDetailed public contract', () => {
       expect.arrayContaining(['A', 'B']),
     );
     expect(out.model.diagramType).toBeTypeOf('string');
+
+    // sourceModel: the same model before detail, for lossless export.
+    expect(Array.isArray(out.sourceModel.entities)).toBe(true);
+    expect(out.sourceModel.entities.map((e) => e.id)).toEqual(
+      expect.arrayContaining(['A', 'B']),
+    );
+    expect(out.sourceModel.diagramType).toBeTypeOf('string');
 
     // layout: stable geometry.
     expect(Array.isArray(out.layout.nodes)).toBe(true);
@@ -160,10 +167,54 @@ describe('renderDetailed public contract', () => {
 
     expectTypeOf(out).toEqualTypeOf<FullDetailedRender>();
     expectTypeOf(out.model).toEqualTypeOf<FullDetailedRender['model']>();
+    expectTypeOf(out.sourceModel).toEqualTypeOf<FullDetailedRender['sourceModel']>();
     expectTypeOf(out.layout).toEqualTypeOf<FullDetailedRender['layout']>();
     expectTypeOf(out.svg).toBeString();
     expectTypeOf(out.layoutMs).toBeNumber();
     expectTypeOf(out.hiddenTransitive).toBeNumber();
+  });
+
+  it('returns a pre-detail sourceModel for lossless export', async () => {
+    const detailedPuml = [
+      '@startuml',
+      'class A {',
+      '  +alpha: string',
+      '  +beta: string',
+      '  +gamma: string',
+      '  +delta: string',
+      '  +epsilon: string',
+      '  +zeta: string',
+      '}',
+      '@enduml',
+    ].join('\n');
+
+    const out = await renderDetailed(detailedPuml, {
+      detail: 'compact',
+      memberMaxRows: 2,
+      memberMaxChars: 8,
+    });
+
+    // The drawn model is truncated: two kept rows plus the synthetic count row.
+    const drawn = out.model.entities.find((e) => e.id === 'A')!;
+    expect(drawn.members).toHaveLength(3);
+    expect(drawn.members.at(-1)!.synthetic).toBe(true);
+
+    // sourceModel is untouched by detail: all six authored members, raw intact.
+    const source = out.sourceModel.entities.find((e) => e.id === 'A')!;
+    expect(source.members).toHaveLength(6);
+    expect(source.members.some((m) => m.synthetic === true)).toBe(false);
+    for (const member of source.members) {
+      expect(member.display).toBeUndefined();
+      expect(member.raw.length).toBeGreaterThan(8);
+    }
+
+    // Serializing sourceModel is the lossless export path.
+    const text = fullEntry.toPlantUml(out.sourceModel);
+    expect(text).not.toContain('more (');
+    expect(fullEntry.checkSyntax(text).ok).toBe(true);
+    expect(
+      parsePlantUml(text).entities.find((e) => e.id === 'A')!.members,
+    ).toHaveLength(6);
   });
 
   it('exposes node/package/edge rectangles that match the SVG data attributes', async () => {

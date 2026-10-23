@@ -72,7 +72,7 @@ console.log(svg);
 |---|---|
 | `createRenderer({ layout })` | Build a renderer. `layout` is `'elk'` (default), `'viz'` (experimental), or a custom `LayoutEngine`. |
 | `renderer.render(puml)` | Parse + layout + emit SVG. Returns `{ svg, diagramType, warnings }`. Throws `RenderError` on structurally invalid puml. |
-| `renderDetailed(pumlOrModel, options?)` | Run the same pipeline as `renderer.render` and return every intermediate: `{ model, layout, svg, layoutMs, hiddenTransitive }`. Accepts a puml string (throws `RenderError` on invalid input) or an already-parsed `PlantUmlModel`. `DetailedRender.layout` carries the **stable** node/package/edge rectangles — see [Stable layout geometry](#stable-layout-geometry-renderdetailed) — so tooling never has to re-read bounding boxes from the SVG. Exported from both `.` and `./elk`. |
+| `renderDetailed(pumlOrModel, options?)` | Run the same pipeline as `renderer.render` and return every intermediate: `{ model, sourceModel, layout, svg, layoutMs, hiddenTransitive }`. Accepts a puml string (throws `RenderError` on invalid input) or an already-parsed `PlantUmlModel`. `model` is the post-detail model that was drawn — **not suitable for export** (detail truncation may have replaced member rows); `sourceModel` is the complete pre-detail model, so export with `toPlantUml(sourceModel)`. `DetailedRender.layout` carries the **stable** node/package/edge rectangles — see [Stable layout geometry](#stable-layout-geometry-renderdetailed) — so tooling never has to re-read bounding boxes from the SVG. Exported from both `.` and `./elk`. |
 | `parsePlantUml(puml)` | Parse a puml string into a `PlantUmlModel`. |
 | `checkSyntax(puml)` | Validate without throwing. Returns `{ ok, errors, warnings }` of line-accurate `SyntaxDiagnostic`s. |
 | `explain(puml)` | Explain each line. Returns `LineExplanation[]` (line, kind, explanation). |
@@ -97,6 +97,19 @@ relative to the diagram origin (the SVG `viewBox` offset).
 without re-routing. `model` is the diagram actually drawn (after view,
 transforms and detail), and `hiddenTransitive` counts the edges dropped by
 transitive reduction.
+
+`model` is a **drawing** model: `detail`/`memberMaxRows` may have replaced rows
+with a synthetic `… +N more (M members)` marker, so serializing it is lossy.
+For a lossless export (copy/download the current diagram as PlantUML), serialize
+`sourceModel` — the same model after view/transforms but before detail:
+
+```ts
+const { sourceModel } = await renderDetailed(puml, { detail: 'compact' });
+const text = toPlantUml(sourceModel); // every authored member, no marker rows
+```
+
+`toPlantUml` skips synthetic members, so `toPlantUml(model)` never emits a
+`+ … +N more` line either — it is simply only as complete as what was drawn.
 
 The canvas is fitted to **the routes and labels that are drawn**, not only to
 the boxes the layout engine measures: `layout.width`/`height` (and therefore
