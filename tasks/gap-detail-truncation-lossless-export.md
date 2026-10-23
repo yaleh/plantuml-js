@@ -1,7 +1,7 @@
 ---
 id: gap-detail-truncation-lossless-export
 title: detail 截断污染 model：标记成员进序列化 + renderDetailed 缺无损 sourceModel
-status: ready
+status: done
 labels:
   - gap
   - defect
