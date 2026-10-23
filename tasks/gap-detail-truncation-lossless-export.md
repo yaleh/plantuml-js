@@ -19,10 +19,10 @@ extra:
 
 ## AC
 
-- [ ] `PlantUmlMember` 加 `synthetic?: true`；`applyDetail` 生成的 `… +N more` 标记成员带 `synthetic: true`。
-- [ ] `toPlantUml` 跳过 `synthetic` 成员（不再输出 `+ … +N more` 行）；`tests/serialize.test.ts` 加用例：compact/limit 后的 model 序列化无标记行、reparse 无 error、实体成员数与原始一致。`npx vitest run tests/serialize.test.ts` 退出 0。
-- [ ] `renderDetailed` 返回值加 `sourceModel`（view/transform 之后、detail 之前的完整模型）；README/类型注释写明 `model` 是「已 detail 的绘制模型、不适合导出」，导出用 `sourceModel`。`tests/api.test.ts` 断言 `sourceModel` 存在且成员无损。
-- [ ] `npm test` 与 `npm run typecheck` 退出 0。
+- [x] `PlantUmlMember` 加 `synthetic?: true`；`applyDetail` 生成的 `… +N more` 标记成员带 `synthetic: true`。
+- [x] `toPlantUml` 跳过 `synthetic` 成员（不再输出 `+ … +N more` 行）；`tests/serialize.test.ts` 加用例：compact/limit 后的 model 序列化无标记行、reparse 无 error、实体成员数与原始一致。`npx vitest run tests/serialize.test.ts` 退出 0。
+- [x] `renderDetailed` 返回值加 `sourceModel`（view/transform 之后、detail 之前的完整模型）；README/类型注释写明 `model` 是「已 detail 的绘制模型、不适合导出」，导出用 `sourceModel`。`tests/api.test.ts` 断言 `sourceModel` 存在且成员无损。
+- [x] `npm test` 与 `npm run typecheck` 退出 0。
 
 ## DoD
 
