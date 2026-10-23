@@ -19,10 +19,16 @@ edges:
 
 ![Minimal class diagram — package, class boxes, and three edge kinds](https://raw.githubusercontent.com/yaleh/plantuml-js/author/docs/img/quickstart.elk.png)
 
-The same pipeline on a real medium-size architecture graph (package grouping,
-orthogonal edge routing, bundled arrowheads):
+The same pipeline on a real architecture graph, focused on one class's
+neighborhood (`view: { kind: 'neighborhood', entity, hops }`) with member rows
+capped (`memberMaxRows` / `memberMaxChars`) so boxes stay compact; package
+grouping, orthogonal edge routing and bundled arrowheads are drawn as in the
+full graph:
 
-![Medium architecture diagram](https://raw.githubusercontent.com/yaleh/plantuml-js/author/docs/img/m-architecture.elk.png)
+![Focused architecture view — a class and its 1-hop neighborhood](https://raw.githubusercontent.com/yaleh/plantuml-js/author/docs/img/m-focus.elk.png)
+
+The full 70-entity version of that graph is in the gallery as
+[Medium architecture view](https://github.com/yaleh/plantuml-js/blob/author/docs/gallery.md#medium-architecture-view).
 
 See the [gallery](https://github.com/yaleh/plantuml-js/blob/author/docs/gallery.md)
 for every figure's source `.puml`, its SVG output, and the `elk` vs `viz`
