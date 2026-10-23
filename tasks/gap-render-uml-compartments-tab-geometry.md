@@ -1,7 +1,7 @@
 ---
 id: gap-render-uml-compartments-tab-geometry
 title: UML 三格（attr/op）+ 包标签页闭合 + 节点/包几何元数据
-status: ready
+status: done
 labels:
   - gap
   - render
