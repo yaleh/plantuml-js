@@ -23,10 +23,10 @@ Architecture-tab 的 LOD 语义缩放需要三处 UML SVG 保真（现有 SVG �
 
 ## AC
 
-- [ ] 分格：含 field+method 成员的合成模型渲染出两条 `uml-compartment-rule`（`data-rule="title"` 与 `data-rule="ops"`），成员文本 class 分别为 `uml-attr`/`uml-op`；仅 method（接口）模型只渲染一条 `data-rule="title"`。`npx vitest run tests/render-compartments.test.ts` 退出 0。
-- [ ] 尺寸一致：`estimateEntitySize` 高度 = 标题行 + 成员行 + 规则行，`renderSvg` 输出的框高与 `layout` 的 `node.height` 一致（无文本溢出）；既有 textOverflow 相关测试仍绿。
-- [ ] 包标签页：`renderPackage` 输出闭合的 `uml-package-tab` path/polyline（右竖线 + 底边封口），带 `data-tab-w`/`data-tab-h`。
-- [ ] 元数据：`uml-node` 组带 `data-x/y/w/h` + `data-title-h/data-attrs-h/data-ops-h`；`uml-package` 组带 `data-x/y/w/h` + `data-tab-w/data-tab-h`；`npm test` 与 `npm run typecheck` 退出 0。
+- [x] 分格：含 field+method 成员的合成模型渲染出两条 `uml-compartment-rule`（`data-rule="title"` 与 `data-rule="ops"`），成员文本 class 分别为 `uml-attr`/`uml-op`；仅 method（接口）模型只渲染一条 `data-rule="title"`。`npx vitest run tests/render-compartments.test.ts` 退出 0。
+- [x] 尺寸一致：`estimateEntitySize` 高度 = 标题行 + 成员行 + 规则行，`renderSvg` 输出的框高与 `layout` 的 `node.height` 一致（无文本溢出）；既有 textOverflow 相关测试仍绿。
+- [x] 包标签页：`renderPackage` 输出闭合的 `uml-package-tab` path/polyline（右竖线 + 底边封口），带 `data-tab-w`/`data-tab-h`。
+- [x] 元数据：`uml-node` 组带 `data-x/y/w/h` + `data-title-h/data-attrs-h/data-ops-h`；`uml-package` 组带 `data-x/y/w/h` + `data-tab-w/data-tab-h`；`npm test` 与 `npm run typecheck` 退出 0。
 
 ## DoD
 
