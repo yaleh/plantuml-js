@@ -1,5 +1,5 @@
 {
-  "$comment": "Doc-gallery manifest consumed by scripts/render-docs.mjs. `source` is resolved against docs/gallery-sources/ then tests/fixtures/. `engine` is 'elk' (default) or 'viz'. `packagesMatching` keeps only packages whose id matches the regex (and their entities/relations). Figures are grouped into the gallery under their `section`, in first-seen order.",
+  "$comment": "Doc-gallery manifest consumed by scripts/render-docs.mjs. `source` is resolved against docs/gallery-sources/ then tests/fixtures/. `engine` is 'elk' (default) or 'viz'. `packagesMatching` keeps only packages whose id matches the regex (and their entities/relations). `view`, `detail`, `memberMaxRows` and `memberMaxChars` are forwarded to renderDetailed unchanged. Figures are grouped into the gallery under their `section`, in first-seen order.",
   "figures": [
     {
       "id": "quickstart",
@@ -16,6 +16,21 @@
       "source": "archguard-class.puml",
       "engine": "elk",
       "caption": "A small real ArchGuard class diagram (≤25 entities) with package grouping and orthogonal edges."
+    },
+    {
+      "id": "m-focus",
+      "section": "Real graphs (elk)",
+      "title": "Focused neighborhood view",
+      "source": "archguard-architecture.puml",
+      "engine": "elk",
+      "view": {
+        "kind": "neighborhood",
+        "entity": "TypeScriptParser",
+        "hops": 1
+      },
+      "memberMaxRows": 4,
+      "memberMaxChars": 48,
+      "caption": "The 1-hop neighborhood of one class carved out of the 70-entity architecture graph (`view: { kind: 'neighborhood' }`), with member rows capped (`memberMaxRows` / `memberMaxChars`) so boxes stay compact. Readable at README width, unlike the full graph below."
     },
     {
       "id": "m-architecture",

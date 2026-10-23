@@ -49,6 +49,75 @@ export interface LayoutEngine {
   layout(model: PlantUmlModel): Promise<LayoutResult>;
 }
 
+/** Empty border the canvas keeps around every drawn mark (px). */
+export const CANVAS_CONTENT_MARGIN = 16;
+
+/** Axis-aligned rectangle, structurally compatible with `labels`/`edge-router` rects. */
+export interface ContentRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Grow and translate a layout so every edge route point and the supplied extra
+ * rectangles (edge labels) stays at least `margin` from the canvas side. Routes
+ * and labels are drawn from the layout coordinates but are not part of
+ * `layout.width`/`height` as produced by the engines, so a label hung beside an
+ * outer detour route can sit at a negative x and be clipped by a `0 0 w h`
+ * viewBox.
+ *
+ * Boxes are left alone — the engines already place them inside their own
+ * margin — so this never moves a diagram whose routes and labels already fit:
+ * the input is returned untouched and the canvas never shrinks.
+ */
+export function fitLayoutToContent(
+  layout: LayoutResult,
+  extraRects: readonly ContentRect[] = [],
+  margin: number = CANVAS_CONTENT_MARGIN,
+): LayoutResult {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  const take = (x: number, y: number): void => {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  };
+
+  for (const edge of layout.edges ?? []) {
+    for (const point of edge.points) take(point.x, point.y);
+  }
+  for (const rect of extraRects) {
+    take(rect.x, rect.y);
+    take(rect.x + rect.width, rect.y + rect.height);
+  }
+  if (minX === Infinity) return layout;
+
+  const dx = Math.max(0, margin - minX);
+  const dy = Math.max(0, margin - minY);
+  const width = Math.max(layout.width + dx, maxX + dx + margin);
+  const height = Math.max(layout.height + dy, maxY + dy + margin);
+  if (dx === 0 && dy === 0 && width === layout.width && height === layout.height) {
+    return layout;
+  }
+
+  return {
+    ...layout,
+    nodes: layout.nodes.map((n) => ({ ...n, x: n.x + dx, y: n.y + dy })),
+    edges: layout.edges.map((e) => ({
+      ...e,
+      points: e.points.map((p) => ({ x: p.x + dx, y: p.y + dy })),
+    })),
+    packages: layout.packages?.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy })),
+    width,
+    height,
+  };
+}
+
 /**
  * Shared drawing metrics. The renderer reads these so entity sizing and the
  * emitted SVG stay in lockstep: the font family and size are bound to the same

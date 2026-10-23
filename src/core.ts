@@ -9,7 +9,8 @@
 
 import { PlantUmlModel } from './foundation/model.js';
 import { parsePlantUml, parseWithDiagnostics, ENTITY_LINE, ENTITY_KEYWORD, extractDeclaredName, stripComment } from './parse/parser.js';
-import { LayoutEngine, LayoutResult, DetailLevel, applyDetail } from './foundation/layout.js';
+import { LayoutEngine, LayoutResult, DetailLevel, applyDetail, fitLayoutToContent } from './foundation/layout.js';
+import { placeEdgeLabels } from './foundation/labels.js';
 import { ThemeOverrides } from './render/theme.js';
 import { ElkLayoutEngine, type ElkLayoutOptions } from './layout/elk.js';
 import {
@@ -240,8 +241,17 @@ async function renderParsed(
     memberMaxChars: options.memberMaxChars,
   });
   const started = performance.now();
-  const layout = await engine.layout(model);
+  const raw = await engine.layout(model);
   const layoutMs = Math.round((performance.now() - started) * 100) / 100;
+  // The engines size the canvas from boxes and routes; edge labels are placed
+  // by the renderer and can hang outside that box (a plain label beside an
+  // outer detour route lands at a negative x). Fit the canvas to the routes and
+  // labels, so the returned layout and the SVG viewBox both contain them with
+  // a margin.
+  const layout = fitLayoutToContent(
+    raw,
+    placeEdgeLabels(model, raw).map((label) => label.rect),
+  );
   const svg = renderEngine.render(model, layout, { hiddenTransitive });
   return { model, layout, svg, layoutMs, hiddenTransitive };
 }

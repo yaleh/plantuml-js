@@ -98,6 +98,15 @@ without re-routing. `model` is the diagram actually drawn (after view,
 transforms and detail), and `hiddenTransitive` counts the edges dropped by
 transitive reduction.
 
+The canvas is fitted to **the routes and labels that are drawn**, not only to
+the boxes the layout engine measures: `layout.width`/`height` (and therefore
+the SVG `viewBox`) contain every edge route point and every edge label box, with
+a margin of at least **16px** on all four sides. An edge label beside an outer
+detour route is therefore never clipped at the SVG border, and a host can rely
+on `0 0 width height` containing the whole drawing. Engine geometry that
+already fits is left untouched, so the canvas never shrinks and unchanged
+diagrams render identically.
+
 ### Error semantics
 
 `createRenderer` fails closed on an unknown layout name (`'elk'`, `'viz'`, or a

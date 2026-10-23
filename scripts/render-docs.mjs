@@ -130,6 +130,10 @@ for (const fig of manifest.figures) {
   const engineName = fig.engine ?? 'elk';
   const { model, layout, svg } = await renderDetailed(parsed, {
     layout: engines[engineName](),
+    ...(fig.view ? { view: fig.view } : {}),
+    ...(fig.detail ? { detail: fig.detail } : {}),
+    ...(fig.memberMaxRows ? { memberMaxRows: fig.memberMaxRows } : {}),
+    ...(fig.memberMaxChars ? { memberMaxChars: fig.memberMaxChars } : {}),
   });
 
   const svgName = `${fig.id}.${engineName}.svg`;

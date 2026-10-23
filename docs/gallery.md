@@ -24,6 +24,14 @@ A small real ArchGuard class diagram (≤25 entities) with package grouping and 
 
 **Engine** elk · **Nodes** 22 · **Edges** 10 · [source](gallery-sources/archguard-class.puml) · [svg](img/s-class.elk.svg)
 
+### Focused neighborhood view
+
+![Focused neighborhood view](img/m-focus.elk.png)
+
+The 1-hop neighborhood of one class carved out of the 70-entity architecture graph (`view: { kind: 'neighborhood' }`), with member rows capped (`memberMaxRows` / `memberMaxChars`) so boxes stay compact. Readable at README width, unlike the full graph below.
+
+**Engine** elk · **Nodes** 8 · **Edges** 7 · [source](gallery-sources/archguard-architecture.puml) · [svg](img/m-focus.elk.svg)
+
 ### Medium architecture view
 
 ![Medium architecture view](img/m-architecture.elk.png)
