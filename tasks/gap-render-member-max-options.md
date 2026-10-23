@@ -1,7 +1,7 @@
 ---
 id: gap-render-member-max-options
 title: memberMaxChars/memberMaxRows：成员尺寸按绘制内容量，不改 raw
-status: todo
+status: ready
 labels:
   - gap
   - render
