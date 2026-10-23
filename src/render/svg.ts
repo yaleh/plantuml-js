@@ -19,6 +19,7 @@ import {
   METRICS,
   PACKAGE_LABEL,
   displayName,
+  compartmentHeights,
 } from '../foundation/layout.js';
 import { measureTextWidth } from '../foundation/text-measure.js';
 import { hubBadgeCircle, placeEdgeLabels, EdgeLabelPlacement, EDGE_LABEL_FONT_SIZE } from '../foundation/labels.js';
@@ -223,6 +224,15 @@ function renderEntity(entity: PlantUmlEntity, node: NodeLayout, theme: Theme): s
   const stub = entity.stub === true;
   const { color, font } = theme;
 
+  // UML compartments, top to bottom: title / attributes (fields) / operations
+  // (methods). Members are regrouped by kind, so an authored interleaving of
+  // fields and methods still lands in the two canonical member bands.
+  const attrs = entity.members.filter((m) => m.kind !== 'method');
+  const ops = entity.members.filter((m) => m.kind === 'method');
+  const bands = compartmentHeights(entity);
+  const titleBottom = node.y + METRICS.paddingY + bands.title;
+  const opsTop = titleBottom + bands.attrs;
+
   const parts: string[] = [];
   if (entity.groupMembers) parts.push(`<title>${entity.groupMembers.map(escapeXml).join('\n')}</title>`);
   const weak = stub || entity.external === true;
@@ -236,27 +246,34 @@ function renderEntity(entity: PlantUmlEntity, node: NodeLayout, theme: Theme): s
       `${stubAttrs} stroke="${weak ? color.strokeStub : color.stroke}" stroke-width="${theme.stroke.node}"/>`,
   );
 
-  const headerBottom = node.y + METRICS.paddingY + METRICS.lineHeight;
+  const rule = (y: number, kind: 'title' | 'ops'): string =>
+    `<line class="uml-compartment-rule" data-rule="${kind}"` +
+    ` x1="${fmt(node.x)}" y1="${fmt(y)}"` +
+    ` x2="${fmt(node.x + node.width)}" y2="${fmt(y)}"` +
+    ` stroke="${color.stroke}" stroke-width="${theme.stroke.node}"/>`;
+
+  // Title/attrs boundary: present whenever any member row is drawn.
+  if (attrs.length + ops.length > 0) parts.push(rule(titleBottom, 'title'));
+  // Attrs/ops boundary: only when both member compartments carry rows. An
+  // interface (methods only) therefore has exactly one rule, `data-rule="title"`.
+  if (attrs.length > 0 && ops.length > 0) parts.push(rule(opsTop, 'ops'));
+
   const titleBaseline = node.y + METRICS.paddingY + METRICS.fontSize + 1;
-  if (entity.members.length > 0) {
-    parts.push(
-      `<line x1="${fmt(node.x)}" y1="${fmt(headerBottom)}"` +
-        ` x2="${fmt(node.x + node.width)}" y2="${fmt(headerBottom)}"` +
-        ` stroke="${color.stroke}" stroke-width="${theme.stroke.node}"/>`,
-    );
-  }
   parts.push(
     textEl(displayName(entity), node.x + node.width / 2, titleBaseline, 'middle',
       font.size.title, font.weight.title, color.textTitle, theme, fontStyle),
   );
 
-  entity.members.forEach((member, i) => {
-    const baseline =
-      node.y + METRICS.paddingY + METRICS.lineHeight * (i + 1) + METRICS.fontSize + 1;
-    parts.push(
-      textEl(member.raw, node.x + METRICS.paddingX, baseline, 'start',
-        font.size.member, font.weight.member, color.textMember, theme),
-    );
+  const memberText = (member: { raw: string }, idx: number, top: number, cls: string): string =>
+    textEl(member.raw, node.x + METRICS.paddingX,
+      top + METRICS.lineHeight * idx + METRICS.fontSize + 1, 'start',
+      font.size.member, font.weight.member, color.textMember, theme, ` class="${cls}"`);
+
+  attrs.forEach((member, i) => {
+    parts.push(memberText(member, i, titleBottom, 'uml-attr'));
+  });
+  ops.forEach((member, i) => {
+    parts.push(memberText(member, i, opsTop, 'uml-op'));
   });
 
   if (entity.usageCount && entity.usageCount > 0) {
@@ -266,12 +283,19 @@ function renderEntity(entity: PlantUmlEntity, node: NodeLayout, theme: Theme): s
   // Each entity is a single DOM group carrying its stable id and its innermost
   // package, so a browser host can bind hover/click handlers, cross-panel
   // linkage, and package-containment queries without geometric hit-testing.
+  // The data-* geometry lets a level-of-detail host map zoom to compartments
+  // from metadata instead of re-measuring the drawn rect/lines.
   const packageAttr =
     entity.packageId !== undefined
       ? ` data-package-id="${escapeXml(entity.packageId)}"`
       : '';
   return (
-    `<g data-entity-id="${escapeXml(entity.id)}"${packageAttr} class="uml-node${entity.external ? ' uml-external' : ''}">` +
+    `<g data-entity-id="${escapeXml(entity.id)}"${packageAttr}` +
+    ` data-x="${fmt(node.x)}" data-y="${fmt(node.y)}"` +
+    ` data-w="${fmt(node.width)}" data-h="${fmt(node.height)}"` +
+    ` data-title-h="${fmt(bands.title)}" data-attrs-h="${fmt(bands.attrs)}"` +
+    ` data-ops-h="${fmt(bands.ops)}"` +
+    ` class="uml-node${entity.external ? ' uml-external' : ''}">` +
     parts.join('') +
     `</g>`
   );
@@ -311,17 +335,28 @@ function renderPackage(pkg: PlantUmlPackage, box: PackageLayout, theme: Theme, t
       ` height="${fmt(box.height)}" rx="${theme.shape.packageRadius}" ry="${theme.shape.packageRadius}"` +
       ` fill="${fill}" stroke="${color.packageStroke}" stroke-width="${theme.stroke.package}"/>`,
   );
+  // Closed UML label tab: top edge → right vertical down → bottom edge → close
+  // back up the left side. The opaque fill hides the package frame underneath,
+  // so the tab reads as a solid tab with a sealed right side and bottom edge.
+  const tabHeight = PACKAGE_LABEL.tabHeight;
+  const tabRight = box.x + tabWidth;
+  const tabBottom = box.y + tabHeight;
   parts.push(
-    `<line class="uml-package-tab" x1="${fmt(box.x)}" y1="${fmt(box.y + PACKAGE_LABEL.tabHeight)}"` +
-      ` x2="${fmt(box.x + tabWidth)}" y2="${fmt(box.y + PACKAGE_LABEL.tabHeight)}"` +
-      ` stroke="${color.packageStroke}" stroke-width="${theme.stroke.package}"/>`,
+    `<path class="uml-package-tab"` +
+      ` d="M ${fmt(box.x)},${fmt(box.y)} H ${fmt(tabRight)} V ${fmt(tabBottom)}` +
+      ` H ${fmt(box.x)} Z"` +
+      ` fill="${fill}" stroke="${color.packageStroke}" stroke-width="${theme.stroke.package}"` +
+      ` stroke-linejoin="round"/>`,
   );
   parts.push(
     textEl(pkg.name, box.x + 8, box.y + PACKAGE_LABEL.tabHeight - 8, 'start',
       theme.font.size.packageLabel, theme.font.weight.packageLabel, color.textPackage, theme),
   );
   return (
-    `<g data-package-id="${escapeXml(pkg.id)}" class="uml-package">` +
+    `<g data-package-id="${escapeXml(pkg.id)}" class="uml-package"` +
+    ` data-x="${fmt(box.x)}" data-y="${fmt(box.y)}"` +
+    ` data-w="${fmt(box.width)}" data-h="${fmt(box.height)}"` +
+    ` data-tab-w="${fmt(tabWidth)}" data-tab-h="${fmt(tabHeight)}">` +
     parts.join('') +
     `</g>`
   );

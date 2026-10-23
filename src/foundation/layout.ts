@@ -88,9 +88,39 @@ export function displayName(entity: PlantUmlEntity): string {
 }
 
 /**
- * Approximate the on-canvas size of an entity box. The title plus every member
- * line contributes one row; the width is the longest rendered line measured
- * through the text table plus padding, never below MIN_WIDTH.
+ * Heights of the three UML compartments inside an entity box: the title band,
+ * the attribute (field) band, and the operations (method) band. Each band is a
+ * whole number of text rows; the compartment separator rules are zero-thickness
+ * boundaries drawn *between* bands and so consume no additional height.
+ *
+ * The renderer and {@link estimateEntitySize} both read this, so the drawn
+ * boxes and the emitted `data-title-h` / `data-attrs-h` / `data-ops-h`
+ * metadata can never drift apart.
+ */
+export function compartmentHeights(entity: PlantUmlEntity): {
+  title: number;
+  attrs: number;
+  ops: number;
+} {
+  let attrs = 0;
+  let ops = 0;
+  for (const member of entity.members) {
+    if (member.kind === 'method') ops++;
+    else attrs++;
+  }
+  return {
+    title: METRICS.lineHeight,
+    attrs: attrs * METRICS.lineHeight,
+    ops: ops * METRICS.lineHeight,
+  };
+}
+
+/**
+ * Approximate the on-canvas size of an entity box. Height is the sum of the
+ * three compartments (title rows + attribute rows + operation rows) plus the
+ * top/bottom padding, snapped up to the spacing grid; width is the longest
+ * rendered line measured through the text table plus padding, never below
+ * MIN_WIDTH.
  */
 export function estimateEntitySize(
   entity: PlantUmlEntity,
@@ -104,7 +134,10 @@ export function estimateEntitySize(
     0,
   );
   const width = snapUp(Math.max(METRICS.minWidth, longest + METRICS.paddingX * 2));
-  const height = snapUp(lines.length * METRICS.lineHeight + METRICS.paddingY * 2);
+  const bands = compartmentHeights(entity);
+  const height = snapUp(
+    bands.title + bands.attrs + bands.ops + METRICS.paddingY * 2,
+  );
   return { width, height };
 }
 
