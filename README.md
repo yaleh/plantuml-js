@@ -19,15 +19,19 @@ edges:
 
 ![Minimal class diagram — package, class boxes, and three edge kinds](https://raw.githubusercontent.com/yaleh/plantuml-js/author/docs/img/quickstart.elk.png)
 
-The same pipeline on a real architecture graph, focused on one class's
-neighborhood (`view: { kind: 'neighborhood', entity, hops }`) with member rows
-capped (`memberMaxRows` / `memberMaxChars`) so boxes stay compact; package
-grouping, orthogonal edge routing and bundled arrowheads are drawn as in the
-full graph:
+The same pipeline on plantuml-js's own architecture: packages with member counts,
+interfaces and classes, one highlighted class, and capped member rows. The
+figure is a screenshot of the Architecture tab in
+[claudecodeui](https://github.com/yaleh/claudecodeui), which renders its
+diagrams with this library and adds the kind colouring and highlighting itself:
 
-![Focused architecture view — a class and its 1-hop neighborhood](https://raw.githubusercontent.com/yaleh/plantuml-js/author/docs/img/m-focus.elk.png)
+![plantuml-js's own architecture, rendered in the claudecodeui Architecture tab](https://raw.githubusercontent.com/yaleh/plantuml-js/author/docs/img/architecture-self.png)
 
-The full 70-entity version of that graph is in the gallery as
+A pure-library render of a class's neighborhood
+(`view: { kind: 'neighborhood', entity, hops }`, `memberMaxRows` /
+`memberMaxChars`) is in the gallery as
+[Focused neighborhood view](https://github.com/yaleh/plantuml-js/blob/author/docs/gallery.md#focused-neighborhood-view),
+next to the full 70-entity
 [Medium architecture view](https://github.com/yaleh/plantuml-js/blob/author/docs/gallery.md#medium-architecture-view).
 
 See the [gallery](https://github.com/yaleh/plantuml-js/blob/author/docs/gallery.md)
