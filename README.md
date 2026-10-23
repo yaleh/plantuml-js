@@ -6,8 +6,27 @@ default, `@viz-js/viz` (WASM Graphviz) as an option.
 
 > **Engine status** — `'viz'` is **experimental**. It reaches only a fraction
 > of `'elk'`'s area utilization and still routes a few edges through unrelated
-> nodes on large package diagrams. See [`docs/viz-decision.md`](docs/viz-decision.md)
+> nodes on large package diagrams. See
+> [`docs/viz-decision.md`](https://github.com/yaleh/plantuml-js/blob/main/docs/viz-decision.md)
 > for the measured comparison. Use `'elk'` (the default) for production diagrams.
+
+## What it renders
+
+`@yalehwang/plantuml-js` turns a PlantUML class diagram into a styled SVG. Here
+is a minimal diagram through the default `'elk'` engine — three-compartment
+class/interface boxes, a package, and implementation / composition / dependency
+edges:
+
+![Minimal class diagram — package, class boxes, and three edge kinds](https://raw.githubusercontent.com/yaleh/plantuml-js/main/docs/img/quickstart.elk.png)
+
+The same pipeline on a real medium-size architecture graph (package grouping,
+orthogonal edge routing, bundled arrowheads):
+
+![Medium architecture diagram](https://raw.githubusercontent.com/yaleh/plantuml-js/main/docs/img/m-architecture.elk.png)
+
+See the [gallery](https://github.com/yaleh/plantuml-js/blob/main/docs/gallery.md)
+for every figure's source `.puml`, its SVG output, and the `elk` vs `viz`
+comparison.
 
 ## Install
 
