@@ -264,8 +264,13 @@ function renderEntity(entity: PlantUmlEntity, node: NodeLayout, theme: Theme): s
       font.size.title, font.weight.title, color.textTitle, theme, fontStyle),
   );
 
-  const memberText = (member: { raw: string }, idx: number, top: number, cls: string): string =>
-    textEl(member.raw, node.x + METRICS.paddingX,
+  const memberText = (
+    member: { raw: string; display?: string },
+    idx: number,
+    top: number,
+    cls: string,
+  ): string =>
+    textEl(member.display ?? member.raw, node.x + METRICS.paddingX,
       top + METRICS.lineHeight * idx + METRICS.fontSize + 1, 'start',
       font.size.member, font.weight.member, color.textMember, theme, ` class="${cls}"`);
 

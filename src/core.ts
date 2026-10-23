@@ -72,6 +72,18 @@ export interface RendererOptions {
    */
   detail?: DetailLevel;
   /**
+   * Maximum member rows drawn per entity; surplus members collapse into the
+   * existing `… +N more (M members)` row. Applied before layout, so the box is
+   * sized for what is drawn. Default: unlimited for `full`, 4 for `compact`.
+   */
+  memberMaxRows?: number;
+  /**
+   * Cut each drawn member line to this many characters (ending with `…`).
+   * Only the drawn text changes: `PlantUmlMember.raw` keeps the full
+   * declaration. Default: unlimited.
+   */
+  memberMaxChars?: number;
+  /**
    * `'aggregate'` folds the relations between two packages into one weighted
    * box-to-box corridor edge (originals kept in its `<title>`); `'raw'` draws
    * every edge. Default: `'aggregate'` for diagrams with more than 150 entities.
@@ -223,7 +235,10 @@ async function renderParsed(
   renderEngine: RenderEngine,
 ): Promise<DetailedRender> {
   const { model: transformed, hiddenTransitive } = transformForRender(parsed, options);
-  const model = applyDetail(transformed, options.detail);
+  const model = applyDetail(transformed, options.detail, {
+    memberMaxRows: options.memberMaxRows,
+    memberMaxChars: options.memberMaxChars,
+  });
   const started = performance.now();
   const layout = await engine.layout(model);
   const layoutMs = Math.round((performance.now() - started) * 100) / 100;

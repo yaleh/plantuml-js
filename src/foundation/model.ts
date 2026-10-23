@@ -23,6 +23,13 @@ export interface PlantUmlMember {
   optional?: boolean;
   /** Full authored declaration incl. visibility symbol, for faithful display. */
   raw: string;
+  /**
+   * Text actually drawn for this member, when it differs from `raw` (e.g. cut
+   * to a display width by `applyDetail`). Layout and rendering read
+   * `display ?? raw`; `raw` itself is never modified, so serialization and
+   * inspector views keep the full declaration.
+   */
+  display?: string;
 }
 
 export interface PlantUmlEntity {

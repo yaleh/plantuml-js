@@ -127,7 +127,7 @@ export function estimateEntitySize(
 ): { width: number; height: number } {
   const lines = [
     displayName(entity),
-    ...entity.members.map((m) => m.raw),
+    ...entity.members.map((m) => m.display ?? m.raw),
   ];
   const longest = lines.reduce(
     (max, line) => Math.max(max, measureTextWidth(line, METRICS.fontSize)),
@@ -161,25 +161,66 @@ export function autoDetail(entityCount: number): DetailLevel {
 }
 
 /**
+ * Optional caps on the member text a diagram draws. Both are applied by
+ * [[applyDetail]] before layout, so an entity is sized for exactly what the
+ * renderer emits; neither mutates `PlantUmlMember.raw`.
+ */
+export interface MemberDisplayLimits {
+  /** Maximum member rows drawn per entity; the rest collapse into the count row. */
+  memberMaxRows?: number;
+  /** Cut each drawn member line to this many characters, ending with `…`. */
+  memberMaxChars?: number;
+}
+
+/**
  * Reduce member rows to the requested detail level *before* layout, so boxes
  * are sized for what is actually drawn. `undefined` picks by entity count.
+ *
+ * `limits` caps the drawn rows per entity (`memberMaxRows`, replacing
+ * [[COMPACT_MEMBER_ROWS]] for `compact` and also capping `full`) and the width
+ * of each drawn line (`memberMaxChars`). Truncation only sets
+ * `PlantUmlMember.display`; `raw` keeps the full declaration. Without limits
+ * the result is byte-for-byte what it always was.
  */
-export function applyDetail(model: PlantUmlModel, detail?: DetailLevel): PlantUmlModel {
+export function applyDetail(
+  model: PlantUmlModel,
+  detail?: DetailLevel,
+  limits: MemberDisplayLimits = {},
+): PlantUmlModel {
   const level = detail ?? autoDetail(model.entities.length);
-  if (level === 'full') return model;
+  const { memberMaxRows, memberMaxChars } = limits;
+  const hasLimits = memberMaxRows !== undefined || memberMaxChars !== undefined;
+  if (level === 'full' && !hasLimits) return model;
+
+  const limitMember = (member: PlantUmlMember): PlantUmlMember => {
+    if (memberMaxChars === undefined || member.raw.length <= memberMaxChars) return member;
+    return {
+      ...member,
+      display: `${member.raw.slice(0, Math.max(0, memberMaxChars - 1))}…`,
+    };
+  };
+
   return {
     ...model,
     entities: model.entities.map((entity) => {
       const total = entity.members.length;
       if (level === 'names') return total === 0 ? entity : { ...entity, members: [] };
-      if (total <= COMPACT_MEMBER_ROWS) return entity;
-      const kept = entity.members.slice(0, COMPACT_MEMBER_ROWS);
+      const rowCap =
+        memberMaxRows !== undefined
+          ? memberMaxRows
+          : level === 'compact'
+            ? COMPACT_MEMBER_ROWS
+            : total;
+      if (total <= rowCap) {
+        return hasLimits ? { ...entity, members: entity.members.map(limitMember) } : entity;
+      }
+      const kept = entity.members.slice(0, rowCap).map(limitMember);
       const more: PlantUmlMember = {
         visibility: 'public',
         name: '…',
         kind: 'field',
         modifiers: [],
-        raw: `… +${total - COMPACT_MEMBER_ROWS} more (${total} members)`,
+        raw: `… +${total - rowCap} more (${total} members)`,
       };
       return { ...entity, members: [...kept, more] };
     }),
