@@ -1,0 +1,25 @@
+@startuml
+package "Domain" as Domain {
+  interface PaymentMethod {
+    +authorize(amount: number): boolean
+  }
+  class CreditCard {
+    -last4: string
+    +authorize(amount: number): boolean
+  }
+}
+
+class Order {
+  +items: Item[]
+  +place(pm: PaymentMethod): void
+}
+
+class Item {
+  +name: string
+  +price: number
+}
+
+CreditCard ..|> PaymentMethod
+Order *-- Item
+Order ..> PaymentMethod
+@enduml
